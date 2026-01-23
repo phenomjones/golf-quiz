@@ -1,749 +1,438 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, CheckCircle2, XCircle, RotateCcw, Trophy, Coins, Info, TrendingUp, BookOpen, Target, Award, Users, GraduationCap, Zap, Star, Medal, Send } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Flight Master</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        // Simple state management
+        let state = {
+            user: null,
+            showAuth: true,
+            username: '',
+            scenarioNumber: 1,
+            currentCard: 1,
+            selectedAnswer: null,
+            showExplanation: false,
+            isCorrect: null,
+            difficulty: 1,
+            showDifficultySelector: false,
+            gambleAmount: 10,
+            showGamble: false,
+            currentScenarioData: null
+        };
 
-const GolfBallFlightQuiz = () => {
-  const [user, setUser] = useState(null);
-  const [showAuth, setShowAuth] = useState(true);
-  const [username, setUsername] = useState('');
-  const [scenarioNumber, setScenarioNumber] = useState(1);
-  const [currentCard, setCurrentCard] = useState(1);
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [showExplanation, setShowExplanation] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(null);
-  const [difficulty, setDifficulty] = useState(1);
-  const [showDifficultySelector, setShowDifficultySelector] = useState(false);
-  const [gambleAmount, setGambleAmount] = useState(10);
-  const [showGamble, setShowGamble] = useState(false);
-  const [currentScenarioData, setCurrentScenarioData] = useState(null);
-  const [aiQuestion, setAiQuestion] = useState('');
-  const [aiResponse, setAiResponse] = useState('');
-  const [isAskingAI, setIsAskingAI] = useState(false);
-
-  const difficultyLevels = [
-    { level: 1, name: "Beginner", description: "Basic club data only", baseReward: 10, cards: 1 },
-    { level: 2, name: "Casual Golfer", description: "Basic club data with variation", baseReward: 15, cards: 1 },
-    { level: 3, name: "Club Player", description: "Heel/toe impact added", baseReward: 25, cards: 2 },
-    { level: 4, name: "Scratch Golfer", description: "More extreme heel/toe mishits", baseReward: 40, cards: 2 },
-    { level: 5, name: "Advanced Amateur", description: "High/low face impact added", baseReward: 60, cards: 3 },
-    { level: 6, name: "Mini-Tour Pro", description: "More severe high/low mishits", baseReward: 85, cards: 3 },
-    { level: 7, name: "PGA Tour Player", description: "Wind conditions added", baseReward: 115, cards: 3 },
-    { level: 8, name: "Tour Champion", description: "More complex wind patterns", baseReward: 150, cards: 3 },
-    { level: 9, name: "Major Winner", description: "Lie conditions added", baseReward: 200, cards: 3 },
-    { level: 10, name: "PGA Pro Master", description: "All conditions, extreme scenarios", baseReward: 300, cards: 3 }
-  ];
-
-  const rankThresholds = [
-    { rank: "Newbie", minTokens: 0, icon: "🏌️" },
-    { rank: "Weekend Warrior", minTokens: 500, icon: "⛳" },
-    { rank: "Club Champion", minTokens: 1500, icon: "🏆" },
-    { rank: "Regional Pro", minTokens: 3500, icon: "🎯" },
-    { rank: "Tour Player", minTokens: 7000, icon: "⭐" },
-    { rank: "PGA Pro", minTokens: 15000, icon: "👑" }
-  ];
-
-  const generateScenario = (diffLevel) => {
-    const baseClubSpeed = { driver: 105, wood: 95, iron: 85, wedge: 75 };
-    const baseCarryDistance = { driver: 250, wood: 220, iron: 165, wedge: 120 };
-    const club = diffLevel <= 2 ? "7 Iron" : 
-                 diffLevel <= 5 ? ["Driver", "5 Wood", "7 Iron"][Math.floor(Math.random() * 3)] :
-                 ["Driver", "3 Wood", "5 Iron", "7 Iron", "PW"][Math.floor(Math.random() * 5)];
-    
-    const clubType = club.includes("Driver") ? "driver" : 
-                     club.includes("Wood") ? "wood" : 
-                     club.includes("PW") ? "wedge" : "iron";
-    
-    const speedVariance = diffLevel % 2 === 0 ? 15 : 10;
-    const angleVariance = diffLevel % 2 === 0 ? 6 : 4;
-    
-    let speed = baseClubSpeed[clubType] + (Math.random() * speedVariance - speedVariance/2);
-    let carry = baseCarryDistance[clubType] + (Math.random() * (speedVariance * 2) - speedVariance);
-    
-    // Generate face and path with minimum values to avoid near-zero scenarios at lower levels
-    // Lower levels: larger minimum values for clearer ball flights
-    // Higher levels: can include smaller values for more subtle scenarios
-    const minAngle = diffLevel <= 4 ? 1.5 : diffLevel <= 7 ? 0.8 : 0;
-    
-    let face = (Math.random() * angleVariance - angleVariance/2);
-    if (Math.abs(face) < minAngle) {
-      face = face >= 0 ? minAngle : -minAngle;
-    }
-    face = face.toFixed(1);
-    
-    let path = (Math.random() * (angleVariance + 2) - (angleVariance + 2)/2);
-    if (Math.abs(path) < minAngle) {
-      path = path >= 0 ? minAngle : -minAngle;
-    }
-    path = path.toFixed(1);
-    
-    let attack = clubType === "driver" ? (Math.random() * 6 - 1).toFixed(1) : (Math.random() * -6 - 1).toFixed(1);
-    let spinLoft = (Math.random() * 8 + 10).toFixed(1);
-    
-    const faceNum = parseFloat(face);
-    const pathNum = parseFloat(path);
-    
-    let faceDisplay = face + "°";
-    let pathDisplay = path + "°";
-    
-    if (diffLevel <= 3) {
-      faceDisplay += faceNum > 0 ? " (right)" : faceNum < 0 ? " (left)" : "";
-      pathDisplay += pathNum > 0 ? " (right)" : pathNum < 0 ? " (left)" : "";
-    } else if (diffLevel <= 5) {
-      faceDisplay += faceNum > 0 ? " (open)" : faceNum < 0 ? " (closed)" : "";
-      pathDisplay += pathNum > 0 ? " (in-to-out)" : pathNum < 0 ? " (out-to-in)" : "";
-    }
-    
-    let data = {
-      club: "🏌️ " + club,
-      speedCarry: "⚡ " + speed.toFixed(1) + " mph / " + Math.round(carry) + " yards",
-      clubFace: "🎯 " + faceDisplay,
-      clubPath: "➡️ " + pathDisplay
-    };
-    
-    // Add Attack Angle starting at level 3
-    if (diffLevel >= 3) {
-      data.attackAngle = "📐 " + attack + "°";
-    }
-    
-    // Add Spin Loft starting at level 5
-    if (diffLevel >= 5) {
-      data.spinLoft = "🔄 " + spinLoft + "°";
-    }
-
-    if (diffLevel >= 3 && diffLevel <= 4) {
-      const maxImpact = diffLevel === 3 ? 6 : 12;
-      const impact = Math.random() * maxImpact - maxImpact/2;
-      const direction = impact > 0 ? "toe" : "heel";
-      data.impactLocation = "📍 " + Math.abs(impact).toFixed(1) + "mm " + direction;
-    }
-
-    if (diffLevel >= 5 && diffLevel <= 6) {
-      const maxHoriz = diffLevel === 5 ? 8 : 14;
-      const maxVert = diffLevel === 5 ? 6 : 12;
-      const horiz = Math.random() * maxHoriz - maxHoriz/2;
-      const vert = Math.random() * maxVert - maxVert/2;
-      const horizDir = horiz > 0 ? "toe" : "heel";
-      const vertDir = vert > 0 ? "high" : "low";
-      data.impactLocation = "📍 " + Math.abs(horiz).toFixed(1) + "mm " + horizDir + ", " + Math.abs(vert).toFixed(1) + "mm " + vertDir;
-    }
-
-    if (diffLevel >= 7 && diffLevel <= 8) {
-      const maxWind = diffLevel === 7 ? 15 : 25;
-      const windSpeed = Math.floor(Math.random() * maxWind + 5);
-      const windDirs = diffLevel === 7 ? 
-        ["Headwind", "Tailwind", "Left-to-Right", "Right-to-Left"] :
-        ["Headwind", "Tailwind", "Left-to-Right", "Right-to-Left", "Quartering Left", "Quartering Right"];
-      const windDir = windDirs[Math.floor(Math.random() * windDirs.length)];
-      data.wind = "💨 " + windSpeed + " mph " + windDir;
-    }
-
-    if (diffLevel >= 9) {
-      const lies = diffLevel === 9 ?
-        ["Flat", "Uphill 3°", "Downhill 3°", "Ball above feet 2°", "Ball below feet 2°"] :
-        ["Flat", "Uphill 5°", "Downhill 5°", "Ball above feet 4°", "Ball below feet 4°", "Severe uphill 7°", "Severe downhill 6°"];
-      data.lie = "⛰️ " + lies[Math.floor(Math.random() * lies.length)];
-      
-      const maxHoriz = 16;
-      const maxVert = 14;
-      const horiz = Math.random() * maxHoriz - maxHoriz/2;
-      const vert = Math.random() * maxVert - maxVert/2;
-      const horizDir = horiz > 0 ? "toe" : "heel";
-      const vertDir = vert > 0 ? "high" : "low";
-      data.impactLocation = "📍 " + Math.abs(horiz).toFixed(1) + "mm " + horizDir + ", " + Math.abs(vert).toFixed(1) + "mm " + vertDir;
-      
-      const windSpeed = Math.floor(Math.random() * 25 + 5);
-      const windDirs = ["Headwind", "Tailwind", "Left-to-Right", "Right-to-Left", "Quartering Left", "Quartering Right"];
-      data.wind = "💨 " + windSpeed + " mph " + windDirs[Math.floor(Math.random() * windDirs.length)];
-    }
-
-    const faceToPath = faceNum - pathNum;
-    let startDir = faceNum > 0 ? "right" : faceNum < 0 ? "left" : "straight";
-    
-    // Determine shot shape based on face-to-path relationship and face angle
-    let shape = "";
-    let shapeDescription = "";
-    
-    // Classify curve intensity
-    const absFaceToPath = Math.abs(faceToPath);
-    let curveType = "";
-    if (absFaceToPath <= 1) curveType = "straight";
-    else if (absFaceToPath <= 3) curveType = "slight";
-    else if (absFaceToPath <= 6) curveType = "moderate";
-    else if (absFaceToPath <= 10) curveType = "heavy";
-    else curveType = "extreme";
-    
-    // Classify start direction
-    let startType = "";
-    if (Math.abs(faceNum) <= 1) startType = "straight";
-    else if (faceNum > 1) startType = "push";
-    else startType = "pull";
-    
-    // Build shape name based on start and curve
-    if (curveType === "straight") {
-      if (startType === "straight") {
-        shape = "Straight";
-        shapeDescription = "on target, no curve";
-      } else if (startType === "push") {
-        shape = "Push";
-        shapeDescription = "starts right, flies straight";
-      } else {
-        shape = "Pull";
-        shapeDescription = "starts left, flies straight";
-      }
-    } else {
-      // Determine if it's draw/hook (right-to-left) or fade/slice (left-to-right)
-      const isDrawCurve = faceToPath < 0;
-      
-      if (curveType === "slight") {
-        if (startType === "straight") {
-          shape = isDrawCurve ? "Baby draw" : "Baby fade";
-          shapeDescription = isDrawCurve ? "starts straight, slight curve left" : "starts straight, slight curve right";
-        } else if (startType === "push") {
-          shape = isDrawCurve ? "Push-draw" : "Push-fade";
-          shapeDescription = isDrawCurve ? "starts right, curves back left" : "starts right, curves further right";
-        } else {
-          shape = isDrawCurve ? "Pull-hook" : "Pull-fade";
-          shapeDescription = isDrawCurve ? "starts left, curves further left" : "starts left, curves back right";
-        }
-      } else if (curveType === "moderate") {
-        if (startType === "straight") {
-          shape = isDrawCurve ? "Draw" : "Fade";
-          shapeDescription = isDrawCurve ? "starts straight, curves left" : "starts straight, curves right";
-        } else if (startType === "push") {
-          shape = isDrawCurve ? "Push-draw" : "Push-fade";
-          shapeDescription = isDrawCurve ? "starts right, curves back left" : "starts right, curves further right";
-        } else {
-          shape = isDrawCurve ? "Pull-hook" : "Pull-fade";
-          shapeDescription = isDrawCurve ? "starts left, curves further left" : "starts left, curves back right";
-        }
-      } else if (curveType === "heavy") {
-        if (startType === "straight") {
-          shape = isDrawCurve ? "Big draw" : "Big fade";
-          shapeDescription = isDrawCurve ? "starts straight, heavy curve left" : "starts straight, heavy curve right";
-        } else if (startType === "push") {
-          shape = isDrawCurve ? "Push-draw" : "Push-slice";
-          shapeDescription = isDrawCurve ? "starts right, curves strongly back left" : "starts right, curves severely right";
-        } else {
-          shape = isDrawCurve ? "Pull-hook" : "Pull-slice";
-          shapeDescription = isDrawCurve ? "starts left, curves severely left" : "starts left, curves strongly back right";
-        }
-      } else { // extreme
-        if (startType === "straight") {
-          shape = isDrawCurve ? "Hook" : "Slice";
-          shapeDescription = isDrawCurve ? "starts straight, severe curve left" : "starts straight, severe curve right";
-        } else if (startType === "push") {
-          shape = isDrawCurve ? "Push-hook" : "Push-slice";
-          shapeDescription = isDrawCurve ? "starts right, severe curve back left" : "starts right, extreme curve right";
-        } else {
-          shape = isDrawCurve ? "Pull-hook" : "Pull-slice";
-          shapeDescription = isDrawCurve ? "starts left, extreme curve left" : "starts left, severe curve back right";
-        }
-      }
-    }
-
-    const offlineYards = Math.abs(faceToPath * 5) + Math.abs(faceNum * 3);
-    const offlineDirection = faceNum + (faceToPath * 0.3) > 0 ? "right" : "left";
-    
-    const cards = [];
-    
-    // Card 1: Shot Shape - ensure correct answer is always included
-    const allPossibleShapes = [
-      "Straight", "Push", "Pull",
-      "Baby draw", "Baby fade", 
-      "Draw", "Fade",
-      "Big draw", "Big fade",
-      "Hook", "Slice",
-      "Push-draw", "Push-fade", "Push-hook", "Push-slice",
-      "Pull-hook", "Pull-fade", "Pull-slice"
-    ];
-    
-    const wrongShapes = allPossibleShapes.filter(s => s !== shape);
-    const shuffledWrong = wrongShapes.sort(() => Math.random() - 0.5).slice(0, 3);
-    const allOptions = [shape, ...shuffledWrong].sort(() => Math.random() - 0.5);
-    
-    // Add shot shape descriptions for levels 1-3
-    let optionsWithDescriptions = allOptions;
-    if (diffLevel <= 3) {
-      optionsWithDescriptions = allOptions.map(opt => opt + " (" + getShapeDescription(opt) + ")");
-    }
-    
-    cards.push({
-      question: "What will be the shot shape?",
-      options: optionsWithDescriptions,
-      correct: diffLevel <= 3 ? (shape + " (" + shapeDescription + ")") : shape,
-      correctBase: shape,
-      explanation: "Face: " + face + "°, Path: " + path + "°. Face-to-path: " + faceToPath.toFixed(1) + "°. The face angle determines start direction (" + startDir + "), while face-to-path determines curve intensity. Result: " + shape + "."
-    });
-    
-    if (diffLevel >= 3) {
-      cards.push({
-        question: "Will the ball start left or right of the target?",
-        options: ["Left of target", "Right of target", "Straight at target"],
-        correct: faceNum < -0.5 ? "Left of target" : faceNum > 0.5 ? "Right of target" : "Straight at target",
-        explanation: "With a face angle of " + face + "°, the ball will start " + startDir + " of the target. Face angle is the primary determinant of initial direction (75-85% influence)."
-      });
-    }
-    
-    if (diffLevel >= 5) {
-      let options, correct;
-      
-      if (diffLevel <= 6) {
-        options = ["0-10 yards", "10-20 yards", "20-35 yards", "35+ yards"];
-        correct = offlineYards < 10 ? "0-10 yards" : 
-                  offlineYards < 20 ? "10-20 yards" : 
-                  offlineYards < 35 ? "20-35 yards" : "35+ yards";
-      } else if (diffLevel <= 8) {
-        options = ["0-8 yards", "8-15 yards", "15-25 yards", "25+ yards"];
-        correct = offlineYards < 8 ? "0-8 yards" : 
-                  offlineYards < 15 ? "8-15 yards" : 
-                  offlineYards < 25 ? "15-25 yards" : "25+ yards";
-      } else {
-        const roundedYards = Math.round(offlineYards);
-        options = [
-          Math.max(0, roundedYards - 3) + "-" + (roundedYards + 2) + " yards " + offlineDirection,
-          (roundedYards + 2) + "-" + (roundedYards + 7) + " yards " + offlineDirection,
-          Math.max(0, roundedYards - 8) + "-" + Math.max(0, roundedYards - 3) + " yards " + offlineDirection,
-          (roundedYards + 7) + "+ yards " + offlineDirection
+        const difficultyLevels = [
+            { level: 1, name: "Beginner", description: "Basic club data only", baseReward: 10, cards: 1 },
+            { level: 2, name: "Casual Golfer", description: "Basic club data with variation", baseReward: 15, cards: 1 },
+            { level: 3, name: "Club Player", description: "Heel/toe impact added", baseReward: 25, cards: 2 },
+            { level: 4, name: "Scratch Golfer", description: "More extreme heel/toe mishits", baseReward: 40, cards: 2 },
+            { level: 5, name: "Advanced Amateur", description: "High/low face impact added", baseReward: 60, cards: 3 },
+            { level: 6, name: "Mini-Tour Pro", description: "More severe high/low mishits", baseReward: 85, cards: 3 },
+            { level: 7, name: "PGA Tour Player", description: "Wind conditions added", baseReward: 115, cards: 3 },
+            { level: 8, name: "Tour Champion", description: "More complex wind patterns", baseReward: 150, cards: 3 },
+            { level: 9, name: "Major Winner", description: "Lie conditions added", baseReward: 200, cards: 3 },
+            { level: 10, name: "PGA Pro Master", description: "All conditions, extreme scenarios", baseReward: 300, cards: 3 }
         ];
-        correct = Math.max(0, roundedYards - 3) + "-" + (roundedYards + 2) + " yards " + offlineDirection;
-      }
-      
-      cards.push({
-        question: "How far offline will the ball finish from the target?",
-        options: options,
-        correct: correct,
-        explanation: "With face angle " + face + "° and face-to-path of " + faceToPath.toFixed(1) + "°, the ball will finish approximately " + Math.floor(offlineYards) + " yards " + offlineDirection + " of target."
-      });
-    }
-    
-    return { data, cards };
-  };
 
-  const getShapeDescription = (shapeName) => {
-    const descriptions = {
-      "Straight": "on target, no curve",
-      "Push": "starts right, flies straight",
-      "Pull": "starts left, flies straight",
-      "Baby draw": "starts straight, slight curve left",
-      "Baby fade": "starts straight, slight curve right",
-      "Draw": "starts straight, curves left",
-      "Fade": "starts straight, curves right",
-      "Big draw": "starts straight, heavy curve left",
-      "Big fade": "starts straight, heavy curve right",
-      "Hook": "starts straight, severe curve left",
-      "Slice": "starts straight, severe curve right",
-      "Push-draw": "starts right, curves back left",
-      "Push-fade": "starts right, curves further right",
-      "Push-hook": "starts right, severe curve back left",
-      "Push-slice": "starts right, extreme curve right",
-      "Pull-hook": "starts left, curves further left",
-      "Pull-fade": "starts left, curves back right",
-      "Pull-slice": "starts left, severe curve back right"
-    };
-    return descriptions[shapeName] || shapeName;
-  };
-
-  useEffect(() => {
-    if (user && !currentScenarioData) {
-      setCurrentScenarioData(generateScenario(difficulty));
-      setCurrentCard(1);
-    }
-  }, [user, difficulty]);
-
-  const handleLogin = () => {
-    if (username.trim()) {
-      setUser({
-        name: username,
-        tokens: 100,
-        questionsAnswered: 0,
-        correctAnswers: 0,
-        currentStreak: 0
-      });
-      setShowAuth(false);
-    }
-  };
-
-  const handleAnswer = (answerText) => {
-    if (!currentScenarioData) return;
-    
-    setSelectedAnswer(answerText);
-    const currentCardData = currentScenarioData.cards[currentCard - 1];
-    
-    // For levels 1-3, compare against the base shape without description
-    let correct;
-    if (currentCardData.correctBase) {
-      // Extract the base shape from the description (e.g., "Push-fade (starts right, curves right)" -> "Push-fade")
-      const selectedBase = answerText.split(' (')[0];
-      correct = selectedBase === currentCardData.correctBase;
-    } else {
-      correct = answerText === currentCardData.correct;
-    }
-    
-    setIsCorrect(correct);
-    setShowExplanation(true);
-
-    // Don't update user stats - only do that when moving to next card/scenario
-  };
-
-  const handleNextCard = () => {
-    const totalCards = difficultyLevels[difficulty - 1].cards;
-    
-    // Update user stats now, when moving forward
-    if (isCorrect !== null) {
-      const baseReward = difficultyLevels[difficulty - 1].baseReward;
-      const gambleMultiplier = showGamble ? gambleAmount / 10 : 1;
-      const reward = isCorrect ? baseReward * gambleMultiplier : (showGamble ? -gambleAmount : 0);
-
-      setUser(prev => ({
-        ...prev,
-        tokens: Math.max(0, prev.tokens + reward),
-        questionsAnswered: prev.questionsAnswered + 1,
-        correctAnswers: prev.correctAnswers + (isCorrect ? 1 : 0),
-        currentStreak: isCorrect ? prev.currentStreak + 1 : 0
-      }));
-    }
-    
-    if (currentCard < totalCards) {
-      setCurrentCard(currentCard + 1);
-      setSelectedAnswer(null);
-      setShowExplanation(false);
-      setIsCorrect(null);
-      setShowGamble(false);
-      setGambleAmount(10);
-      setAiQuestion('');
-      setAiResponse('');
-    } else {
-      setScenarioNumber(scenarioNumber + 1);
-      setCurrentCard(1);
-      setSelectedAnswer(null);
-      setShowExplanation(false);
-      setIsCorrect(null);
-      setShowGamble(false);
-      setGambleAmount(10);
-      setCurrentScenarioData(generateScenario(difficulty));
-      setAiQuestion('');
-      setAiResponse('');
-    }
-  };
-
-  const handleAskAI = async () => {
-    if (!aiQuestion.trim() || !currentScenarioData) return;
-    
-    setIsAskingAI(true);
-    
-    try {
-      const dataStr = Object.entries(currentScenarioData.data)
-        .map(([key, value]) => key + ": " + value)
-        .join('\n');
-      
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [
-            {
-              role: "user",
-              content: `You are a golf physics expert helping a student understand ball flight. Here is the current scenario data:
-
-${dataStr}
-
-Current Card Question: ${currentCardData.question}
-
-Student's Question: ${aiQuestion}
-
-Provide a helpful, educational response that explains the physics concepts without directly giving away the answer. Help them understand how to think about the problem.`
+        function generateScenario(diffLevel) {
+            const baseClubSpeed = { driver: 105, wood: 95, iron: 85, wedge: 75 };
+            const baseCarryDistance = { driver: 250, wood: 220, iron: 165, wedge: 120 };
+            const clubs = diffLevel <= 2 ? ["7 Iron"] : 
+                         diffLevel <= 5 ? ["Driver", "5 Wood", "7 Iron"] :
+                         ["Driver", "3 Wood", "5 Iron", "7 Iron", "PW"];
+            const club = clubs[Math.floor(Math.random() * clubs.length)];
+            
+            const clubType = club.includes("Driver") ? "driver" : 
+                             club.includes("Wood") ? "wood" : 
+                             club.includes("PW") ? "wedge" : "iron";
+            
+            const speedVariance = diffLevel % 2 === 0 ? 15 : 10;
+            const angleVariance = diffLevel % 2 === 0 ? 6 : 4;
+            
+            let speed = baseClubSpeed[clubType] + (Math.random() * speedVariance - speedVariance/2);
+            let carry = baseCarryDistance[clubType] + (Math.random() * (speedVariance * 2) - speedVariance);
+            
+            const minAngle = diffLevel <= 4 ? 1.5 : diffLevel <= 7 ? 0.8 : 0;
+            
+            let face = (Math.random() * angleVariance - angleVariance/2);
+            if (Math.abs(face) < minAngle) face = face >= 0 ? minAngle : -minAngle;
+            face = parseFloat(face.toFixed(1));
+            
+            let path = (Math.random() * (angleVariance + 2) - (angleVariance + 2)/2);
+            if (Math.abs(path) < minAngle) path = path >= 0 ? minAngle : -minAngle;
+            path = parseFloat(path.toFixed(1));
+            
+            let faceDisplay = face + "°";
+            let pathDisplay = path + "°";
+            
+            if (diffLevel <= 3) {
+                faceDisplay += face > 0 ? " (right)" : face < 0 ? " (left)" : "";
+                pathDisplay += path > 0 ? " (right)" : path < 0 ? " (left)" : "";
+            } else if (diffLevel <= 5) {
+                faceDisplay += face > 0 ? " (open)" : face < 0 ? " (closed)" : "";
+                pathDisplay += path > 0 ? " (in-to-out)" : path < 0 ? " (out-to-in)" : "";
             }
-          ],
-        })
-      });
+            
+            let data = {
+                "Club": "🏌️ " + club,
+                "Speed / Carry": "⚡ " + speed.toFixed(1) + " mph / " + Math.round(carry) + " yards",
+                "Club Face": "🎯 " + faceDisplay,
+                "Club Path": "➡️ " + pathDisplay
+            };
+            
+            if (diffLevel >= 3) {
+                data["Attack Angle"] = "📐 " + (Math.random() * -6 - 1).toFixed(1) + "°";
+                
+                const maxImpact = diffLevel === 3 ? 6 : 12;
+                const impact = Math.random() * maxImpact - maxImpact/2;
+                data["Impact Location"] = "📍 " + Math.abs(impact).toFixed(1) + "mm " + (impact > 0 ? "toe" : "heel");
+            }
+            
+            if (diffLevel >= 5) {
+                data["Spin Loft"] = "🔄 " + (Math.random() * 8 + 10).toFixed(1) + "°";
+            }
+            
+            if (diffLevel >= 7) {
+                const windSpeed = Math.floor(Math.random() * (diffLevel === 7 ? 15 : 25) + 5);
+                const windDirs = ["Headwind", "Tailwind", "Left-to-Right", "Right-to-Left"];
+                data["Wind"] = "💨 " + windSpeed + " mph " + windDirs[Math.floor(Math.random() * windDirs.length)];
+            }
+            
+            if (diffLevel >= 9) {
+                const lies = ["Flat", "Uphill 3°", "Downhill 3°", "Ball above feet", "Ball below feet"];
+                data["Lie"] = "⛰️ " + lies[Math.floor(Math.random() * lies.length)];
+            }
 
-      const data = await response.json();
-      const aiText = data.content.find(item => item.type === "text")?.text || "I couldn't generate a response. Please try again.";
-      setAiResponse(aiText);
-    } catch (error) {
-      setAiResponse("Sorry, I encountered an error. Please try again.");
-    } finally {
-      setIsAskingAI(false);
-    }
-  };
-
-  if (showAuth) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-900 via-blue-900 to-purple-900 p-6 flex items-center justify-center">
-        <Card className="max-w-md w-full shadow-2xl">
-          <CardHeader className="bg-gradient-to-r from-green-600 to-blue-600 text-white">
-            <CardTitle className="text-3xl text-center">Ball Flight Master</CardTitle>
-          </CardHeader>
-          <CardContent className="p-8">
-            <div className="text-center mb-6">
-              <Target size={64} className="mx-auto mb-4 text-green-600" />
-              <p className="text-gray-600 mb-6">Master the physics of golf ball flight</p>
-            </div>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-              placeholder="Enter your username"
-              className="w-full p-3 border-2 border-gray-300 rounded-lg mb-4 text-lg"
-            />
-            <button
-              onClick={handleLogin}
-              className="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg hover:from-green-700 hover:to-blue-700"
-            >
-              Start Playing
-            </button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!currentScenarioData) return null;
-
-  const totalCards = difficultyLevels[difficulty - 1].cards;
-  const currentCardData = currentScenarioData.cards[currentCard - 1];
-  const accuracyRate = user.questionsAnswered > 0 ? Math.round((user.correctAnswers / user.questionsAnswered) * 100) : 0;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-green-900 via-blue-900 to-purple-900 p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <Coins size={32} className="mb-2" />
-              <p className="text-sm opacity-90">Tokens</p>
-              <p className="text-2xl font-bold">{user.tokens}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <Trophy size={32} className="mb-2" />
-              <p className="text-sm opacity-90">Accuracy</p>
-              <p className="text-2xl font-bold">{accuracyRate}%</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-green-500 to-teal-500 text-white shadow-lg">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <Target size={32} className="mb-2" />
-              <p className="text-sm opacity-90">Correct</p>
-              <p className="text-2xl font-bold">{user.correctAnswers}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <TrendingUp size={32} className="mb-2" />
-              <p className="text-sm opacity-90">Streak</p>
-              <p className="text-2xl font-bold">{user.currentStreak} 🔥</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="mb-6 shadow-lg">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="font-bold text-lg">Level {difficulty} - {difficultyLevels[difficulty - 1].name}</h3>
-                <p className="text-sm text-gray-600">{difficultyLevels[difficulty - 1].description}</p>
-              </div>
-              <button
-                onClick={() => setShowDifficultySelector(!showDifficultySelector)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Change Level
-              </button>
-            </div>
-            {showDifficultySelector && (
-              <div className="mt-4">
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={difficulty}
-                  onChange={(e) => {
-                    setDifficulty(parseInt(e.target.value));
-                    setCurrentScenarioData(generateScenario(parseInt(e.target.value)));
-                    setCurrentCard(1);
-                    setScenarioNumber(1);
-                    setSelectedAnswer(null);
-                    setShowExplanation(false);
-                  }}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-gray-600 mt-2">
-                  {difficultyLevels.map(d => (
-                    <span key={d.level} className={d.level === difficulty ? "font-bold text-blue-600" : ""}>
-                      {d.level}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-2xl">
-          <CardHeader className="bg-gradient-to-r from-green-600 to-blue-600 text-white">
-            <CardTitle className="text-2xl">
-              Level {difficulty} • Scenario #{scenarioNumber} • Card {currentCard} of {totalCards}
-            </CardTitle>
-            <p className="text-green-100">Base Reward: {difficultyLevels[difficulty - 1].baseReward} tokens</p>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg mb-6 border-2 border-gray-300">
-              <h3 className="font-bold text-xl mb-4 text-gray-800">TrackMan Data:</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {Object.entries(currentScenarioData.data).map(([key, value]) => (
-                  <div key={key} className="bg-white p-3 rounded-lg shadow-sm">
-                    <div className="font-semibold text-gray-700 mb-1">
-                      {key.replace(/([A-Z])/g, ' $1').trim().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                    </div>
-                    <p className="text-gray-900">{value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {!showExplanation && (
-              <div className="mb-6 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Coins className="text-yellow-600" size={24} />
-                    <span className="font-bold text-lg">Confidence Bet</span>
-                  </div>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={showGamble}
-                      onChange={(e) => setShowGamble(e.target.checked)}
-                      className="w-5 h-5"
-                    />
-                    <span>Enable</span>
-                  </label>
-                </div>
-                {showGamble && (
-                  <div>
-                    <p className="text-sm text-gray-700 mb-3">
-                      Wager tokens to multiply your reward! Correct = {difficultyLevels[difficulty - 1].baseReward * (gambleAmount / 10)} tokens. Wrong = -{gambleAmount} tokens.
-                    </p>
-                    <div className="flex items-center gap-4">
-                      <span className="font-semibold">Bet:</span>
-                      <input
-                        type="range"
-                        min="10"
-                        max={Math.min(user.tokens, 100)}
-                        step="10"
-                        value={gambleAmount}
-                        onChange={(e) => setGambleAmount(parseInt(e.target.value))}
-                        className="flex-1"
-                      />
-                      <span className="font-bold text-xl text-yellow-700">{gambleAmount}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <h3 className="font-bold text-2xl mb-4 text-gray-800">{currentCardData.question}</h3>
-
-            <div className="space-y-3 mb-6">
-              {currentCardData.options.map((option, idx) => {
-                let buttonClass = "w-full text-left p-4 rounded-lg border-2 transition-all font-medium";
-                if (!showExplanation) {
-                  buttonClass += selectedAnswer === option
-                    ? " border-blue-600 bg-blue-50 shadow-md"
-                    : " border-gray-300 bg-white hover:border-blue-300 hover:bg-blue-50";
+            const faceToPath = face - path;
+            const startDir = face > 0 ? "right" : face < 0 ? "left" : "straight";
+            
+            // Determine shape
+            const absFTP = Math.abs(faceToPath);
+            const curveType = absFTP <= 1 ? "straight" : absFTP <= 3 ? "slight" : absFTP <= 6 ? "moderate" : absFTP <= 10 ? "heavy" : "extreme";
+            const startType = Math.abs(face) <= 1 ? "straight" : face > 1 ? "push" : "pull";
+            const isDrawCurve = faceToPath < 0;
+            
+            let shape = "Straight";
+            let shapeDesc = "on target, no curve";
+            
+            if (curveType !== "straight") {
+                const curveNames = {
+                    slight: isDrawCurve ? ["Baby draw", "starts straight, slight curve left"] : ["Baby fade", "starts straight, slight curve right"],
+                    moderate: isDrawCurve ? ["Draw", "starts straight, curves left"] : ["Fade", "starts straight, curves right"],
+                    heavy: isDrawCurve ? ["Big draw", "starts straight, heavy curve left"] : ["Big fade", "starts straight, heavy curve right"],
+                    extreme: isDrawCurve ? ["Hook", "starts straight, severe curve left"] : ["Slice", "starts straight, severe curve right"]
+                };
+                
+                if (startType === "straight") {
+                    [shape, shapeDesc] = curveNames[curveType];
+                } else if (startType === "push") {
+                    if (curveType === "slight") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves back left"] : ["Push-fade", "starts right, curves further right"];
+                    else if (curveType === "moderate") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves back left"] : ["Push-fade", "starts right, curves further right"];
+                    else if (curveType === "heavy") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves strongly back left"] : ["Push-slice", "starts right, curves severely right"];
+                    else [shape, shapeDesc] = isDrawCurve ? ["Push-hook", "starts right, severe curve back left"] : ["Push-slice", "starts right, extreme curve right"];
                 } else {
-                  if (option === currentCardData.correct) {
-                    buttonClass += " border-green-600 bg-green-50";
-                  } else if (option === selectedAnswer && option !== currentCardData.correct) {
-                    buttonClass += " border-red-600 bg-red-50";
-                  } else {
-                    buttonClass += " border-gray-300 bg-gray-100 opacity-60";
-                  }
+                    if (curveType === "slight" || curveType === "moderate") [shape, shapeDesc] = isDrawCurve ? ["Pull-hook", "starts left, curves further left"] : ["Pull-fade", "starts left, curves back right"];
+                    else [shape, shapeDesc] = isDrawCurve ? ["Pull-hook", "starts left, curves severely left"] : ["Pull-slice", "starts left, curves strongly back right"];
                 }
+            } else {
+                if (startType === "push") [shape, shapeDesc] = ["Push", "starts right, flies straight"];
+                else if (startType === "pull") [shape, shapeDesc] = ["Pull", "starts left, flies straight"];
+            }
 
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => !showExplanation && handleAnswer(option)}
-                    disabled={showExplanation}
-                    className={buttonClass}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span>{option}</span>
-                      {showExplanation && option === currentCardData.correct && <CheckCircle2 className="text-green-600" />}
-                      {showExplanation && option === selectedAnswer && option !== currentCardData.correct && <XCircle className="text-red-600" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {showExplanation && (
-              <div>
-                <div className={`p-4 rounded-lg mb-4 ${isCorrect ? 'bg-green-50 border-2 border-green-500' : 'bg-red-50 border-2 border-red-500'}`}>
-                  <div className="flex items-center gap-2">
-                    {isCorrect ? <CheckCircle2 className="text-green-600" size={24} /> : <XCircle className="text-red-600" size={24} />}
-                    <span className="font-bold text-lg">
-                      {isCorrect ? `Correct! +${difficultyLevels[difficulty - 1].baseReward * (showGamble ? gambleAmount / 10 : 1)} tokens` : showGamble ? `Wrong! -${gambleAmount} tokens` : 'Wrong!'}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-300 mb-4">
-                  <h4 className="font-bold text-blue-900 mb-2">Explanation:</h4>
-                  <p className="text-gray-700">{currentCardData.explanation}</p>
-                </div>
+            const cards = [];
+            const allShapes = ["Straight", "Push", "Pull", "Baby draw", "Baby fade", "Draw", "Fade", "Big draw", "Big fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
+            const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, 3);
+            const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
+            
+            cards.push({
+                question: "What will be the shot shape?",
+                options: diffLevel <= 3 ? options.map(o => o + " (" + getShapeDesc(o) + ")") : options,
+                correct: diffLevel <= 3 ? shape + " (" + shapeDesc + ")" : shape,
+                correctBase: shape,
+                explanation: `Face: ${face}°, Path: ${path}°. Face-to-path: ${faceToPath.toFixed(1)}°. Start direction: ${startDir}. Result: ${shape}.`
+            });
+            
+            if (diffLevel >= 3) {
+                cards.push({
+                    question: "Will the ball start left or right of the target?",
+                    options: ["Left of target", "Right of target", "Straight at target"],
+                    correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
+                    explanation: `With face angle ${face}°, the ball starts ${startDir} (75-85% influence from face angle).`
+                });
+            }
+            
+            if (diffLevel >= 5) {
+                const offlineYards = Math.abs(faceToPath * 5) + Math.abs(face * 3);
+                const offlineDir = face + (faceToPath * 0.3) > 0 ? "right" : "left";
+                let opts, corr;
                 
-                {/* AI Question Section */}
-                <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
-                  <h4 className="font-bold text-purple-900 mb-3 flex items-center gap-2">
-                    <Info size={20} />
-                    Ask AI About This Scenario
-                  </h4>
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="text"
-                      value={aiQuestion}
-                      onChange={(e) => setAiQuestion(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleAskAI()}
-                      placeholder="Ask a question about the physics or data..."
-                      className="flex-1 p-3 border-2 border-purple-200 rounded-lg"
-                      disabled={isAskingAI}
-                    />
-                    <button
-                      onClick={handleAskAI}
-                      disabled={isAskingAI || !aiQuestion.trim()}
-                      className="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:bg-gray-400 flex items-center gap-2"
-                    >
-                      <Send size={20} />
-                      {isAskingAI ? 'Asking...' : 'Ask'}
+                if (diffLevel <= 6) {
+                    opts = ["0-10 yards", "10-20 yards", "20-35 yards", "35+ yards"];
+                    corr = offlineYards < 10 ? opts[0] : offlineYards < 20 ? opts[1] : offlineYards < 35 ? opts[2] : opts[3];
+                } else if (diffLevel <= 8) {
+                    opts = ["0-8 yards", "8-15 yards", "15-25 yards", "25+ yards"];
+                    corr = offlineYards < 8 ? opts[0] : offlineYards < 15 ? opts[1] : offlineYards < 25 ? opts[2] : opts[3];
+                } else {
+                    const ry = Math.round(offlineYards);
+                    opts = [
+                        `${Math.max(0, ry - 3)}-${ry + 2} yards ${offlineDir}`,
+                        `${ry + 2}-${ry + 7} yards ${offlineDir}`,
+                        `${Math.max(0, ry - 8)}-${Math.max(0, ry - 3)} yards ${offlineDir}`,
+                        `${ry + 7}+ yards ${offlineDir}`
+                    ];
+                    corr = opts[0];
+                }
+                
+                cards.push({
+                    question: "How far offline will the ball finish?",
+                    options: opts,
+                    correct: corr,
+                    explanation: `Face ${face}°, face-to-path ${faceToPath.toFixed(1)}° = ~${Math.floor(offlineYards)} yards ${offlineDir}.`
+                });
+            }
+            
+            return { data, cards };
+        }
+
+        function getShapeDesc(name) {
+            const descs = {
+                "Straight": "on target, no curve", "Push": "starts right, flies straight", "Pull": "starts left, flies straight",
+                "Baby draw": "slight curve left", "Baby fade": "slight curve right",
+                "Draw": "curves left", "Fade": "curves right",
+                "Big draw": "heavy curve left", "Big fade": "heavy curve right",
+                "Hook": "severe curve left", "Slice": "severe curve right",
+                "Push-draw": "starts right, curves left", "Push-fade": "starts right, curves right",
+                "Push-hook": "starts right, severe curve left", "Push-slice": "starts right, extreme curve right",
+                "Pull-hook": "starts left, curves left", "Pull-fade": "starts left, curves right",
+                "Pull-slice": "starts left, severe curve right"
+            };
+            return descs[name] || name;
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            
+            if (state.showAuth) {
+                app.innerHTML = `
+                    <div class="min-h-screen bg-gradient-to-br from-green-900 via-blue-900 to-purple-900 p-6 flex items-center justify-center">
+                        <div class="bg-white rounded-lg shadow-2xl max-w-md w-full">
+                            <div class="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-t-lg">
+                                <h1 class="text-3xl font-bold text-center">Ball Flight Master</h1>
+                            </div>
+                            <div class="p-8">
+                                <div class="text-center mb-6">
+                                    <div class="text-6xl mb-4">🎯</div>
+                                    <p class="text-gray-600 mb-6">Master the physics of golf ball flight</p>
+                                </div>
+                                <input type="text" id="username" value="${state.username}" 
+                                    placeholder="Enter your username" 
+                                    class="w-full p-3 border-2 border-gray-300 rounded-lg mb-4 text-lg">
+                                <button onclick="handleLogin()" 
+                                    class="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg hover:from-green-700 hover:to-blue-700">
+                                    Start Playing
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('username').addEventListener('input', e => {
+                    state.username = e.target.value;
+                });
+                return;
+            }
+
+            if (!state.currentScenarioData) return;
+
+            const totalCards = difficultyLevels[state.difficulty - 1].cards;
+            const card = state.currentScenarioData.cards[state.currentCard - 1];
+            const accuracy = state.user.questionsAnswered > 0 ? Math.round((state.user.correctAnswers / state.user.questionsAnswered) * 100) : 0;
+
+            let dataHTML = '';
+            for (let [key, value] of Object.entries(state.currentScenarioData.data)) {
+                dataHTML += `
+                    <div class="bg-white p-3 rounded-lg shadow-sm">
+                        <div class="font-semibold text-gray-700 mb-1">${key}</div>
+                        <p class="text-gray-900">${value}</p>
+                    </div>
+                `;
+            }
+
+            let optionsHTML = '';
+            card.options.forEach((opt, idx) => {
+                let btnClass = "w-full text-left p-4 rounded-lg border-2 transition-all font-medium";
+                if (!state.showExplanation) {
+                    btnClass += state.selectedAnswer === opt ? " border-blue-600 bg-blue-50" : " border-gray-300 bg-white hover:border-blue-300";
+                } else {
+                    const isCorrect = card.correctBase ? opt.split(' (')[0] === card.correctBase : opt === card.correct;
+                    if (isCorrect) btnClass += " border-green-600 bg-green-50";
+                    else if (opt === state.selectedAnswer) btnClass += " border-red-600 bg-red-50";
+                    else btnClass += " border-gray-300 bg-gray-100 opacity-60";
+                }
+                
+                optionsHTML += `
+                    <button onclick="handleAnswer('${opt.replace(/'/g, "\\'")}')" 
+                        ${state.showExplanation ? 'disabled' : ''}
+                        class="${btnClass}">
+                        ${opt}
+                        ${state.showExplanation && (card.correctBase ? opt.split(' (')[0] === card.correctBase : opt === card.correct) ? ' ✓' : ''}
+                        ${state.showExplanation && opt === state.selectedAnswer && !(card.correctBase ? opt.split(' (')[0] === card.correctBase : opt === card.correct) ? ' ✗' : ''}
                     </button>
-                  </div>
-                  {aiResponse && (
-                    <div className="bg-white p-4 rounded-lg border-2 border-purple-200">
-                      <p className="text-gray-700 whitespace-pre-wrap">{aiResponse}</p>
-                    </div>
-                  )}
-                </div>
-                
-                <button
-                  onClick={handleNextCard}
-                  className="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg hover:from-green-700 hover:to-blue-700"
-                >
-                  {currentCard < totalCards ? `Next Card (${currentCard + 1} of ${totalCards})` : 'Next Scenario'}
-                </button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-};
+                `;
+            });
 
-export default GolfBallFlightQuiz;
+            app.innerHTML = `
+                <div class="min-h-screen bg-gradient-to-br from-green-900 via-blue-900 to-purple-900 p-6">
+                    <div class="max-w-5xl mx-auto">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg rounded-lg p-4 text-center">
+                                <p class="text-sm opacity-90">Tokens</p>
+                                <p class="text-2xl font-bold">${state.user.tokens}</p>
+                            </div>
+                            <div class="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg rounded-lg p-4 text-center">
+                                <p class="text-sm opacity-90">Accuracy</p>
+                                <p class="text-2xl font-bold">${accuracy}%</p>
+                            </div>
+                            <div class="bg-gradient-to-br from-green-500 to-teal-500 text-white shadow-lg rounded-lg p-4 text-center">
+                                <p class="text-sm opacity-90">Correct</p>
+                                <p class="text-2xl font-bold">${state.user.correctAnswers}</p>
+                            </div>
+                            <div class="bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg rounded-lg p-4 text-center">
+                                <p class="text-sm opacity-90">Streak</p>
+                                <p class="text-2xl font-bold">${state.user.currentStreak} 🔥</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-lg p-4 mb-6">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">Level ${state.difficulty} - ${difficultyLevels[state.difficulty - 1].name}</h3>
+                                    <p class="text-sm text-gray-600">${difficultyLevels[state.difficulty - 1].description}</p>
+                                </div>
+                                <button onclick="toggleDifficulty()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                                    Change Level
+                                </button>
+                            </div>
+                            ${state.showDifficultySelector ? `
+                                <div class="mt-4">
+                                    <input type="range" min="1" max="10" value="${state.difficulty}" 
+                                        oninput="changeDifficulty(this.value)" class="w-full">
+                                    <div class="flex justify-between text-xs text-gray-600 mt-2">
+                                        ${difficultyLevels.map(d => `<span class="${d.level === state.difficulty ? 'font-bold text-blue-600' : ''}">${d.level}</span>`).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-2xl">
+                            <div class="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-t-lg">
+                                <h2 class="text-2xl font-bold">Level ${state.difficulty} • Scenario #${state.scenarioNumber} • Card ${state.currentCard} of ${totalCards}</h2>
+                                <p class="text-green-100">Base Reward: ${difficultyLevels[state.difficulty - 1].baseReward} tokens</p>
+                            </div>
+                            <div class="p-6">
+                                <div class="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg mb-6 border-2 border-gray-300">
+                                    <h3 class="font-bold text-xl mb-4">TrackMan Data:</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        ${dataHTML}
+                                    </div>
+                                </div>
+
+                                <h3 class="font-bold text-2xl mb-4">${card.question}</h3>
+
+                                <div class="space-y-3 mb-6">
+                                    ${optionsHTML}
+                                </div>
+
+                                ${state.showExplanation ? `
+                                    <div class="p-4 rounded-lg mb-4 ${state.isCorrect ? 'bg-green-50 border-2 border-green-500' : 'bg-red-50 border-2 border-red-500'}">
+                                        <p class="font-bold text-lg">
+                                            ${state.isCorrect ? '✓ Correct! +' + (difficultyLevels[state.difficulty - 1].baseReward * (state.showGamble ? state.gambleAmount / 10 : 1)) + ' tokens' : '✗ Wrong!'}
+                                        </p>
+                                    </div>
+                                    <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300 mb-4">
+                                        <h4 class="font-bold text-blue-900 mb-2">Explanation:</h4>
+                                        <p>${card.explanation}</p>
+                                    </div>
+                                    <button onclick="handleNext()" 
+                                        class="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg">
+                                        ${state.currentCard < totalCards ? `Next Card (${state.currentCard + 1} of ${totalCards})` : 'Next Scenario'}
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleLogin() {
+            if (state.username.trim()) {
+                state.user = {
+                    name: state.username,
+                    tokens: 100,
+                    questionsAnswered: 0,
+                    correctAnswers: 0,
+                    currentStreak: 0
+                };
+                state.showAuth = false;
+                state.currentScenarioData = generateScenario(state.difficulty);
+                render();
+            }
+        }
+
+        function handleAnswer(answer) {
+            state.selectedAnswer = answer;
+            const card = state.currentScenarioData.cards[state.currentCard - 1];
+            state.isCorrect = card.correctBase ? answer.split(' (')[0] === card.correctBase : answer === card.correct;
+            state.showExplanation = true;
+            render();
+        }
+
+        function handleNext() {
+            const totalCards = difficultyLevels[state.difficulty - 1].cards;
+            const baseReward = difficultyLevels[state.difficulty - 1].baseReward;
+            const reward = state.isCorrect ? baseReward : 0;
+            
+            state.user.tokens = Math.max(0, state.user.tokens + reward);
+            state.user.questionsAnswered++;
+            state.user.correctAnswers += state.isCorrect ? 1 : 0;
+            state.user.currentStreak = state.isCorrect ? state.user.currentStreak + 1 : 0;
+            
+            if (state.currentCard < totalCards) {
+                state.currentCard++;
+            } else {
+                state.scenarioNumber++;
+                state.currentCard = 1;
+                state.currentScenarioData = generateScenario(state.difficulty);
+            }
+            
+            state.selectedAnswer = null;
+            state.showExplanation = false;
+            state.isCorrect = null;
+            render();
+        }
+
+        function toggleDifficulty() {
+            state.showDifficultySelector = !state.showDifficultySelector;
+            render();
+        }
+
+        function changeDifficulty(level) {
+            state.difficulty = parseInt(level);
+            state.currentScenarioData = generateScenario(state.difficulty);
+            state.currentCard = 1;
+            state.scenarioNumber = 1;
+            state.selectedAnswer = null;
+            state.showExplanation = false;
+            render();
+        }
+
+        // Initial render
+        render();
+    </script>
+</body>
+</html>
