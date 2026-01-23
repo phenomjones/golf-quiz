@@ -67,6 +67,10 @@
             if (Math.abs(path) < minAngle) path = path >= 0 ? minAngle : -minAngle;
             path = parseFloat(path.toFixed(1));
             
+            let gearEffect = 0; // Will be set if impact location exists
+            let windEffect = 0; // Will be set if wind exists
+            let windDir = "";
+            
             let faceDisplay = face + "°";
             let pathDisplay = path + "°";
             
@@ -86,11 +90,13 @@
             };
             
             if (diffLevel >= 3) {
-                data["Attack Angle"] = "📐 " + (Math.random() * -6 - 1).toFixed(1) + "°";
-                
                 const maxImpact = diffLevel === 3 ? 6 : 12;
                 const impact = Math.random() * maxImpact - maxImpact/2;
                 data["Impact Location"] = "📍 " + Math.abs(impact).toFixed(1) + "mm " + (impact > 0 ? "toe" : "heel");
+                
+                // Gear effect: heel creates draw spin, toe creates fade spin
+                // Add to face-to-path calculation later
+                gearEffect = clubType === "driver" ? impact * -0.3 : impact * -0.15; // Heel = negative (draw), Toe = positive (fade)
             }
             
             if (diffLevel >= 5) {
@@ -100,7 +106,13 @@
             if (diffLevel >= 7) {
                 const windSpeed = Math.floor(Math.random() * (diffLevel === 7 ? 15 : 25) + 5);
                 const windDirs = ["Headwind", "Tailwind", "Left-to-Right", "Right-to-Left"];
-                data["Wind"] = "💨 " + windSpeed + " mph " + windDirs[Math.floor(Math.random() * windDirs.length)];
+                windDir = windDirs[Math.floor(Math.random() * windDirs.length)];
+                data["Wind"] = "💨 " + windSpeed + " mph " + windDir;
+                
+                // Wind effect on offline distance
+                if (windDir === "Left-to-Right") windEffect = windSpeed * 0.3; // Push ball right
+                else if (windDir === "Right-to-Left") windEffect = windSpeed * -0.3; // Push ball left
+                // Headwind/tailwind affect distance but not lateral position as much
             }
             
             if (diffLevel >= 9) {
@@ -108,7 +120,7 @@
                 data["Lie"] = "⛰️ " + lies[Math.floor(Math.random() * lies.length)];
             }
 
-            const faceToPath = face - path;
+            const faceToPath = face - path + gearEffect; // Include gear effect!
             const startDir = face > 0 ? "right" : face < 0 ? "left" : "straight";
             
             // Determine shape
