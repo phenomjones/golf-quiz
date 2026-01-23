@@ -101,13 +101,8 @@
             let faceDisplay = face + "°";
             let pathDisplay = path + "°";
             
-            if (diffLevel <= 3) {
-                faceDisplay += face > 0 ? " (right)" : face < 0 ? " (left)" : "";
-                pathDisplay += path > 0 ? " (right)" : path < 0 ? " (left)" : "";
-            } else if (diffLevel <= 5) {
-                faceDisplay += face > 0 ? " (open)" : face < 0 ? " (closed)" : "";
-                pathDisplay += path > 0 ? " (in-to-out)" : path < 0 ? " (out-to-in)" : "";
-            }
+            faceDisplay += face > 0 ? " (right)" : face < 0 ? " (left)" : "";
+            pathDisplay += path > 0 ? " (right)" : path < 0 ? " (left)" : "";
             
             let data = {
                 "Club / Speed / Carry": {
@@ -121,7 +116,7 @@
                     value: faceDisplay
                 },
                 "Club Path": {
-                    icon: "➡️",
+                    icon: "↪️",
                     label: "Club Path",
                     value: pathDisplay
                 }
@@ -137,9 +132,9 @@
                     value: Math.abs(impact).toFixed(1) + "mm " + impactSide
                 };
                 
-                // Gear effect: heel creates draw spin (negative impact = negative gear effect = draw)
-                // toe creates fade spin (positive impact = positive gear effect = fade)
-                gearEffect = clubType === "driver" ? impact * 0.3 : impact * 0.15;
+                // Gear effect: heel creates FADE spin (negative impact = positive gear effect = fade)
+                // toe creates DRAW spin (positive impact = negative gear effect = draw)
+                gearEffect = clubType === "driver" ? impact * -0.3 : impact * -0.15;
                 impactLocationText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
             }
             
@@ -221,12 +216,20 @@
             const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
             
             // Build explanation for Card 1 (shot shape)
-            let card1Explanation = `Face: ${face}°, Path: ${path}°, Face-to-path: ${(face - path).toFixed(1)}°.`;
+            let explanationParts = [];
+            explanationParts.push(`<strong>Face:</strong> ${face}°`);
+            explanationParts.push(`<strong>Path:</strong> ${path}°`);
+            explanationParts.push(`<strong>Face-to-path:</strong> ${(face - path).toFixed(1)}°`);
+            
             if (gearEffect !== 0) {
                 const gearDir = gearEffect > 0 ? "fade" : "draw";
-                card1Explanation += ` ${impactLocationText} impact adds ${Math.abs(gearEffect).toFixed(1)}° of ${gearDir} spin (gear effect). Total face-to-path with gear effect: ${faceToPath.toFixed(1)}°.`;
+                explanationParts.push(`<strong>Gear effect:</strong> ${impactLocationText} adds ${Math.abs(gearEffect).toFixed(1)}° of ${gearDir} spin`);
+                explanationParts.push(`<strong>Total face-to-path:</strong> ${faceToPath.toFixed(1)}° (with gear effect)`);
             }
-            card1Explanation += ` Result: ${shape}.`;
+            
+            explanationParts.push(`<strong>Result:</strong> ${shape} - ${shapeDesc}`);
+            
+            const card1Explanation = '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>';
             
             cards.push({
                 question: "What will be the shot shape?",
@@ -241,7 +244,7 @@
                     question: "Will the ball start left or right of the target?",
                     options: ["Left of target", "Right of target", "Straight at target"],
                     correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
-                    explanation: `With face angle ${face}°, the ball starts ${startDir} (75-85% influence from face angle).`
+                    explanation: `<div><strong>Face angle:</strong> ${face}°</div><div>The ball starts <strong>${startDir}</strong> because face angle controls 75-85% of initial direction.</div>`
                 });
             }
             
@@ -283,27 +286,28 @@
                 }
                 
                 // Build detailed calculation explanation
+                const baseFaceToPath = face - path; // WITHOUT gear effect
                 let calcParts = [];
-                calcParts.push(`Face angle ${face}° contributes ~${faceContribution.toFixed(0)} yards ${face > 0 ? 'right' : 'left'}`);
-                calcParts.push(`Face-to-path ${faceToPath.toFixed(1)}° (${faceToPath < 0 ? 'draw' : 'fade'}) adds ~${pathContribution.toFixed(0)} yards of curve`);
+                calcParts.push(`<strong>Face angle:</strong> ${face}° contributes ~${faceContribution.toFixed(0)} yards ${face > 0 ? 'right' : 'left'}`);
+                calcParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}° (${baseFaceToPath < 0 ? 'draw' : 'fade'}) adds ~${pathContribution.toFixed(0)} yards of curve`);
                 
                 if (gearEffect !== 0) {
                     const gearYards = Math.abs(gearEffect * 3);
                     const gearDir = gearEffect > 0 ? "fade (right)" : "draw (left)";
-                    calcParts.push(`${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° gear effect = ~${gearYards.toFixed(0)} yards ${gearDir}`);
+                    calcParts.push(`<strong>Gear effect:</strong> ${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° of ${gearDir} = ~${gearYards.toFixed(0)} yards`);
                 }
                 
                 if (windEffect !== 0) {
-                    calcParts.push(`${windDir} wind pushes ~${Math.abs(windEffect).toFixed(0)} yards ${windEffect > 0 ? 'right' : 'left'}`);
+                    calcParts.push(`<strong>Wind:</strong> ${windDir} pushes ~${Math.abs(windEffect).toFixed(0)} yards ${windEffect > 0 ? 'right' : 'left'}`);
                 }
                 
-                calcParts.push(`Total: ~${Math.floor(offlineYards)} yards ${offlineDir}`);
+                calcParts.push(`<strong>Total offline:</strong> ~${Math.floor(offlineYards)} yards ${offlineDir}`);
                 
                 cards.push({
                     question: "How far offline will the ball finish from the target?",
                     options: opts,
                     correct: corr,
-                    explanation: calcParts.join('. ') + '.'
+                    explanation: '<div class="space-y-1">' + calcParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
                 });
             }
             
@@ -624,8 +628,8 @@
                                         </p>
                                     </div>
                                     <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300 mb-4">
-                                        <h4 class="font-bold text-blue-900 mb-2">Explanation:</h4>
-                                        <p>${card.explanation}</p>
+                                        <h4 class="font-bold text-blue-900 mb-3">Explanation:</h4>
+                                        <div class="text-gray-800">${card.explanation}</div>
                                     </div>
                                     
                                     <div class="mb-4 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
