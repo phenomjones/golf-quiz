@@ -15,6 +15,7 @@
             user: null,
             showAuth: true,
             showLevelSelect: false,
+            showLeaderboard: false,
             username: '',
             scenarioNumber: 1,
             currentCard: 1,
@@ -33,16 +34,16 @@
         };
 
         const difficultyLevels = [
-            { level: 1, name: "Beginner", description: "Basic club data only", baseReward: 10, cards: 1 },
-            { level: 2, name: "Casual Golfer", description: "Basic club data with variation", baseReward: 15, cards: 1 },
-            { level: 3, name: "Club Player", description: "Heel/toe impact added", baseReward: 25, cards: 2 },
-            { level: 4, name: "Scratch Golfer", description: "More extreme heel/toe mishits", baseReward: 40, cards: 2 },
-            { level: 5, name: "Advanced Amateur", description: "High/low face impact added", baseReward: 60, cards: 3 },
-            { level: 6, name: "Mini-Tour Pro", description: "More severe high/low mishits", baseReward: 85, cards: 3 },
-            { level: 7, name: "PGA Tour Player", description: "Wind conditions added", baseReward: 115, cards: 3 },
-            { level: 8, name: "Tour Champion", description: "More complex wind patterns", baseReward: 150, cards: 3 },
-            { level: 9, name: "Major Winner", description: "Lie conditions added", baseReward: 200, cards: 3 },
-            { level: 10, name: "PGA Pro Master", description: "All conditions, extreme scenarios", baseReward: 300, cards: 3 }
+            { level: 1, name: "Beginner", description: "Basic club data only", baseReward: 10, cards: 1, details: "Start your journey! Learn the fundamentals with basic club face and path data. Perfect for understanding how face angle and swing path affect ball flight." },
+            { level: 2, name: "Casual Golfer", description: "Basic club data with variation", baseReward: 15, cards: 1, details: "Build on the basics with more variety in club speeds and angles. You'll see how different clubs and swing speeds change outcomes." },
+            { level: 3, name: "Club Player", description: "Heel/toe impact added", baseReward: 25, cards: 2, details: "Now things get interesting! Impact location (heel vs toe) is added. Learn how gear effect creates draws from heel hits and fades from toe hits. 2 cards per scenario." },
+            { level: 4, name: "Scratch Golfer", description: "More extreme heel/toe mishits", baseReward: 40, cards: 2, details: "Face more challenging mishits with extreme heel and toe contacts. Master how severe gear effect influences ball flight. 2 cards per scenario." },
+            { level: 5, name: "Advanced Amateur", description: "High/low face impact added", baseReward: 60, cards: 3, details: "Vertical impact matters! High and low face strikes are introduced along with spin loft data. 3 cards per scenario for comprehensive analysis." },
+            { level: 6, name: "Mini-Tour Pro", description: "More severe high/low mishits", baseReward: 85, cards: 3, details: "Handle extreme vertical mishits that drastically affect launch and spin. You'll need to understand all dimensions of impact. 3 cards per scenario." },
+            { level: 7, name: "PGA Tour Player", description: "Wind conditions added", baseReward: 115, cards: 3, details: "Mother Nature joins the game! Wind conditions (headwind, tailwind, crosswind) are now part of the equation. 3 cards per scenario." },
+            { level: 8, name: "Tour Champion", description: "More complex wind patterns", baseReward: 150, cards: 3, details: "Face stronger and more complex wind scenarios that significantly alter ball flight. True mastery required. 3 cards per scenario." },
+            { level: 9, name: "Major Winner", description: "Lie conditions added", baseReward: 200, cards: 3, details: "The ultimate challenge begins! Uphill, downhill, and sidehill lies are added. Every factor matters now. 3 cards per scenario." },
+            { level: 10, name: "PGA Pro Master", description: "All conditions, extreme scenarios", baseReward: 300, cards: 3, details: "The pinnacle of ball flight mastery. Extreme scenarios with all variables at play. Only the true masters survive here. 3 cards per scenario." }
         ];
 
         function generateScenario(diffLevel) {
@@ -73,8 +74,8 @@
             if (Math.abs(path) < minAngle) path = path >= 0 ? minAngle : -minAngle;
             path = parseFloat(path.toFixed(1));
             
-            let gearEffect = 0; // Will be set if impact location exists
-            let windEffect = 0; // Will be set if wind exists
+            let gearEffect = 0;
+            let windEffect = 0;
             let windDir = "";
             let impactLocationText = "";
             
@@ -100,9 +101,6 @@
                 const impact = Math.random() * maxImpact - maxImpact/2;
                 const impactSide = impact > 0 ? "toe" : "heel";
                 data["Impact Location"] = "📍 " + Math.abs(impact).toFixed(1) + "mm " + impactSide;
-                
-                // Gear effect: heel creates draw spin (negative impact = negative gear effect = draw)
-                // toe creates fade spin (positive impact = positive gear effect = fade)
                 gearEffect = clubType === "driver" ? impact * 0.3 : impact * 0.15;
                 impactLocationText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
             }
@@ -117,10 +115,8 @@
                 windDir = windDirs[Math.floor(Math.random() * windDirs.length)];
                 data["Wind"] = "💨 " + windSpeed + " mph " + windDir;
                 
-                // Wind effect on offline distance
-                if (windDir === "Left-to-Right") windEffect = windSpeed * 0.3; // Push ball right
-                else if (windDir === "Right-to-Left") windEffect = windSpeed * -0.3; // Push ball left
-                // Headwind/tailwind affect distance but not lateral position as much
+                if (windDir === "Left-to-Right") windEffect = windSpeed * 0.3;
+                else if (windDir === "Right-to-Left") windEffect = windSpeed * -0.3;
             }
             
             if (diffLevel >= 9) {
@@ -128,10 +124,9 @@
                 data["Lie"] = "⛰️ " + lies[Math.floor(Math.random() * lies.length)];
             }
 
-            const faceToPath = face - path + gearEffect; // Include gear effect!
+            const faceToPath = face - path + gearEffect;
             const startDir = face > 0 ? "right" : face < 0 ? "left" : "straight";
             
-            // Determine shape
             const absFTP = Math.abs(faceToPath);
             const curveType = absFTP <= 1 ? "straight" : absFTP <= 3 ? "slight" : absFTP <= 6 ? "moderate" : absFTP <= 10 ? "heavy" : "extreme";
             const startType = Math.abs(face) <= 1 ? "straight" : face > 1 ? "push" : "pull";
@@ -153,128 +148,121 @@
                 } else if (startType === "push") {
                     if (curveType === "slight") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves back left"] : ["Push-fade", "starts right, curves further right"];
                     else if (curveType === "moderate") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves back left"] : ["Push-fade", "starts right, curves further right"];
-                    else if (curveType === "heavy") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves strongly back left"] : ["Push-slice", "starts right, curves severely right"];
-                    else [shape, shapeDesc] = isDrawCurve ? ["Push-hook", "starts right, severe curve back left"] : ["Push-slice", "starts right, extreme curve right"];
+                    else if (curveType === "heavy") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves back left"] : ["Block-slice", "starts right, severe curve right"];
+                    else [shape, shapeDesc] = isDrawCurve ? ["Push-hook", "starts right, extreme curve left"] : ["Block-slice", "starts right, extreme curve right"];
                 } else {
-                    if (curveType === "slight" || curveType === "moderate") [shape, shapeDesc] = isDrawCurve ? ["Pull-hook", "starts left, curves further left"] : ["Pull-fade", "starts left, curves back right"];
-                    else [shape, shapeDesc] = isDrawCurve ? ["Pull-hook", "starts left, curves severely left"] : ["Pull-slice", "starts left, curves strongly back right"];
+                    if (curveType === "slight") [shape, shapeDesc] = isDrawCurve ? ["Pull-draw", "starts left, curves further left"] : ["Pull-fade", "starts left, curves back right"];
+                    else if (curveType === "moderate") [shape, shapeDesc] = isDrawCurve ? ["Pull-draw", "starts left, curves further left"] : ["Pull-fade", "starts left, curves back right"];
+                    else if (curveType === "heavy") [shape, shapeDesc] = isDrawCurve ? ["Pull-hook", "starts left, severe curve left"] : ["Pull-fade", "starts left, curves back right"];
+                    else [shape, shapeDesc] = isDrawCurve ? ["Pull-hook", "starts left, extreme curve left"] : ["Pull-slice", "starts left, extreme curve right"];
                 }
-            } else {
-                if (startType === "push") [shape, shapeDesc] = ["Push", "starts right, flies straight"];
-                else if (startType === "pull") [shape, shapeDesc] = ["Pull", "starts left, flies straight"];
             }
 
             const cards = [];
-            const allShapes = ["Straight", "Push", "Pull", "Baby draw", "Baby fade", "Draw", "Fade", "Big draw", "Big fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
-            const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, 3);
-            const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
-            
-            // Always show descriptions for all levels
-            const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
-            
-            // Build explanation for Card 1 (shot shape)
-            let card1Explanation = `Face: ${face}°, Path: ${path}°, Face-to-path: ${(face - path).toFixed(1)}°.`;
-            if (gearEffect !== 0) {
-                const gearDir = gearEffect > 0 ? "fade" : "draw";
-                card1Explanation += ` ${impactLocationText} impact adds ${Math.abs(gearEffect).toFixed(1)}° of ${gearDir} spin (gear effect). Total face-to-path with gear effect: ${faceToPath.toFixed(1)}°.`;
-            }
-            card1Explanation += ` Result: ${shape}.`;
-            
-            cards.push({
-                question: "What will be the shot shape?",
-                options: optionsWithDescriptions,
-                correct: shape + " (" + shapeDesc + ")",
-                correctBase: shape,
-                explanation: card1Explanation
-            });
-            
-            if (diffLevel >= 3) {
+            const totalCards = difficultyLevels[diffLevel - 1].cards;
+
+            if (totalCards >= 1) {
+                const options = ["Straight", "Draw", "Fade", "Push-draw", "Push-fade", "Pull-draw", "Pull-fade"];
+                const correctIndex = Math.floor(Math.random() * options.length);
+                options[correctIndex] = shape;
+                
+                const shuffled = options.sort(() => Math.random() - 0.5).slice(0, 4);
+                if (!shuffled.includes(shape)) shuffled[Math.floor(Math.random() * 4)] = shape;
+
                 cards.push({
-                    question: "Will the ball start left or right of the target?",
-                    options: ["Left of target", "Right of target", "Straight at target"],
-                    correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
-                    explanation: `With face angle ${face}°, the ball starts ${startDir} (75-85% influence from face angle).`
+                    question: "What is the general ball flight shape?",
+                    options: shuffled,
+                    correct: shape,
+                    correctBase: shape.split(' (')[0],
+                    explanation: `The ball flight is "${shape}" (${shapeDesc}). With a face-to-path relationship of ${faceToPath.toFixed(1)}°${impactLocationText ? ' (including gear effect from ' + impactLocationText + ')' : ''}, the ball ${shapeDesc}.`
                 });
             }
-            
-            if (diffLevel >= 5) {
-                // Calculate components
-                const faceContribution = Math.abs(face * 3);
-                const pathContribution = Math.abs(faceToPath * 5);
-                const totalBeforeWind = faceContribution + pathContribution;
-                const offlineYards = totalBeforeWind + windEffect;
-                const offlineDir = (face + (faceToPath * 0.3) + windEffect * 0.1) > 0 ? "right" : "left";
+
+            if (totalCards >= 2) {
+                const lateralOptions = ["0-5 yards", "5-10 yards", "10-20 yards", "20-30 yards", "30+ yards"];
+                let lateralDist = Math.abs(faceToPath * 3);
+                if (windEffect !== 0) lateralDist += Math.abs(windEffect);
                 
-                let opts, corr;
-                
-                if (diffLevel <= 6) {
-                    opts = [
-                        `0-9 yards ${offlineDir}`,
-                        `10-19 yards ${offlineDir}`,
-                        `20-34 yards ${offlineDir}`,
-                        `35+ yards ${offlineDir}`
-                    ];
-                    corr = offlineYards < 10 ? opts[0] : offlineYards < 20 ? opts[1] : offlineYards < 35 ? opts[2] : opts[3];
-                } else if (diffLevel <= 8) {
-                    opts = [
-                        `0-7 yards ${offlineDir}`,
-                        `8-14 yards ${offlineDir}`,
-                        `15-24 yards ${offlineDir}`,
-                        `25+ yards ${offlineDir}`
-                    ];
-                    corr = offlineYards < 8 ? opts[0] : offlineYards < 15 ? opts[1] : offlineYards < 25 ? opts[2] : opts[3];
-                } else {
-                    const ry = Math.round(offlineYards);
-                    opts = [
-                        `${Math.max(0, ry - 3)}-${ry + 1} yards ${offlineDir}`,
-                        `${ry + 2}-${ry + 6} yards ${offlineDir}`,
-                        `${Math.max(0, ry - 8)}-${Math.max(0, ry - 4)} yards ${offlineDir}`,
-                        `${ry + 7}+ yards ${offlineDir}`
-                    ];
-                    corr = opts[0];
-                }
-                
-                // Build detailed calculation explanation
-                let calcParts = [];
-                calcParts.push(`Face angle ${face}° contributes ~${faceContribution.toFixed(0)} yards ${face > 0 ? 'right' : 'left'}`);
-                calcParts.push(`Face-to-path ${faceToPath.toFixed(1)}° (${faceToPath < 0 ? 'draw' : 'fade'}) adds ~${pathContribution.toFixed(0)} yards of curve`);
-                
-                if (gearEffect !== 0) {
-                    const gearYards = Math.abs(gearEffect * 3);
-                    const gearDir = gearEffect > 0 ? "fade (right)" : "draw (left)";
-                    calcParts.push(`${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° gear effect = ~${gearYards.toFixed(0)} yards ${gearDir}`);
-                }
-                
-                if (windEffect !== 0) {
-                    calcParts.push(`${windDir} wind pushes ~${Math.abs(windEffect).toFixed(0)} yards ${windEffect > 0 ? 'right' : 'left'}`);
-                }
-                
-                calcParts.push(`Total: ~${Math.floor(offlineYards)} yards ${offlineDir}`);
-                
+                const lateralAnswer = lateralDist < 5 ? "0-5 yards" : 
+                                     lateralDist < 10 ? "5-10 yards" : 
+                                     lateralDist < 20 ? "10-20 yards" : 
+                                     lateralDist < 30 ? "20-30 yards" : "30+ yards";
+
                 cards.push({
-                    question: "How far offline will the ball finish from the target?",
-                    options: opts,
-                    correct: corr,
-                    explanation: calcParts.join('. ') + '.'
+                    question: "How far offline will the ball finish?",
+                    options: lateralOptions,
+                    correct: lateralAnswer,
+                    explanation: `Based on the face-to-path of ${faceToPath.toFixed(1)}°${windEffect ? ' and wind effect of approximately ' + Math.abs(windEffect).toFixed(1) + ' yards' : ''}, the ball will finish approximately ${lateralAnswer} offline.`
                 });
             }
-            
-            return { data, cards };
+
+            if (totalCards >= 3) {
+                const spinOptions = ["Low spin", "Normal spin", "High spin", "Extremely high spin"];
+                const spinLoft = data["Spin Loft"] ? parseFloat(data["Spin Loft"].replace(/[^0-9.]/g, '')) : 15;
+                const spinAnswer = spinLoft < 12 ? "Low spin" : spinLoft < 16 ? "Normal spin" : spinLoft < 20 ? "High spin" : "Extremely high spin";
+
+                cards.push({
+                    question: "What is the relative spin rate?",
+                    options: spinOptions,
+                    correct: spinAnswer,
+                    explanation: `With a spin loft of ${spinLoft.toFixed(1)}°, the ball will have ${spinAnswer.toLowerCase()}. Spin loft is the difference between dynamic loft and attack angle.`
+                });
+            }
+
+            return { data, cards, shape, shapeDesc };
         }
 
-        function getShapeDesc(name) {
-            const descs = {
-                "Straight": "on target, no curve", "Push": "starts right, flies straight", "Pull": "starts left, flies straight",
-                "Baby draw": "slight curve left", "Baby fade": "slight curve right",
-                "Draw": "curves left", "Fade": "curves right",
-                "Big draw": "heavy curve left", "Big fade": "heavy curve right",
-                "Hook": "severe curve left", "Slice": "severe curve right",
-                "Push-draw": "starts right, curves left", "Push-fade": "starts right, curves right",
-                "Push-hook": "starts right, severe curve left", "Push-slice": "starts right, extreme curve right",
-                "Pull-hook": "starts left, curves left", "Pull-fade": "starts left, curves right",
-                "Pull-slice": "starts left, severe curve right"
-            };
-            return descs[name] || name;
+        async function saveScore() {
+            if (!state.user) return;
+            
+            try {
+                const timestamp = new Date().toISOString();
+                const scoreData = {
+                    name: state.user.name,
+                    level: state.difficulty,
+                    tokens: state.user.tokens,
+                    questionsAnswered: state.user.questionsAnswered,
+                    correctAnswers: state.user.correctAnswers,
+                    accuracy: state.user.questionsAnswered > 0 ? 
+                        Math.round((state.user.correctAnswers / state.user.questionsAnswered) * 100) : 0,
+                    timestamp: timestamp,
+                    displayTime: new Date(timestamp).toLocaleString()
+                };
+                
+                const key = `score_${state.user.name}_${Date.now()}`;
+                await window.storage.set(key, JSON.stringify(scoreData), true);
+            } catch (error) {
+                console.error('Failed to save score:', error);
+            }
+        }
+
+        async function loadLeaderboard() {
+            try {
+                const result = await window.storage.list('score_', true);
+                if (!result || !result.keys) return [];
+                
+                const scores = [];
+                for (const key of result.keys) {
+                    try {
+                        const scoreResult = await window.storage.get(key, true);
+                        if (scoreResult && scoreResult.value) {
+                            scores.push(JSON.parse(scoreResult.value));
+                        }
+                    } catch (e) {
+                        console.error('Failed to load score:', e);
+                    }
+                }
+                
+                scores.sort((a, b) => {
+                    if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+                    return new Date(b.timestamp) - new Date(a.timestamp);
+                });
+                
+                return scores.slice(0, 50);
+            } catch (error) {
+                console.error('Failed to load leaderboard:', error);
+                return [];
+            }
         }
 
         function render() {
@@ -282,179 +270,292 @@
             
             if (state.showAuth) {
                 app.innerHTML = `
-                    <div class="min-h-screen bg-gradient-to-br from-green-900 via-blue-900 to-purple-900 p-6 flex items-center justify-center">
-                        <div class="bg-white rounded-lg shadow-2xl max-w-md w-full">
-                            <div class="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-t-lg">
-                                <h1 class="text-3xl font-bold text-center">Ball Flight Master</h1>
-                            </div>
-                            <div class="p-8">
-                                <div class="text-center mb-6">
-                                    <div class="text-6xl mb-4">🎯</div>
-                                    <p class="text-gray-600 mb-6">Master the physics of golf ball flight</p>
+                    <div class="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 flex items-center justify-center p-4">
+                        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+                            <h1 class="text-4xl font-bold text-center mb-2 bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                                ⛳ Ball Flight Master
+                            </h1>
+                            <p class="text-gray-600 text-center mb-6">Master the physics of golf ball flight</p>
+                            
+                            <input type="text" id="username" value="${state.username}" 
+                                placeholder="Enter your name" 
+                                class="w-full p-4 border-2 border-gray-300 rounded-lg mb-4 text-lg"
+                                onkeypress="if(event.key==='Enter') handleLogin()">
+                            
+                            <button onclick="handleLogin()" 
+                                class="w-full py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all">
+                                Start Playing
+                            </button>
+                            
+                            <button onclick="showLeaderboard()" 
+                                class="w-full mt-3 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all">
+                                🏆 View Leaderboard
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('username').addEventListener('input', e => {
+                    state.username = e.target.value;
+                });
+                return;
+            }
+            
+            if (state.showLeaderboard) {
+                loadLeaderboard().then(scores => {
+                    app.innerHTML = `
+                        <div class="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4">
+                            <div class="max-w-4xl mx-auto">
+                                <div class="bg-white rounded-2xl shadow-2xl p-8">
+                                    <div class="flex items-center justify-between mb-6">
+                                        <h1 class="text-4xl font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
+                                            🏆 Leaderboard
+                                        </h1>
+                                        <button onclick="hideLeaderboard()" 
+                                            class="px-6 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700">
+                                            Back
+                                        </button>
+                                    </div>
+                                    
+                                    ${scores.length === 0 ? `
+                                        <div class="text-center py-12">
+                                            <p class="text-xl text-gray-600">No scores yet. Be the first!</p>
+                                        </div>
+                                    ` : `
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full">
+                                                <thead>
+                                                    <tr class="border-b-2 border-gray-300">
+                                                        <th class="text-left py-3 px-4 font-bold text-gray-700">Rank</th>
+                                                        <th class="text-left py-3 px-4 font-bold text-gray-700">Player</th>
+                                                        <th class="text-left py-3 px-4 font-bold text-gray-700">Level</th>
+                                                        <th class="text-left py-3 px-4 font-bold text-gray-700">Tokens</th>
+                                                        <th class="text-left py-3 px-4 font-bold text-gray-700">Accuracy</th>
+                                                        <th class="text-left py-3 px-4 font-bold text-gray-700">Last Played</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${scores.map((score, idx) => `
+                                                        <tr class="border-b border-gray-200 hover:bg-gray-50 ${idx < 3 ? 'bg-yellow-50' : ''}">
+                                                            <td class="py-3 px-4 font-semibold">
+                                                                ${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                                                            </td>
+                                                            <td class="py-3 px-4 font-medium">${score.name}</td>
+                                                            <td class="py-3 px-4">
+                                                                <span class="text-sm">${difficultyLevels[score.level - 1].name}</span>
+                                                            </td>
+                                                            <td class="py-3 px-4">
+                                                                <span class="font-bold text-blue-600">${score.tokens}</span>
+                                                            </td>
+                                                            <td class="py-3 px-4">
+                                                                <span class="text-sm">${score.accuracy}%</span>
+                                                                <span class="text-xs text-gray-500">(${score.correctAnswers}/${score.questionsAnswered})</span>
+                                                            </td>
+                                                            <td class="py-3 px-4 text-sm text-gray-600">${score.displayTime}</td>
+                                                        </tr>
+                                                    `).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    `}
                                 </div>
-                                <input type="text" id="username" value="${state.username}" 
-                                    placeholder="Enter your username" 
-                                    class="w-full p-3 border-2 border-gray-300 rounded-lg mb-4 text-lg">
-                                <button onclick="handleLogin()" 
-                                    class="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg hover:from-green-700 hover:to-blue-700">
-                                    Start Playing
+                            </div>
+                        </div>
+                    `;
+                });
+                return;
+            }
+            
+            if (state.showLevelSelect) {
+                app.innerHTML = `
+                    <div class="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <div class="bg-white rounded-2xl shadow-2xl p-8 mb-4">
+                                <h1 class="text-4xl font-bold text-center mb-2 bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                                    Welcome, ${state.username}!
+                                </h1>
+                                <p class="text-center text-gray-600 mb-6">Choose your starting level</p>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    ${difficultyLevels.map(level => `
+                                        <div class="border-2 ${state.difficulty === level.level ? 'border-blue-500 bg-blue-50' : 'border-gray-300'} rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all"
+                                            onclick="selectLevel(${level.level})">
+                                            <div class="flex items-start justify-between mb-3">
+                                                <div>
+                                                    <h3 class="text-xl font-bold text-gray-900">Level ${level.level}: ${level.name}</h3>
+                                                    <p class="text-sm text-gray-600 mt-1">${level.description}</p>
+                                                </div>
+                                                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                                                    +${level.baseReward} tokens
+                                                </span>
+                                            </div>
+                                            
+                                            <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                                                <p class="text-sm text-gray-700">${level.details}</p>
+                                            </div>
+                                            
+                                            <div class="flex gap-4 text-sm">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-gray-600">Cards:</span>
+                                                    <span class="font-semibold">${level.cards}</span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-gray-600">Reward:</span>
+                                                    <span class="font-semibold text-green-600">+${level.baseReward}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                
+                                <button onclick="startGame()" 
+                                    class="w-full mt-6 py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all">
+                                    Start Level ${state.difficulty}: ${difficultyLevels[state.difficulty - 1].name}
                                 </button>
                             </div>
                         </div>
                     </div>
                 `;
-            document.getElementById('username').addEventListener('input', e => {
-                state.username = e.target.value;
-            });
-            return;
+                return;
             }
-
-            if (!state.currentScenarioData) return;
 
             const totalCards = difficultyLevels[state.difficulty - 1].cards;
             const card = state.currentScenarioData.cards[state.currentCard - 1];
-            const accuracy = state.user.questionsAnswered > 0 ? Math.round((state.user.correctAnswers / state.user.questionsAnswered) * 100) : 0;
-
-            let dataHTML = '';
-            for (let [key, value] of Object.entries(state.currentScenarioData.data)) {
-                dataHTML += `
-                    <div class="bg-white p-3 rounded-lg shadow-sm">
-                        <div class="font-semibold text-gray-700 mb-1">${key}</div>
-                        <p class="text-gray-900">${value}</p>
-                    </div>
-                `;
-            }
-
-            let optionsHTML = '';
-            card.options.forEach((opt, idx) => {
-                let btnClass = "w-full text-left p-4 rounded-lg border-2 transition-all font-medium";
-                if (!state.showExplanation) {
-                    btnClass += state.selectedAnswer === opt ? " border-blue-600 bg-blue-50" : " border-gray-300 bg-white hover:border-blue-300";
-                } else {
-                    const isCorrect = card.correctBase ? opt.split(' (')[0] === card.correctBase : opt === card.correct;
-                    if (isCorrect) btnClass += " border-green-600 bg-green-50";
-                    else if (opt === state.selectedAnswer) btnClass += " border-red-600 bg-red-50";
-                    else btnClass += " border-gray-300 bg-gray-100 opacity-60";
-                }
-                
-                optionsHTML += `
-                    <button onclick="handleAnswer('${opt.replace(/'/g, "\\'")}')" 
-                        ${state.showExplanation ? 'disabled' : ''}
-                        class="${btnClass}">
-                        ${opt}
-                        ${state.showExplanation && (card.correctBase ? opt.split(' (')[0] === card.correctBase : opt === card.correct) ? ' ✓' : ''}
-                        ${state.showExplanation && opt === state.selectedAnswer && !(card.correctBase ? opt.split(' (')[0] === card.correctBase : opt === card.correct) ? ' ✗' : ''}
-                    </button>
-                `;
-            });
-
+            
             app.innerHTML = `
-                <div class="min-h-screen bg-gradient-to-br from-green-900 via-blue-900 to-purple-900 p-6">
-                    <div class="max-w-5xl mx-auto">
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div class="bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg rounded-lg p-4 text-center">
-                                <p class="text-sm opacity-90">Tokens</p>
-                                <p class="text-2xl font-bold">${state.user.tokens}</p>
-                            </div>
-                            <div class="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg rounded-lg p-4 text-center">
-                                <p class="text-sm opacity-90">Accuracy</p>
-                                <p class="text-2xl font-bold">${accuracy}%</p>
-                            </div>
-                            <div class="bg-gradient-to-br from-green-500 to-teal-500 text-white shadow-lg rounded-lg p-4 text-center">
-                                <p class="text-sm opacity-90">Correct</p>
-                                <p class="text-2xl font-bold">${state.user.correctAnswers}</p>
-                            </div>
-                            <div class="bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg rounded-lg p-4 text-center">
-                                <p class="text-sm opacity-90">Streak</p>
-                                <p class="text-2xl font-bold">${state.user.currentStreak} 🔥</p>
-                            </div>
-                        </div>
-
-                        <div class="bg-white rounded-lg shadow-lg p-4 mb-6">
-                            <div class="flex justify-between items-center">
+                <div class="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="bg-white rounded-t-2xl shadow-2xl p-4 flex items-center justify-between">
+                            <div class="flex items-center gap-4">
                                 <div>
-                                    <h3 class="font-bold text-lg">Level ${state.difficulty} - ${difficultyLevels[state.difficulty - 1].name}</h3>
-                                    <p class="text-sm text-gray-600">${difficultyLevels[state.difficulty - 1].description}</p>
+                                    <div class="text-2xl font-bold text-gray-900">${state.user.name}</div>
+                                    <div class="text-sm text-gray-600">Level ${state.difficulty}: ${difficultyLevels[state.difficulty - 1].name}</div>
                                 </div>
-                                <button onclick="toggleDifficulty()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="text-right">
+                                    <div class="text-sm text-gray-600">Tokens</div>
+                                    <div class="text-2xl font-bold text-blue-600">${state.user.tokens}</div>
+                                </div>
+                                <button onclick="toggleDifficulty()" 
+                                    class="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold text-sm hover:bg-purple-700">
                                     Change Level
                                 </button>
+                                <button onclick="showLeaderboard()" 
+                                    class="px-4 py-2 bg-yellow-600 text-white rounded-lg font-semibold text-sm hover:bg-yellow-700">
+                                    🏆
+                                </button>
                             </div>
-                            ${state.showDifficultySelector ? `
-                                <div class="mt-4">
-                                    <input type="range" min="1" max="10" value="${state.difficulty}" 
-                                        oninput="changeDifficulty(this.value)" class="w-full">
-                                    <div class="flex justify-between text-xs text-gray-600 mt-2">
-                                        ${difficultyLevels.map(d => `<span class="${d.level === state.difficulty ? 'font-bold text-blue-600' : ''}">${d.level}</span>`).join('')}
-                                    </div>
-                                </div>
-                            ` : ''}
                         </div>
 
-                        <div class="bg-white rounded-lg shadow-2xl">
-                            <div class="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-t-lg">
-                                <h2 class="text-2xl font-bold">Level ${state.difficulty} • Scenario #${state.scenarioNumber} • Card ${state.currentCard} of ${totalCards}</h2>
-                                <p class="text-green-100">Base Reward: ${difficultyLevels[state.difficulty - 1].baseReward} tokens</p>
+                        ${state.showDifficultySelector ? `
+                            <div class="bg-purple-50 border-2 border-purple-300 rounded-b-2xl p-4 mb-4">
+                                <h3 class="font-bold text-purple-900 mb-3">Select Difficulty Level:</h3>
+                                <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                                    ${difficultyLevels.map(level => `
+                                        <button onclick="changeDifficulty(${level.level})" 
+                                            class="p-3 rounded-lg font-semibold text-sm ${state.difficulty === level.level ? 'bg-purple-600 text-white' : 'bg-white text-purple-900 hover:bg-purple-100'}">
+                                            ${level.level}. ${level.name}
+                                        </button>
+                                    `).join('')}
+                                </div>
                             </div>
-                            <div class="p-6">
-                                <div class="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg mb-6 border-2 border-gray-300">
-                                    <h3 class="font-bold text-xl mb-4">TrackMan Data:</h3>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        ${dataHTML}
+                        ` : ''}
+                        
+                        <div class="bg-white rounded-b-2xl shadow-2xl p-6">
+                            <div class="mb-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h2 class="text-2xl font-bold text-gray-900">Scenario ${state.scenarioNumber}</h2>
+                                    <div class="text-sm font-semibold text-gray-600">
+                                        Card ${state.currentCard} of ${totalCards}
                                     </div>
                                 </div>
-
-                                <h3 class="font-bold text-2xl mb-4">${card.question}</h3>
-
-                                <div class="space-y-3 mb-6">
-                                    ${optionsHTML}
-                                </div>
-
-                                ${state.showExplanation ? `
-                                    <div class="p-4 rounded-lg mb-4 ${state.isCorrect ? 'bg-green-50 border-2 border-green-500' : 'bg-red-50 border-2 border-red-500'}">
-                                        <p class="font-bold text-lg">
-                                            ${state.isCorrect ? '✓ Correct! +' + (difficultyLevels[state.difficulty - 1].baseReward * (state.showGamble ? state.gambleAmount / 10 : 1)) + ' tokens' : '✗ Wrong!'}
-                                        </p>
-                                    </div>
-                                    <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300 mb-4">
-                                        <h4 class="font-bold text-blue-900 mb-2">Explanation:</h4>
-                                        <p>${card.explanation}</p>
-                                    </div>
-                                    
-                                    <div class="mb-4 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
-                                        <h4 class="font-bold text-purple-900 mb-3 flex items-center gap-2">
-                                            💬 Ask AI About This Scenario
-                                        </h4>
-                                        <div class="flex gap-2 mb-3">
-                                            <input type="text" id="aiQuestion" value="${state.aiQuestion}" 
-                                                placeholder="Ask about the physics or data..." 
-                                                class="flex-1 p-3 border-2 border-purple-200 rounded-lg"
-                                                ${state.isAskingAI ? 'disabled' : ''}>
-                                            <button onclick="handleAskAI()" 
-                                                ${state.isAskingAI || !state.aiQuestion || state.aiQuestion.trim() === '' ? 'disabled' : ''}
-                                                class="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:bg-gray-400">
-                                                ${state.isAskingAI ? 'Asking...' : 'Ask'}
-                                            </button>
+                                
+                                <div class="bg-gradient-to-br from-blue-50 to-green-50 rounded-xl p-6 mb-6">
+                                    ${Object.entries(state.currentScenarioData.data).map(([key, value]) => `
+                                        <div class="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
+                                            <span class="font-semibold text-gray-700">${key}</span>
+                                            <span class="text-gray-900">${value}</span>
                                         </div>
-                                        ${state.aiResponse ? `
-                                            <div class="bg-white p-4 rounded-lg border-2 border-purple-200">
-                                                <p class="text-gray-700 whitespace-pre-wrap">${state.aiResponse}</p>
-                                            </div>
-                                        ` : ''}
-                                    </div>
+                                    `).join('')}
+                                </div>
+
+                                <div class="bg-white border-2 border-blue-300 rounded-xl p-6">
+                                    <h3 class="text-xl font-bold text-blue-900 mb-4">${card.question}</h3>
                                     
-                                    <button onclick="handleNext()" 
-                                        class="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg">
-                                        ${state.currentCard < totalCards ? `Next Card (${state.currentCard + 1} of ${totalCards})` : 'Next Scenario'}
-                                    </button>
-                                ` : ''}
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        ${card.options.map(option => {
+                                            let buttonClass = "w-full p-4 rounded-lg font-semibold text-left transition-all ";
+                                            
+                                            if (state.showExplanation) {
+                                                const isCorrect = card.correctBase ? option.split(' (')[0] === card.correctBase : option === card.correct;
+                                                const isSelected = state.selectedAnswer === option;
+                                                
+                                                if (isCorrect) {
+                                                    buttonClass += "bg-green-500 text-white border-2 border-green-600";
+                                                } else if (isSelected && !isCorrect) {
+                                                    buttonClass += "bg-red-500 text-white border-2 border-red-600";
+                                                } else {
+                                                    buttonClass += "bg-gray-200 text-gray-500";
+                                                }
+                                            } else {
+                                                buttonClass += state.selectedAnswer === option 
+                                                    ? "bg-blue-500 text-white border-2 border-blue-600" 
+                                                    : "bg-white text-gray-900 border-2 border-gray-300 hover:bg-blue-50 hover:border-blue-400";
+                                            }
+                                            
+                                            return `
+                                                <button onclick="handleAnswer('${option.replace(/'/g, "\\'")}')" 
+                                                    ${state.showExplanation ? 'disabled' : ''}
+                                                    class="${buttonClass}">
+                                                    ${option}
+                                                </button>
+                                            `;
+                                        }).join('')}
+                                    </div>
+
+                                    ${state.showExplanation ? `
+                                        <div class="mt-6 p-4 rounded-lg ${state.isCorrect ? 'bg-green-50 border-2 border-green-300' : 'bg-red-50 border-2 border-red-300'}">
+                                            <h4 class="font-bold ${state.isCorrect ? 'text-green-900' : 'text-red-900'} mb-2">
+                                                ${state.isCorrect ? '✅ Correct! +' + difficultyLevels[state.difficulty - 1].baseReward + ' tokens' : '❌ Incorrect'}
+                                            </h4>
+                                            <p>${card.explanation}</p>
+                                        </div>
+                                        
+                                        <div class="mb-4 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
+                                            <h4 class="font-bold text-purple-900 mb-3 flex items-center gap-2">
+                                                💬 Ask AI About This Scenario
+                                            </h4>
+                                            <div class="flex gap-2 mb-3">
+                                                <input type="text" id="aiQuestion" value="${state.aiQuestion}" 
+                                                    placeholder="Ask about the physics or data..." 
+                                                    class="flex-1 p-3 border-2 border-purple-200 rounded-lg"
+                                                    ${state.isAskingAI ? 'disabled' : ''}>
+                                                <button onclick="handleAskAI()" 
+                                                    ${state.isAskingAI || !state.aiQuestion || state.aiQuestion.trim() === '' ? 'disabled' : ''}
+                                                    class="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:bg-gray-400">
+                                                    ${state.isAskingAI ? 'Asking...' : 'Ask'}
+                                                </button>
+                                            </div>
+                                            ${state.aiResponse ? `
+                                                <div class="bg-white p-4 rounded-lg border-2 border-purple-200">
+                                                    <p class="text-gray-700 whitespace-pre-wrap">${state.aiResponse}</p>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                        
+                                        <button onclick="handleNext()" 
+                                            class="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg">
+                                            ${state.currentCard < totalCards ? `Next Card (${state.currentCard + 1} of ${totalCards})` : 'Next Scenario'}
+                                        </button>
+                                    ` : ''}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             `;
             
-            // Add event listener for AI question input
             if (state.showExplanation) {
                 const aiInput = document.getElementById('aiQuestion');
                 if (aiInput) {
@@ -475,9 +576,32 @@
                     currentStreak: 0
                 };
                 state.showAuth = false;
-                state.currentScenarioData = generateScenario(state.difficulty);
+                state.showLevelSelect = true;
                 render();
             }
+        }
+
+        function selectLevel(level) {
+            state.difficulty = level;
+            render();
+        }
+
+        function startGame() {
+            state.showLevelSelect = false;
+            state.currentScenarioData = generateScenario(state.difficulty);
+            render();
+        }
+
+        function showLeaderboard() {
+            state.showLeaderboard = true;
+            state.showAuth = false;
+            render();
+        }
+
+        function hideLeaderboard() {
+            state.showLeaderboard = false;
+            state.showAuth = true;
+            render();
         }
 
         function handleAnswer(answer) {
@@ -488,7 +612,7 @@
             render();
         }
 
-        function handleNext() {
+        async function handleNext() {
             const totalCards = difficultyLevels[state.difficulty - 1].cards;
             const baseReward = difficultyLevels[state.difficulty - 1].baseReward;
             const reward = state.isCorrect ? baseReward : 0;
@@ -497,6 +621,10 @@
             state.user.questionsAnswered++;
             state.user.correctAnswers += state.isCorrect ? 1 : 0;
             state.user.currentStreak = state.isCorrect ? state.user.currentStreak + 1 : 0;
+            
+            if (state.isCorrect) {
+                await saveScore();
+            }
             
             if (state.currentCard < totalCards) {
                 state.currentCard++;
@@ -564,10 +692,10 @@
             state.scenarioNumber = 1;
             state.selectedAnswer = null;
             state.showExplanation = false;
+            state.showDifficultySelector = false;
             render();
         }
 
-        // Initial render
         render();
     </script>
 </body>
