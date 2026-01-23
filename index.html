@@ -250,11 +250,13 @@
             
             if (diffLevel >= 5) {
                 // Calculate components
-                const faceContribution = Math.abs(face * 3);
-                const pathContribution = Math.abs(faceToPath * 5);
-                const totalBeforeWind = faceContribution + pathContribution;
-                const offlineYards = totalBeforeWind + windEffect;
-                const offlineDir = (face + (faceToPath * 0.3) + windEffect * 0.1) > 0 ? "right" : "left";
+                const faceContribution = face * 3; // Keep sign - positive = right, negative = left
+                const curveContribution = faceToPath * 5; // Keep sign - positive = fade right, negative = draw left
+                
+                // Net offline is: where it starts (face) + how much it curves (faceToPath)
+                const netOffline = faceContribution + curveContribution + windEffect;
+                const offlineYards = Math.abs(netOffline);
+                const offlineDir = netOffline > 0 ? "right" : "left";
                 
                 let opts, corr;
                 
@@ -288,19 +290,31 @@
                 // Build detailed calculation explanation
                 const baseFaceToPath = face - path; // WITHOUT gear effect
                 let calcParts = [];
-                calcParts.push(`<strong>Face angle:</strong> ${face}° contributes ~${faceContribution.toFixed(0)} yards ${face > 0 ? 'right' : 'left'}`);
-                calcParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}° (${baseFaceToPath < 0 ? 'draw' : 'fade'}) adds ~${pathContribution.toFixed(0)} yards of curve`);
                 
+                // Show start position from face
+                const faceDir = face > 0 ? "right" : "left";
+                calcParts.push(`<strong>Face angle:</strong> ${face}° contributes ~${Math.abs(faceContribution).toFixed(0)} yards ${faceDir}`);
+                
+                // Show curve from face-to-path
+                const baseFTPDir = baseFaceToPath < 0 ? "draw (left)" : "fade (right)";
+                const baseFTPContribution = baseFaceToPath * 5;
+                calcParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}° ${baseFTPDir} adds ~${Math.abs(baseFTPContribution).toFixed(0)} yards of curve`);
+                
+                // Show gear effect
                 if (gearEffect !== 0) {
-                    const gearYards = Math.abs(gearEffect * 3);
                     const gearDir = gearEffect > 0 ? "fade (right)" : "draw (left)";
-                    calcParts.push(`<strong>Gear effect:</strong> ${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° of ${gearDir} = ~${gearYards.toFixed(0)} yards`);
+                    const gearContribution = gearEffect * 5;
+                    calcParts.push(`<strong>Gear effect:</strong> ${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° of ${gearDir} = ~${Math.abs(gearContribution).toFixed(0)} yards more curve`);
                 }
                 
+                // Show wind
                 if (windEffect !== 0) {
-                    calcParts.push(`<strong>Wind:</strong> ${windDir} pushes ~${Math.abs(windEffect).toFixed(0)} yards ${windEffect > 0 ? 'right' : 'left'}`);
+                    const windDir = windEffect > 0 ? "right" : "left";
+                    calcParts.push(`<strong>Wind:</strong> ${windDir} wind pushes ~${Math.abs(windEffect).toFixed(0)} yards ${windDir}`);
                 }
                 
+                // Show net result
+                calcParts.push(`<strong>Net calculation:</strong> ${faceContribution.toFixed(0)} (start) + ${(curveContribution).toFixed(0)} (curve)${windEffect !== 0 ? ' + ' + windEffect.toFixed(0) + ' (wind)' : ''} = ${netOffline.toFixed(0)} yards`);
                 calcParts.push(`<strong>Total offline:</strong> ~${Math.floor(offlineYards)} yards ${offlineDir}`);
                 
                 cards.push({
