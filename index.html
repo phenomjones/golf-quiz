@@ -6,6 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ball Flight Master</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hint-fade { 
+            color: #9ca3af; 
+            font-size: 0.875rem; 
+            opacity: 0.7;
+            font-style: italic;
+        }
+    </style>
 </head>
 <body>
     <div id="app"></div>
@@ -30,20 +38,21 @@
             boostCountdown: 20,
             boostTimer: null,
             boostCardResults: [], // Track card results for multi-card scenarios
-            boostLost: false
+            boostLost: false,
+            showLevelModal: false
         };
 
         const difficultyLevels = [
-            { level: 1, name: "Beginner", description: "Basic club data only", baseReward: 10, cards: 1, details: "Start your journey! Learn the fundamentals with basic club face and path data." },
-            { level: 2, name: "Casual Golfer", description: "Basic club data with variation", baseReward: 15, cards: 1, details: "Build on the basics with more variety in club speeds and angles." },
-            { level: 3, name: "Club Player", description: "Heel/toe impact added", baseReward: 25, cards: 2, details: "Impact location added. Learn how gear effect creates draws from heel hits and fades from toe hits." },
-            { level: 4, name: "Scratch Golfer", description: "More extreme heel/toe mishits", baseReward: 40, cards: 2, details: "Face more challenging mishits with extreme heel and toe contacts." },
-            { level: 5, name: "Advanced Amateur", description: "High/low face impact added", baseReward: 60, cards: 3, details: "Vertical impact matters! High and low face strikes are introduced along with spin loft data." },
-            { level: 6, name: "Mini-Tour Pro", description: "More severe high/low mishits", baseReward: 85, cards: 3, details: "Handle extreme vertical mishits that drastically affect launch and spin." },
-            { level: 7, name: "PGA Tour Player", description: "Wind conditions added", baseReward: 115, cards: 3, details: "Wind conditions (headwind, tailwind, crosswind) are now part of the equation." },
-            { level: 8, name: "Tour Champion", description: "More complex wind patterns", baseReward: 150, cards: 3, details: "Face stronger and more complex wind scenarios that significantly alter ball flight." },
-            { level: 9, name: "Major Winner", description: "Lie conditions added", baseReward: 200, cards: 3, details: "Uphill, downhill, and sidehill lies are added. Every factor matters now." },
-            { level: 10, name: "PGA Pro Master", description: "All conditions, extreme scenarios", baseReward: 300, cards: 3, details: "The pinnacle of ball flight mastery. Extreme scenarios with all variables at play." }
+            { level: 1, name: "Beginner", description: "Learn face-to-path calculation", baseReward: 10, cards: 2, details: "Learn to calculate face-to-path angle and identify basic shot shapes. Full hints provided." },
+            { level: 2, name: "Casual Golfer", description: "Practice fundamentals", baseReward: 15, cards: 2, details: "Reinforce face-to-path calculations with shot shape recognition. 3 answer options." },
+            { level: 3, name: "Club Player", description: "Add start direction", baseReward: 25, cards: 3, details: "Learn which direction the ball starts. Gear effect from heel/toe impacts introduced. 4 answer options." },
+            { level: 4, name: "Scratch Golfer", description: "Master the basics", baseReward: 40, cards: 3, details: "Solidify understanding of face-to-path, start direction, and shot shapes. More extreme mishits." },
+            { level: 5, name: "Advanced Amateur", description: "Mixed question pool", baseReward: 60, cards: 3, details: "Questions randomized from pool: shot shape, start position (in yards), offline distance. 5 answer options." },
+            { level: 6, name: "Mini-Tour Pro", description: "Advanced concepts", baseReward: 85, cards: 3, details: "New questions: What's the PRIMARY cause? What's the NET curve direction? Hints start fading." },
+            { level: 7, name: "PGA Tour Player", description: "No more hints", baseReward: 115, cards: 3, details: "All directional hints removed. New question: Which variable has LEAST impact? Wind conditions added." },
+            { level: 8, name: "Tour Champion", description: "Hypothetical scenarios", baseReward: 150, cards: 3, details: "Answer hypothetical questions: 'If you changed the face angle, what would happen?' 6 answer options. Trick scenarios appear (15% chance)." },
+            { level: 9, name: "Major Winner", description: "Expert-level analysis", baseReward: 200, cards: 3, details: "All question types in play. Lie conditions (uphill/downhill) affect ball flight. -95% penalty for wrong answers." },
+            { level: 10, name: "Ball Flight Master", description: "Ultimate challenge", baseReward: 300, cards: 3, details: "The pinnacle. All variables, trick scenarios, no hints. Wrong answers cost you the full 300 tokens. Master the physics!" }
         ];
 
         const shotShapeDescriptions = {
@@ -67,6 +76,8 @@
         };
 
         function generateScenario(diffLevel) {
+            let isTrickScenario = false; // Track if this is a trick scenario
+            
             const baseClubSpeed = { driver: 105, wood: 95, iron: 85, wedge: 75 };
             const baseCarryDistance = { driver: 250, wood: 220, iron: 165, wedge: 120 };
             const clubs = diffLevel <= 2 ? ["7 Iron"] : 
@@ -117,11 +128,23 @@
             let windDir = "";
             let impactLocationText = "";
             
-            let faceDisplay = face + "°";
-            let pathDisplay = path + "°";
+            let faceDisplay, pathDisplay;
             
-            faceDisplay += face > 0 ? " (right)" : face < 0 ? " (left)" : "";
-            pathDisplay += path > 0 ? " (right)" : path < 0 ? " (left)" : "";
+            // Progressive hint removal: levels 1-4 full hints, 5-6 faded, 7+ none
+            if (diffLevel <= 4) {
+                faceDisplay = face + "°" + (face > 0 ? " (right)" : face < 0 ? " (left)" : "");
+                pathDisplay = path + "°" + (path > 0 ? " (right)" : path < 0 ? " (left)" : "");
+            } else if (diffLevel <= 6) {
+                // Faded hints with CSS class
+                const faceHint = face > 0 ? ' <span class="hint-fade">(right)</span>' : face < 0 ? ' <span class="hint-fade">(left)</span>' : "";
+                const pathHint = path > 0 ? ' <span class="hint-fade">(right)</span>' : path < 0 ? ' <span class="hint-fade">(left)</span>' : "";
+                faceDisplay = face + "°" + faceHint;
+                pathDisplay = path + "°" + pathHint;
+            } else {
+                // Levels 7-10: no hints at all
+                faceDisplay = face + "°";
+                pathDisplay = path + "°";
+            }
             
             let data = {
                 "Club / Speed / Carry": {
@@ -142,8 +165,30 @@
             };
             
             if (diffLevel >= 3) {
-                const maxImpact = diffLevel === 3 ? 6 : 12;
-                const impact = Math.random() * maxImpact - maxImpact/2;
+                // Trick scenarios: at high levels, occasionally create strong opposing forces
+                const shouldBeTrick = diffLevel >= 8 && Math.random() < 0.15; // 15% chance at levels 8-10
+                
+                let maxImpact = diffLevel === 3 ? 6 : 12;
+                let impact;
+                
+                if (shouldBeTrick) {
+                    isTrickScenario = true; // Mark this as a trick scenario
+                    // Force a trick scenario: strong gear effect opposing face-to-path
+                    maxImpact = 12;
+                    const faceToPath = face - path;
+                    // If face-to-path is positive (fade), create strong toe hit (draw gear)
+                    // If face-to-path is negative (draw), create strong heel hit (fade gear)
+                    if (faceToPath > 0) {
+                        impact = Math.random() * 6 + 6; // Strong toe hit (6-12mm)
+                    } else if (faceToPath < 0) {
+                        impact = -(Math.random() * 6 + 6); // Strong heel hit (-6 to -12mm)
+                    } else {
+                        impact = Math.random() * maxImpact - maxImpact/2; // Random if straight
+                    }
+                } else {
+                    impact = Math.random() * maxImpact - maxImpact/2;
+                }
+                
                 const impactSide = impact > 0 ? "toe" : "heel";
                 data["Impact Location"] = {
                     icon: "📍",
@@ -227,54 +272,155 @@
             }
 
             const cards = [];
-            const allShapes = ["Straight", "Push", "Pull", "Baby draw", "Baby fade", "Draw", "Fade", "Big draw", "Big fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
-            const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, 3);
-            const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
+            const baseFaceToPath = face - path;
             
-            // Always show descriptions for all levels
-            const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
-            
-            // Build explanation for Card 1 (shot shape)
-            let explanationParts = [];
-            explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
-            explanationParts.push(`<strong>Face:</strong> ${face}°`);
-            explanationParts.push(`<strong>Path:</strong> ${path}°`);
-            explanationParts.push(`<strong>Face-to-path:</strong> ${(face - path).toFixed(1)}°`);
-            
-            if (gearEffect !== 0) {
-                const gearDir = gearEffect > 0 ? "fade" : "draw";
-                explanationParts.push(`<strong>Gear effect:</strong> ${impactLocationText} = ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin`);
-                explanationParts.push(`<strong>Total face-to-path:</strong> ${faceToPath.toFixed(1)}° (with gear effect)`);
-            }
-            
-            explanationParts.push(`<strong>Result:</strong> ${shape} - ${shapeDesc}`);
-            
-            const card1Explanation = '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>';
-            
-            cards.push({
-                question: "What will be the shot shape?",
-                options: optionsWithDescriptions,
-                correct: shape + " (" + shapeDesc + ")",
-                correctBase: shape,
-                explanation: card1Explanation
-            });
-            
-            if (diffLevel >= 3) {
+            // LEVEL-BASED CARD GENERATION
+            if (diffLevel <= 2) {
+                // Level 1-2: Teach face-to-path calculation + shot shape
+                cards.push(generateFaceToPathQuestion(face, path, diffLevel));
+                
+                // Then shot shape question
+                const allShapes = ["Straight", "Push", "Pull", "Baby draw", "Baby fade", "Draw", "Fade", "Big draw", "Big fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
+                const numWrongOptions = 2; // 3 total
+                const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
+                const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
+                const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
+                
+                let explanationParts = [];
+                explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
+                explanationParts.push(`<strong>Face:</strong> ${face}°`);
+                explanationParts.push(`<strong>Path:</strong> ${path}°`);
+                explanationParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°`);
+                if (gearEffect !== 0) {
+                    const gearDir = gearEffect > 0 ? "fade" : "draw";
+                    const gearRelation = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0) ? "additional" : "opposing";
+                    const highlightClass = gearRelation === "opposing" ? ' style="color: #dc2626; font-weight: bold;"' : '';
+                    const warningIcon = gearRelation === "opposing" ? "⚠️ " : "";
+                    explanationParts.push(`<strong${highlightClass}>${warningIcon}Gear effect (${gearRelation}):</strong> ${impactLocationText} = ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin`);
+                    explanationParts.push(`<strong>Total face-to-path:</strong> ${faceToPath.toFixed(1)}° (with gear effect)`);
+                }
+                explanationParts.push(`<strong>Result:</strong> ${shape} - ${shapeDesc}`);
+                
+                cards.push({
+                    question: "What will be the shot shape?",
+                    options: optionsWithDescriptions,
+                    correct: shape + " (" + shapeDesc + ")",
+                    correctBase: shape,
+                    explanation: '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
+                });
+                
+            } else if (diffLevel <= 4) {
+                // Level 3-4: face-to-path + start direction + shot shape
+                cards.push(generateFaceToPathQuestion(face, path, diffLevel));
+                
                 cards.push({
                     question: "Will the ball start left or right of the target?",
                     options: ["Left of target", "Right of target", "Straight at target"],
                     correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
                     explanation: `<div><strong>Face angle:</strong> ${face}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
                 });
-            }
-            
-            if (diffLevel >= 5) {
+                
+                // Shot shape
+                const allShapes = ["Straight", "Push", "Pull", "Baby draw", "Baby fade", "Draw", "Fade", "Big draw", "Big fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
+                const numWrongOptions = 3; // 4 total
+                const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
+                const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
+                const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
+                
+                let explanationParts = [];
+                explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
+                explanationParts.push(`<strong>Face:</strong> ${face}°`);
+                explanationParts.push(`<strong>Path:</strong> ${path}°`);
+                explanationParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°`);
+                if (gearEffect !== 0) {
+                    const gearDir = gearEffect > 0 ? "fade" : "draw";
+                    const gearRelation = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0) ? "additional" : "opposing";
+                    const highlightClass = gearRelation === "opposing" ? ' style="color: #dc2626; font-weight: bold;"' : '';
+                    const warningIcon = gearRelation === "opposing" ? "⚠️ " : "";
+                    explanationParts.push(`<strong${highlightClass}>${warningIcon}Gear effect (${gearRelation}):</strong> ${impactLocationText} = ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin`);
+                    explanationParts.push(`<strong>Total face-to-path:</strong> ${faceToPath.toFixed(1)}° (with gear effect)`);
+                }
+                explanationParts.push(`<strong>Result:</strong> ${shape} - ${shapeDesc}`);
+                
+                cards.push({
+                    question: "What will be the shot shape?",
+                    options: optionsWithDescriptions,
+                    correct: shape + " (" + shapeDesc + ")",
+                    correctBase: shape,
+                    explanation: '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
+                });
+                
+            } else {
+                // Level 5+: Mix of questions, progressively harder
+                const questionPool = [];
+                
+                // Shot shape (always available)
+                const allShapes = ["Straight", "Push", "Pull", "Baby draw", "Baby fade", "Draw", "Fade", "Big draw", "Big fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
+                const numWrongOptions = diffLevel <= 7 ? 4 : 5;
+                const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
+                const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
+                const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
+                
+                let explanationParts = [];
+                explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
+                explanationParts.push(`<strong>Face:</strong> ${face}°`);
+                explanationParts.push(`<strong>Path:</strong> ${path}°`);
+                explanationParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°`);
+                if (gearEffect !== 0) {
+                    const gearDir = gearEffect > 0 ? "fade" : "draw";
+                    const gearRelation = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0) ? "additional" : "opposing";
+                    const highlightClass = gearRelation === "opposing" ? ' style="color: #dc2626; font-weight: bold;"' : '';
+                    const warningIcon = gearRelation === "opposing" ? "⚠️ " : "";
+                    explanationParts.push(`<strong${highlightClass}>${warningIcon}Gear effect (${gearRelation}):</strong> ${impactLocationText} = ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin`);
+                    explanationParts.push(`<strong>Total face-to-path:</strong> ${faceToPath.toFixed(1)}° (with gear effect)`);
+                }
+                explanationParts.push(`<strong>Result:</strong> ${shape} - ${shapeDesc}`);
+                
+                questionPool.push({
+                    question: "What will be the shot shape?",
+                    options: optionsWithDescriptions,
+                    correct: shape + " (" + shapeDesc + ")",
+                    correctBase: shape,
+                    explanation: '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
+                });
+                
+                // Start position in yards (Level 5+)
+                questionPool.push(generateStartPositionQuestion(face, physics, diffLevel));
+                
+                // Start direction (Level 5+)
+                questionPool.push({
+                    question: "Will the ball start left or right of the target?",
+                    options: ["Left of target", "Right of target", "Straight at target"],
+                    correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
+                    explanation: `<div><strong>Face angle:</strong> ${face}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
+                });
+                
+                // Advanced questions for level 6+
+                if (diffLevel >= 6) {
+                    questionPool.push(generatePrimaryCauseQuestion(face, path, gearEffect, windEffect, diffLevel));
+                    questionPool.push(generateNetCurveQuestion(baseFaceToPath, gearEffect, windEffect, diffLevel));
+                }
+                
+                // Advanced questions for level 7-10
+                if (diffLevel >= 7) {
+                    questionPool.push(generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
+                }
+                
+                if (diffLevel >= 8) {
+                    // Will add hypothetical after we calculate faceContribution and curveContribution below
+                }
+                
+                // Offline distance (Level 5+) - always include
                 // Calculate components with club-specific physics
                 const faceContribution = face * 3; // Keep sign - positive = right, negative = left
-                const baseFaceToPath = face - path; // WITHOUT gear effect
                 const baseCurveContribution = baseFaceToPath * physics.curveMultiplier; // Use club-specific multiplier
                 const gearContribution = gearEffect * physics.curveMultiplier; // Gear effect also uses club multiplier
                 const curveContribution = baseCurveContribution + gearContribution; // Total curve
+                
+                // Add hypothetical question now that we have the values
+                if (diffLevel >= 8) {
+                    questionPool.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel));
+                }
                 
                 // Net offline is: where it starts (face) + how much it curves (total)
                 const netOffline = faceContribution + curveContribution + windEffect;
@@ -340,7 +486,9 @@
                     const gearYards = Math.abs(gearContribution);
                     const gearSign = gearEffect > 0 ? "right" : "left";
                     const gearRelation = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0) ? "additional" : "opposing";
-                    calcParts.push(`<strong>Gear effect (${gearRelation}):</strong> ${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin = ${gearYards.toFixed(1)} yards ${gearSign}`);
+                    const highlightClass = gearRelation === "opposing" ? ' style="color: #dc2626; font-weight: bold;"' : '';
+                    const warningIcon = gearRelation === "opposing" ? "⚠️ " : "";
+                    calcParts.push(`<strong${highlightClass}>${warningIcon}Gear effect (${gearRelation}):</strong> ${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin = ${gearYards.toFixed(1)} yards ${gearSign}`);
                 }
                 
                 // Show wind if present (keep precision)
@@ -368,15 +516,202 @@
                 calcParts.push(`<strong>Net calculation:</strong> ${netCalc}`);
                 calcParts.push(`<strong>Final result:</strong> ${roundedYards} yards ${offlineDir}`);
                 
-                cards.push({
+                questionPool.push({
                     question: "How far offline will the ball finish from the target?",
                     options: opts,
                     correct: corr,
                     explanation: '<div class="space-y-1">' + calcParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
                 });
+                
+                // Select questions from pool based on number of cards for this level
+                const numCards = difficultyLevels[diffLevel - 1].cards;
+                const selectedQuestions = questionPool.sort(() => Math.random() - 0.5).slice(0, numCards);
+                selectedQuestions.forEach(q => cards.push(q));
             }
             
-            return { data, cards };
+            return { data, cards, isTrickScenario };
+        }
+
+        function getShapeDesc(name) {
+            const descs = {
+                "Straight": "on target, no curve", "Push": "starts right, flies straight", "Pull": "starts left, flies straight",
+                "Baby draw": "slight curve left", "Baby fade": "slight curve right",
+                "Draw": "curves left", "Fade": "curves right",
+                "Big draw": "heavy curve left", "Big fade": "heavy curve right",
+                "Hook": "severe curve left", "Slice": "severe curve right",
+                "Push-draw": "starts right, curves left", "Push-fade": "starts right, curves right",
+                "Push-hook": "starts right, curves severely left", "Push-slice": "starts right, curves strongly back right",
+                "Pull-hook": "starts left, curves severely left", "Pull-fade": "starts left, curves right",
+                "Pull-slice": "starts left, curves strongly back right"
+            };
+            return descs[name] || "";
+        }
+
+        function generateFaceToPathQuestion(face, path, diffLevel) {
+            const correctAnswer = face - path;
+            const numOptions = diffLevel <= 3 ? 3 : diffLevel <= 5 ? 4 : diffLevel <= 7 ? 5 : 6;
+            
+            // Generate wrong answers nearby the correct one
+            let options = [correctAnswer];
+            const possibleWrong = [
+                correctAnswer + 1, correctAnswer - 1,
+                correctAnswer + 2, correctAnswer - 2,
+                correctAnswer + 3, correctAnswer - 3,
+                face + path, // Common mistake: adding instead of subtracting
+                path - face  // Common mistake: reversing the subtraction
+            ].filter(val => val !== correctAnswer);
+            
+            // Shuffle and take needed number of wrong answers
+            const wrongAnswers = possibleWrong.sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
+            options.push(...wrongAnswers);
+            options = options.sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "What is the face-to-path angle?",
+                options: options.map(o => o.toFixed(1) + "°"),
+                correct: correctAnswer.toFixed(1) + "°",
+                explanation: `<div><strong>Calculation:</strong> Face-to-path = Face - Path</div><div>${face.toFixed(1)}° - (${path.toFixed(1)}°) = ${correctAnswer.toFixed(1)}°</div>`
+            };
+        }
+
+        function generateStartPositionQuestion(face, physics, diffLevel) {
+            // Ball starts approximately 3 yards per degree of face angle
+            const startYards = face * 3;
+            const numOptions = diffLevel <= 3 ? 3 : diffLevel <= 5 ? 4 : 5;
+            
+            // Create ranges
+            let correctRange;
+            if (Math.abs(startYards) <= 2) {
+                correctRange = "Straight at target";
+            } else if (startYards > 0) {
+                if (startYards <= 5) correctRange = "0-2 yards right";
+                else if (startYards <= 8) correctRange = "3-5 yards right";
+                else if (startYards <= 12) correctRange = "6-8 yards right";
+                else correctRange = "9+ yards right";
+            } else {
+                if (startYards >= -5) correctRange = "0-2 yards left";
+                else if (startYards >= -8) correctRange = "3-5 yards left";
+                else if (startYards >= -12) correctRange = "6-8 yards left";
+                else correctRange = "9+ yards left";
+            }
+            
+            const allOptions = [
+                "Straight at target",
+                "0-2 yards right", "3-5 yards right", "6-8 yards right", "9+ yards right",
+                "0-2 yards left", "3-5 yards left", "6-8 yards left", "9+ yards left"
+            ];
+            
+            // Get wrong answers
+            const wrongOptions = allOptions.filter(o => o !== correctRange).sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
+            const options = [correctRange, ...wrongOptions].sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "Where will the ball start?",
+                options: options,
+                correct: correctRange,
+                explanation: `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Start distance:</strong> ${Math.abs(startYards).toFixed(1)} yards ${startYards > 0 ? 'right' : 'left'}</div><div>Face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of start direction (~3 yards per degree)</div>`
+            };
+        }
+
+        function generatePrimaryCauseQuestion(face, path, gearEffect, windEffect, diffLevel) {
+            const baseFaceToPath = face - path;
+            const faceContribution = Math.abs(face * 3);
+            const pathContribution = Math.abs(baseFaceToPath * 5);
+            const gearContribution = Math.abs(gearEffect * 5);
+            const windContribution = Math.abs(windEffect);
+            
+            // Find primary cause
+            const causes = [
+                { name: "Face angle", value: faceContribution },
+                { name: "Face-to-path", value: pathContribution },
+                { name: "Gear effect", value: gearContribution },
+                { name: "Wind", value: windContribution }
+            ];
+            causes.sort((a, b) => b.value - a.value);
+            
+            const numOptions = diffLevel <= 7 ? 5 : 6;
+            const options = causes.slice(0, numOptions).map(c => c.name).sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "What is the PRIMARY cause of the ball's final position?",
+                options: options,
+                correct: causes[0].name,
+                explanation: `<div><strong>${causes[0].name}</strong> has the biggest impact with ~${Math.round(causes[0].value)} yards of influence</div><div class="text-sm text-gray-600 mt-2">Others: ${causes.slice(1).map(c => c.name + ' ~' + Math.round(c.value) + 'yds').join(', ')}</div>`
+            };
+        }
+
+        function generateNetCurveQuestion(baseFaceToPath, gearEffect, windEffect, diffLevel) {
+            const totalCurve = baseFaceToPath + gearEffect + (windEffect / 5); // Wind has less effect on curve
+            const netDirection = totalCurve < -0.5 ? "Draw (left)" : totalCurve > 0.5 ? "Fade (right)" : "Straight";
+            
+            const numOptions = diffLevel <= 7 ? 5 : 6;
+            const allOptions = ["Draw (left)", "Fade (right)", "Straight", "Slight draw", "Slight fade", "Heavy draw", "Heavy fade"];
+            const wrongOptions = allOptions.filter(o => o !== netDirection).sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
+            const options = [netDirection, ...wrongOptions].sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "After accounting for ALL factors, will the ball curve left or right?",
+                options: options,
+                correct: netDirection,
+                explanation: `<div><strong>Base face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°</div><div><strong>Gear effect:</strong> ${gearEffect > 0 ? '+' : ''}${gearEffect.toFixed(1)}°</div><div><strong>Wind influence:</strong> ${(windEffect / 5).toFixed(1)}°</div><div class="mt-2"><strong>Net curve:</strong> ${totalCurve.toFixed(1)}° = ${netDirection}</div>`
+            };
+        }
+
+        function generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel) {
+            // What if face was 2° more closed?
+            const newFace = face - 2;
+            const newFaceContribution = newFace * 3;
+            const newNetOffline = newFaceContribution + curveContribution + windEffect;
+            const newRoundedYards = Math.round(Math.abs(newNetOffline));
+            const newDir = newNetOffline > 0 ? "right" : "left";
+            
+            const numOptions = 6;
+            let correctRange;
+            if (newRoundedYards <= 6) correctRange = `0-6 yards ${newDir}`;
+            else if (newRoundedYards <= 13) correctRange = `7-13 yards ${newDir}`;
+            else if (newRoundedYards <= 20) correctRange = `14-20 yards ${newDir}`;
+            else if (newRoundedYards <= 27) correctRange = `21-27 yards ${newDir}`;
+            else correctRange = `28+ yards ${newDir}`;
+            
+            const allOptions = [
+                "0-6 yards left", "7-13 yards left", "14-20 yards left", "21-27 yards left", "28+ yards left",
+                "0-6 yards right", "7-13 yards right", "14-20 yards right", "21-27 yards right", "28+ yards right"
+            ];
+            const wrongOptions = allOptions.filter(o => o !== correctRange).sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
+            const options = [correctRange, ...wrongOptions].sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "If you CLOSED the face by 2° (keeping path the same), where would the ball finish?",
+                options: options,
+                correct: correctRange,
+                explanation: `<div><strong>Original face:</strong> ${face.toFixed(1)}°</div><div><strong>New face:</strong> ${newFace.toFixed(1)}°</div><div><strong>New start direction:</strong> ${Math.abs(newFaceContribution).toFixed(1)} yards ${newFaceContribution > 0 ? 'right' : 'left'}</div><div><strong>Curve stays the same:</strong> ${Math.abs(curveContribution).toFixed(1)} yards</div><div><strong>New final position:</strong> ${newRoundedYards} yards ${newDir}</div>`
+            };
+        }
+
+        function generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel) {
+            const faceContribution = Math.abs(face * 3);
+            const pathContribution = Math.abs((face - path) * 5);
+            const gearContribution = Math.abs(gearEffect * 5);
+            const windContribution = Math.abs(windEffect);
+            
+            // Find LEAST impact
+            const causes = [
+                { name: "Face angle", value: faceContribution },
+                { name: "Face-to-path", value: pathContribution },
+                { name: "Gear effect", value: gearContribution },
+                { name: "Wind", value: windContribution }
+            ];
+            causes.sort((a, b) => a.value - b.value); // Sort ascending - least first
+            
+            const numOptions = 6;
+            const options = causes.slice(0, numOptions).map(c => c.name).sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "Which variable has the LEAST impact on the ball's final position?",
+                options: options,
+                correct: causes[0].name,
+                explanation: `<div><strong>${causes[0].name}</strong> has the smallest impact with only ~${Math.round(causes[0].value)} yards of influence</div><div class="text-sm text-gray-600 mt-2">Others: ${causes.slice(1).map(c => c.name + ' ~' + Math.round(c.value) + 'yds').join(', ')}</div>`
+            };
         }
 
         function getShapeDesc(name) {
@@ -881,8 +1216,17 @@
 
                         <div class="bg-white rounded-lg shadow-2xl">
                             <div class="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-t-lg">
-                                <h2 class="text-2xl font-bold">Level ${state.difficulty} • Scenario #${state.scenarioNumber} • Card ${state.currentCard} of ${totalCards}</h2>
-                                <p class="text-green-100">Base Reward: ${difficultyLevels[state.difficulty - 1].baseReward} tokens</p>
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h2 class="text-2xl font-bold">Level ${state.difficulty} • Scenario #${state.scenarioNumber} • Card ${state.currentCard} of ${totalCards}</h2>
+                                        <p class="text-green-100">Base Reward: ${difficultyLevels[state.difficulty - 1].baseReward} tokens</p>
+                                    </div>
+                                    ${state.currentScenarioData.isTrickScenario ? `
+                                        <div class="bg-yellow-500 text-black px-4 py-2 rounded-lg font-bold text-sm shadow-lg animate-pulse">
+                                            ⚡ TRICK SCENARIO
+                                        </div>
+                                    ` : ''}
+                                </div>
                             </div>
                             <div class="p-6">
                                 <div class="mb-6">
@@ -988,10 +1332,14 @@
                                                     return `<p class="font-bold text-lg">✓ Correct! +${baseReward} tokens</p>`;
                                                 }
                                             } else {
+                                                // Wrong answer - show penalty
+                                                const penaltyPercent = 0.25 + (state.difficulty - 1) * (0.75 / 9);
+                                                const penalty = Math.round(baseReward * penaltyPercent);
+                                                
                                                 if (state.hasUsedBoost && state.confidenceMultiplier > 1) {
-                                                    return `<p class="font-bold text-lg">✗ Wrong!</p><p class="text-sm mt-2 text-red-600">Lost ${state.confidenceMultiplier}x multiplier - no bonus tokens</p>`;
+                                                    return `<p class="font-bold text-lg">✗ Wrong! <span class="text-red-700">-${penalty} tokens</span></p><p class="text-sm mt-2 text-red-600">Lost ${state.confidenceMultiplier}x multiplier AND penalty applied</p>`;
                                                 } else {
-                                                    return `<p class="font-bold text-lg">✗ Wrong!</p>`;
+                                                    return `<p class="font-bold text-lg">✗ Wrong! <span class="text-red-700">-${penalty} tokens</span></p><p class="text-sm mt-2 text-gray-600">Level ${state.difficulty} penalty: ${Math.round(penaltyPercent * 100)}% of base reward</p>`;
                                                 }
                                             }
                                         })()}
@@ -1027,6 +1375,59 @@
                     </div>
                 </div>
             `;
+            
+            // Add level modal overlay if open
+            if (state.showLevelModal) {
+                app.innerHTML += `
+                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="closeLevelModal()">
+                        <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto p-8" onclick="event.stopPropagation()">
+                            <div class="flex justify-between items-center mb-6">
+                                <h2 class="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                                    Select Difficulty Level
+                                </h2>
+                                <button onclick="closeLevelModal()" class="text-gray-500 hover:text-gray-700 text-3xl font-bold">×</button>
+                            </div>
+                            <p class="text-gray-600 mb-6">Change will apply after completing current scenario</p>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                ${difficultyLevels.map(level => `
+                                    <div class="border-2 ${state.difficulty === level.level ? 'border-blue-500 bg-blue-50' : 'border-gray-300'} rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all"
+                                        onclick="selectLevel(${level.level}); closeLevelModal();">
+                                        <div class="flex items-start justify-between mb-3">
+                                            <div>
+                                                <h3 class="text-xl font-bold text-gray-900">Level ${level.level}: ${level.name}</h3>
+                                                <p class="text-sm text-gray-600 mt-1">${level.description}</p>
+                                            </div>
+                                            <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                                                +${level.baseReward} tokens
+                                            </span>
+                                        </div>
+                                        
+                                        <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                                            <p class="text-sm text-gray-700">${level.details}</p>
+                                        </div>
+                                        
+                                        <div class="flex gap-4 text-sm">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-gray-600">Cards:</span>
+                                                <span class="font-semibold">${level.cards}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-gray-600">Reward:</span>
+                                                <span class="font-semibold text-green-600">+${level.baseReward}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-gray-600">Penalty:</span>
+                                                <span class="font-semibold text-red-600">-${Math.round(level.baseReward * (0.25 + (level.level - 1) * (0.75 / 9)))}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
             
             // Add event listener for AI question input
             if (state.showExplanation) {
@@ -1097,7 +1498,15 @@
                 }
             }
             
-            const reward = state.isCorrect ? baseReward * multiplier : 0;
+            // Calculate reward or penalty
+            let reward = 0;
+            if (state.isCorrect) {
+                reward = baseReward * multiplier;
+            } else {
+                // Progressive penalty: 25% at level 1, scaling to 100% at level 10
+                const penaltyPercent = 0.25 + (state.difficulty - 1) * (0.75 / 9);
+                reward = -Math.round(baseReward * penaltyPercent);
+            }
             
             state.user.tokens = Math.max(0, state.user.tokens + reward);
             state.user.questionsAnswered++;
@@ -1173,7 +1582,12 @@
         }
 
         function toggleDifficulty() {
-            state.showDifficultySelector = !state.showDifficultySelector;
+            state.showLevelModal = !state.showLevelModal;
+            render();
+        }
+
+        function closeLevelModal() {
+            state.showLevelModal = false;
             render();
         }
 
