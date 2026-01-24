@@ -7,13 +7,72 @@
     <title>Ball Flight Master</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        :root {
+            --augusta-green: #006747;
+            --augusta-dark: #004d35;
+            --masters-gold: #D4AF37;
+        }
+        
+        body { 
+            margin: 0; 
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
         .hint-fade { 
             color: #9ca3af; 
             font-size: 0.875rem; 
             opacity: 0.7;
             font-style: italic;
         }
+        
+        .golf-bg {
+            background: var(--bg-image);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            position: relative;
+            min-height: 100vh;
+        }
+        
+        .golf-bg::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 0;
+        }
+        
+        .golf-bg > * {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .shot-description {
+            font-size: 0.875rem;
+            color: #6b7280;
+            font-style: italic;
+            margin-top: 0.25rem;
+        }
     </style>
+    <script>
+        // Rotating golf course backgrounds from Pexels
+        const golfBackgrounds = [
+            'https://images.pexels.com/photos/914682/pexels-photo-914682.jpeg?auto=compress&cs=tinysrgb&w=1920', // Fairway view
+            'https://images.pexels.com/photos/1325667/pexels-photo-1325667.jpeg?auto=compress&cs=tinysrgb&w=1920', // Green with flag
+            'https://images.pexels.com/photos/1409068/pexels-photo-1409068.jpeg?auto=compress&cs=tinysrgb&w=1920', // Aerial course
+            'https://images.pexels.com/photos/1325735/pexels-photo-1325735.jpeg?auto=compress&cs=tinysrgb&w=1920', // Golf course landscape
+            'https://images.pexels.com/photos/424729/pexels-photo-424729.jpeg?auto=compress&cs=tinysrgb&w=1920'  // Tee box
+        ];
+        const selectedBg = golfBackgrounds[Math.floor(Math.random() * golfBackgrounds.length)];
+        
+        // Set background with brighter green gradient fallback (Augusta-inspired)
+        document.documentElement.style.setProperty('--bg-image', 
+            `linear-gradient(135deg, #2d7a4f 0%, #1a5c3f 25%, #0f4229 50%, #1a5c3f 75%, #2d7a4f 100%), url('${selectedBg}')`
+        );
+    </script>
 </head>
 <body>
     <div id="app"></div>
@@ -43,36 +102,34 @@
         };
 
         const difficultyLevels = [
-            { level: 1, name: "Beginner", description: "Learn face-to-path calculation", baseReward: 10, cards: 2, details: "Learn to calculate face-to-path angle and identify basic shot shapes. Full hints provided." },
-            { level: 2, name: "Casual Golfer", description: "Practice fundamentals", baseReward: 15, cards: 2, details: "Reinforce face-to-path calculations with shot shape recognition. 3 answer options." },
-            { level: 3, name: "Club Player", description: "Add start direction", baseReward: 25, cards: 3, details: "Learn which direction the ball starts. Gear effect from heel/toe impacts introduced. 4 answer options." },
+            { level: 1, name: "Range Rookie", description: "Learn face-to-path calculation", baseReward: 10, cards: 2, details: "Learn to calculate face-to-path angle and identify basic shot shapes. Full hints provided." },
+            { level: 2, name: "Weekend Warrior", description: "Practice fundamentals", baseReward: 15, cards: 2, details: "Reinforce face-to-path calculations with shot shape recognition. 3 answer options." },
+            { level: 3, name: "Club Champion", description: "Add start direction", baseReward: 25, cards: 3, details: "Learn which direction the ball starts. Gear effect from heel/toe impacts introduced. 4 answer options." },
             { level: 4, name: "Scratch Golfer", description: "Master the basics", baseReward: 40, cards: 3, details: "Solidify understanding of face-to-path, start direction, and shot shapes. More extreme mishits." },
-            { level: 5, name: "Advanced Amateur", description: "Mixed question pool", baseReward: 60, cards: 3, details: "Questions randomized from pool: shot shape, start position (in yards), offline distance. 5 answer options." },
-            { level: 6, name: "Mini-Tour Pro", description: "Advanced concepts", baseReward: 85, cards: 3, details: "New questions: What's the PRIMARY cause? What's the NET curve direction? Hints start fading." },
+            { level: 5, name: "Mini-Tour Pro", description: "Mixed question pool", baseReward: 60, cards: 3, details: "Questions randomized from pool: shot shape, start position (in yards), offline distance. 5 answer options." },
+            { level: 6, name: "Korn Ferry Player", description: "Advanced concepts", baseReward: 85, cards: 3, details: "New questions: What's the PRIMARY cause? What's the NET curve direction? Hints start fading." },
             { level: 7, name: "PGA Tour Player", description: "No more hints", baseReward: 115, cards: 3, details: "All directional hints removed. New question: Which variable has LEAST impact? Wind conditions added." },
-            { level: 8, name: "Tour Champion", description: "Hypothetical scenarios", baseReward: 150, cards: 3, details: "Answer hypothetical questions: 'If you changed the face angle, what would happen?' 6 answer options. Trick scenarios appear (15% chance)." },
-            { level: 9, name: "Major Winner", description: "Expert-level analysis", baseReward: 200, cards: 3, details: "All question types in play. Lie conditions (uphill/downhill) affect ball flight. -95% penalty for wrong answers." },
-            { level: 10, name: "Ball Flight Master", description: "Ultimate challenge", baseReward: 300, cards: 3, details: "The pinnacle. All variables, trick scenarios, no hints. Wrong answers cost you the full 300 tokens. Master the physics!" }
+            { level: 8, name: "Tour Winner", description: "Hypothetical scenarios", baseReward: 150, cards: 3, details: "Answer hypothetical questions: 'If you changed the face angle, what would happen?' 6 answer options. Trick scenarios appear (15% chance)." },
+            { level: 9, name: "Major Champion", description: "Expert-level analysis", baseReward: 200, cards: 3, details: "All question types in play. Lie conditions (uphill/downhill) affect ball flight. -95% penalty for wrong answers." },
+            { level: 10, name: "Masters Champion", description: "Ultimate challenge", baseReward: 300, cards: 3, details: "The pinnacle. All variables, trick scenarios, no hints. Wrong answers cost you the full 300 tokens. Earn your green jacket!" }
         ];
 
         const shotShapeDescriptions = {
-            "Straight": "No curve",
-            "Draw": "Moderate left curve",
-            "Fade": "Moderate right curve",
-            "Baby draw": "Slight left curve",
-            "Baby fade": "Slight right curve",
-            "Big draw": "Heavy left curve",
-            "Big fade": "Heavy right curve",
-            "Hook": "Severe left curve",
-            "Slice": "Severe right curve",
-            "Push-draw": "Starts right, curves left",
-            "Push-fade": "Starts right, curves right",
-            "Pull-draw": "Starts left, curves left",
-            "Pull-fade": "Starts left, curves right",
-            "Push-hook": "Starts right, extreme left",
-            "Pull-hook": "Starts left, extreme left",
-            "Block-slice": "Starts right, severe right",
-            "Pull-slice": "Starts left, extreme right"
+            "Straight": "starts on target, flies straight with minimal curve",
+            "Push": "starts right of target, flies straight right",
+            "Pull": "starts left of target, flies straight left",
+            "Draw": "curves moderately left, consistent predictable shape",
+            "Fade": "curves moderately right, consistent predictable shape",
+            "Hook": "curves severely left, hard to control",
+            "Slice": "curves severely right, hard to control",
+            "Push-draw": "starts right, curves back left toward target",
+            "Push-fade": "starts right, curves further right",
+            "Push-hook": "starts right, curves severely back left",
+            "Push-slice": "starts right, curves strongly further right",
+            "Pull-draw": "starts left, curves further left",
+            "Pull-fade": "starts left, curves back right toward target",
+            "Pull-hook": "starts left, curves severely further left",
+            "Pull-slice": "starts left, curves strongly back right"
         };
 
         function generateScenario(diffLevel) {
@@ -240,7 +297,7 @@
             
             // Determine shape based on tighter thresholds
             const absFTP = Math.abs(faceToPath);
-            const curveType = absFTP <= 0.5 ? "straight" : absFTP <= 1.5 ? "slight" : absFTP <= 3.0 ? "moderate" : absFTP <= 5.0 ? "heavy" : "extreme";
+            const curveType = absFTP <= 0.5 ? "straight" : absFTP <= 3.0 ? "moderate" : absFTP <= 6.0 ? "heavy" : "extreme";
             const startType = Math.abs(face) <= 1 ? "straight" : face > 1 ? "push" : "pull";
             const isDrawCurve = faceToPath < 0;
             
@@ -249,26 +306,24 @@
             
             if (curveType !== "straight") {
                 const curveNames = {
-                    slight: isDrawCurve ? ["Baby draw", "starts straight, slight curve left"] : ["Baby fade", "starts straight, slight curve right"],
-                    moderate: isDrawCurve ? ["Draw", "starts straight, curves left"] : ["Fade", "starts straight, curves right"],
-                    heavy: isDrawCurve ? ["Big draw", "starts straight, heavy curve left"] : ["Big fade", "starts straight, heavy curve right"],
-                    extreme: isDrawCurve ? ["Hook", "starts straight, severe curve left"] : ["Slice", "starts straight, severe curve right"]
+                    moderate: isDrawCurve ? ["Draw", "curves moderately left, consistent predictable shape"] : ["Fade", "curves moderately right, consistent predictable shape"],
+                    heavy: isDrawCurve ? ["Draw", "curves moderately left, consistent predictable shape"] : ["Fade", "curves moderately right, consistent predictable shape"],
+                    extreme: isDrawCurve ? ["Hook", "curves severely left, hard to control"] : ["Slice", "curves severely right, hard to control"]
                 };
                 
                 if (startType === "straight") {
                     [shape, shapeDesc] = curveNames[curveType];
                 } else if (startType === "push") {
-                    if (curveType === "slight") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves back left"] : ["Push-fade", "starts right, curves further right"];
-                    else if (curveType === "moderate") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves back left"] : ["Push-fade", "starts right, curves further right"];
-                    else if (curveType === "heavy") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves strongly back left"] : ["Push-slice", "starts right, curves severely right"];
-                    else [shape, shapeDesc] = isDrawCurve ? ["Push-hook", "starts right, severe curve back left"] : ["Push-slice", "starts right, extreme curve right"];
+                    if (curveType === "moderate") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves back left toward target"] : ["Push-fade", "starts right, curves further right"];
+                    else if (curveType === "heavy") [shape, shapeDesc] = isDrawCurve ? ["Push-draw", "starts right, curves back left toward target"] : ["Push-fade", "starts right, curves further right"];
+                    else [shape, shapeDesc] = isDrawCurve ? ["Push-hook", "starts right, curves severely back left"] : ["Push-slice", "starts right, curves strongly further right"];
                 } else {
-                    if (curveType === "slight" || curveType === "moderate") [shape, shapeDesc] = isDrawCurve ? ["Pull-hook", "starts left, curves further left"] : ["Pull-fade", "starts left, curves back right"];
-                    else [shape, shapeDesc] = isDrawCurve ? ["Pull-hook", "starts left, curves severely left"] : ["Pull-slice", "starts left, curves strongly back right"];
+                    if (curveType === "moderate" || curveType === "heavy") [shape, shapeDesc] = isDrawCurve ? ["Pull-draw", "starts left, curves further left"] : ["Pull-fade", "starts left, curves back right toward target"];
+                    else [shape, shapeDesc] = isDrawCurve ? ["Pull-hook", "starts left, curves severely further left"] : ["Pull-slice", "starts left, curves strongly back right"];
                 }
             } else {
-                if (startType === "push") [shape, shapeDesc] = ["Push", "starts right, flies straight"];
-                else if (startType === "pull") [shape, shapeDesc] = ["Pull", "starts left, flies straight"];
+                if (startType === "push") [shape, shapeDesc] = ["Push", "starts right of target, flies straight right"];
+                else if (startType === "pull") [shape, shapeDesc] = ["Pull", "starts left of target, flies straight left"];
             }
 
             const cards = [];
@@ -280,7 +335,7 @@
                 cards.push(generateFaceToPathQuestion(face, path, diffLevel));
                 
                 // Then shot shape question
-                const allShapes = ["Straight", "Push", "Pull", "Baby draw", "Baby fade", "Draw", "Fade", "Big draw", "Big fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
+                const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
                 const numWrongOptions = 2; // 3 total
                 const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
                 const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
@@ -321,7 +376,7 @@
                 });
                 
                 // Shot shape
-                const allShapes = ["Straight", "Push", "Pull", "Baby draw", "Baby fade", "Draw", "Fade", "Big draw", "Big fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
+                const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
                 const numWrongOptions = 3; // 4 total
                 const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
                 const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
@@ -355,8 +410,15 @@
                 const questionPool = [];
                 
                 // Shot shape (always available)
-                const allShapes = ["Straight", "Push", "Pull", "Baby draw", "Baby fade", "Draw", "Fade", "Big draw", "Big fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
-                const numWrongOptions = diffLevel <= 7 ? 4 : 5;
+                const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
+                
+                // Determine number of options: 1-3=3, 4-6=4, 7-9=5, 10=6
+                let numWrongOptions;
+                if (diffLevel <= 3) numWrongOptions = 2; // 3 total options
+                else if (diffLevel <= 6) numWrongOptions = 3; // 4 total options
+                else if (diffLevel <= 9) numWrongOptions = 4; // 5 total options
+                else numWrongOptions = 5; // 6 total options (level 10)
+                
                 const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
                 const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
                 const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
@@ -534,14 +596,20 @@
 
         function getShapeDesc(name) {
             const descs = {
-                "Straight": "on target, no curve", "Push": "starts right, flies straight", "Pull": "starts left, flies straight",
-                "Baby draw": "slight curve left", "Baby fade": "slight curve right",
-                "Draw": "curves left", "Fade": "curves right",
-                "Big draw": "heavy curve left", "Big fade": "heavy curve right",
-                "Hook": "severe curve left", "Slice": "severe curve right",
-                "Push-draw": "starts right, curves left", "Push-fade": "starts right, curves right",
-                "Push-hook": "starts right, curves severely left", "Push-slice": "starts right, curves strongly back right",
-                "Pull-hook": "starts left, curves severely left", "Pull-fade": "starts left, curves right",
+                "Straight": "starts on target, flies straight with minimal curve", 
+                "Push": "starts right of target, flies straight right", 
+                "Pull": "starts left of target, flies straight left",
+                "Draw": "curves moderately left, consistent predictable shape", 
+                "Fade": "curves moderately right, consistent predictable shape",
+                "Hook": "curves severely left, hard to control", 
+                "Slice": "curves severely right, hard to control",
+                "Push-draw": "starts right, curves back left toward target", 
+                "Push-fade": "starts right, curves further right",
+                "Push-hook": "starts right, curves severely back left", 
+                "Push-slice": "starts right, curves strongly further right",
+                "Pull-draw": "starts left, curves further left",
+                "Pull-fade": "starts left, curves back right toward target",
+                "Pull-hook": "starts left, curves severely further left", 
                 "Pull-slice": "starts left, curves strongly back right"
             };
             return descs[name] || "";
@@ -549,7 +617,7 @@
 
         function generateFaceToPathQuestion(face, path, diffLevel) {
             const correctAnswer = face - path;
-            const numOptions = diffLevel <= 3 ? 3 : diffLevel <= 5 ? 4 : diffLevel <= 7 ? 5 : 6;
+            const numOptions = diffLevel <= 3 ? 3 : diffLevel <= 6 ? 4 : diffLevel <= 9 ? 5 : 6;
             
             // Generate wrong answers nearby the correct one
             let options = [correctAnswer];
@@ -577,7 +645,7 @@
         function generateStartPositionQuestion(face, physics, diffLevel) {
             // Ball starts approximately 3 yards per degree of face angle
             const startYards = face * 3;
-            const numOptions = diffLevel <= 3 ? 3 : diffLevel <= 5 ? 4 : 5;
+            const numOptions = diffLevel <= 3 ? 3 : diffLevel <= 6 ? 4 : diffLevel <= 9 ? 5 : 6;
             
             // Create ranges
             let correctRange;
@@ -629,7 +697,7 @@
             ];
             causes.sort((a, b) => b.value - a.value);
             
-            const numOptions = diffLevel <= 7 ? 5 : 6;
+            const numOptions = diffLevel <= 9 ? 5 : 6;
             const options = causes.slice(0, numOptions).map(c => c.name).sort(() => Math.random() - 0.5);
             
             return {
@@ -644,8 +712,8 @@
             const totalCurve = baseFaceToPath + gearEffect + (windEffect / 5); // Wind has less effect on curve
             const netDirection = totalCurve < -0.5 ? "Draw (left)" : totalCurve > 0.5 ? "Fade (right)" : "Straight";
             
-            const numOptions = diffLevel <= 7 ? 5 : 6;
-            const allOptions = ["Draw (left)", "Fade (right)", "Straight", "Slight draw", "Slight fade", "Heavy draw", "Heavy fade"];
+            const numOptions = diffLevel <= 9 ? 5 : 6;
+            const allOptions = ["Draw (left)", "Fade (right)", "Straight", "Hook (left)", "Slice (right)"];
             const wrongOptions = allOptions.filter(o => o !== netDirection).sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
             const options = [netDirection, ...wrongOptions].sort(() => Math.random() - 0.5);
             
@@ -665,7 +733,7 @@
             const newRoundedYards = Math.round(Math.abs(newNetOffline));
             const newDir = newNetOffline > 0 ? "right" : "left";
             
-            const numOptions = 6;
+            const numOptions = diffLevel <= 9 ? 5 : 6;
             let correctRange;
             if (newRoundedYards <= 6) correctRange = `0-6 yards ${newDir}`;
             else if (newRoundedYards <= 13) correctRange = `7-13 yards ${newDir}`;
@@ -703,7 +771,7 @@
             ];
             causes.sort((a, b) => a.value - b.value); // Sort ascending - least first
             
-            const numOptions = 6;
+            const numOptions = diffLevel <= 9 ? 5 : 6;
             const options = causes.slice(0, numOptions).map(c => c.name).sort(() => Math.random() - 0.5);
             
             return {
@@ -714,20 +782,6 @@
             };
         }
 
-        function getShapeDesc(name) {
-            const descs = {
-                "Straight": "on target, no curve", "Push": "starts right, flies straight", "Pull": "starts left, flies straight",
-                "Baby draw": "slight curve left", "Baby fade": "slight curve right",
-                "Draw": "curves left", "Fade": "curves right",
-                "Big draw": "heavy curve left", "Big fade": "heavy curve right",
-                "Hook": "severe curve left", "Slice": "severe curve right",
-                "Push-draw": "starts right, curves left", "Push-fade": "starts right, curves right",
-                "Push-hook": "starts right, severe curve left", "Push-slice": "starts right, extreme curve right",
-                "Pull-hook": "starts left, curves left", "Pull-fade": "starts left, curves right",
-                "Pull-slice": "starts left, severe curve right"
-            };
-            return descs[name] || name;
-        }
 
         async function saveScore() {
             if (!state.user) return;
@@ -808,6 +862,11 @@
 
         function openLeaderboard() {
             const leaderboardWindow = window.open('', 'Leaderboard', 'width=1100,height=700');
+            
+            if (!leaderboardWindow) {
+                alert('Please allow popups for this site to view the leaderboard!');
+                return;
+            }
             
             loadLeaderboard().then(data => {
                 const { scores, isGlobal } = data;
@@ -1016,25 +1075,29 @@
             
             if (state.showAuth) {
                 app.innerHTML = `
-                    <div class="min-h-screen bg-gradient-to-br from-green-900 via-blue-900 to-purple-900 p-6 flex items-center justify-center">
+                    <div class="min-h-screen golf-bg p-6 flex items-center justify-center">
                         <div class="bg-white rounded-lg shadow-2xl max-w-md w-full">
-                            <div class="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-t-lg">
-                                <h1 class="text-3xl font-bold text-center">Ball Flight Master</h1>
+                            <div class="p-6 rounded-t-lg text-center" style="background: linear-gradient(135deg, var(--augusta-green), var(--augusta-dark));">
+                                <div class="text-6xl mb-3">🏌️‍♂️⛳</div>
+                                <h1 class="text-4xl font-bold text-white mb-2">Ball Flight Master</h1>
+                                <p class="text-sm" style="color: var(--masters-gold); font-weight: 600; letter-spacing: 1px;">EARN THE GREEN JACKET OF GOLF PHYSICS</p>
                             </div>
                             <div class="p-8">
                                 <div class="text-center mb-6">
-                                    <div class="text-6xl mb-4">🎯</div>
-                                    <p class="text-gray-600 mb-6">Master the physics of golf ball flight</p>
+                                    <p class="text-gray-700 text-lg mb-2 font-semibold">Learn the Science Behind Every Shot</p>
+                                    <p class="text-gray-500 text-sm">Learn • Practice • Compete</p>
                                 </div>
                                 <input type="text" id="username" value="${state.username}" 
                                     placeholder="Enter your username" 
-                                    class="w-full p-3 border-2 border-gray-300 rounded-lg mb-4 text-lg">
+                                    class="w-full p-3 border-2 border-gray-300 rounded-lg mb-4 text-lg focus:border-green-600 focus:outline-none">
                                 <button onclick="handleLogin()" 
-                                    class="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg hover:from-green-700 hover:to-blue-700">
-                                    Start Playing
+                                    class="w-full py-3 text-white rounded-lg font-semibold text-lg transition-all hover:opacity-90"
+                                    style="background: var(--augusta-green);">
+                                    ⛳ Start Playing
                                 </button>
                                 <button onclick="openLeaderboard()" 
-                                    class="w-full mt-3 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700">
+                                    class="w-full mt-3 py-3 text-white rounded-lg font-semibold transition-all hover:opacity-90"
+                                    style="background: var(--masters-gold); color: #000;">
                                     🏆 View Leaderboard
                                 </button>
                             </div>
@@ -1049,25 +1112,29 @@
 
             if (state.showLevelSelect) {
                 app.innerHTML = `
-                    <div class="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4">
+                    <div class="min-h-screen golf-bg p-4">
                         <div class="max-w-6xl mx-auto">
                             <div class="bg-white rounded-2xl shadow-2xl p-8 mb-4">
-                                <h1 class="text-4xl font-bold text-center mb-2 bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                                    Welcome, ${state.username}!
-                                </h1>
-                                <p class="text-center text-gray-600 mb-6">Choose your starting level</p>
+                                <div class="text-center mb-2">
+                                    <div class="text-5xl mb-3">⛳</div>
+                                    <h1 class="text-4xl font-bold mb-2" style="color: var(--augusta-green);">
+                                        Welcome, ${state.username}!
+                                    </h1>
+                                    <p class="text-gray-600 mb-6">Choose Your Path to the Green Jacket</p>
+                                </div>
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     ${difficultyLevels.map(level => `
-                                        <div class="border-2 ${state.difficulty === level.level ? 'border-blue-500 bg-blue-50' : 'border-gray-300'} rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all"
+                                        <div class="border-2 rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all ${state.difficulty === level.level ? 'border-green-600 bg-green-50' : 'border-gray-300'}"
+                                            style="${state.difficulty === level.level ? 'border-color: var(--augusta-green);' : ''}"
                                             onclick="selectLevel(${level.level})">
                                             <div class="flex items-start justify-between mb-3">
                                                 <div>
-                                                    <h3 class="text-xl font-bold text-gray-900">Level ${level.level}: ${level.name}</h3>
+                                                    <h3 class="text-xl font-bold text-gray-900">🏌️ Level ${level.level}: ${level.name}</h3>
                                                     <p class="text-sm text-gray-600 mt-1">${level.description}</p>
                                                 </div>
-                                                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                                    +${level.baseReward} tokens
+                                                <span class="px-3 py-1 rounded-full text-sm font-semibold" style="background: var(--masters-gold); color: #000;">
+                                                    +${level.baseReward}
                                                 </span>
                                             </div>
                                             
@@ -1082,7 +1149,7 @@
                                                 </div>
                                                 <div class="flex items-center gap-2">
                                                     <span class="text-gray-600">Reward:</span>
-                                                    <span class="font-semibold text-green-600">+${level.baseReward}</span>
+                                                    <span class="font-semibold" style="color: var(--augusta-green);">+${level.baseReward}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1090,8 +1157,9 @@
                                 </div>
                                 
                                 <button onclick="startGame()" 
-                                    class="w-full mt-6 py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all">
-                                    Start Level ${state.difficulty}: ${difficultyLevels[state.difficulty - 1].name}
+                                    class="w-full mt-6 py-4 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all hover:opacity-90"
+                                    style="background: var(--augusta-green);">
+                                    ⛳ Start Level ${state.difficulty}: ${difficultyLevels[state.difficulty - 1].name}
                                 </button>
                             </div>
                         </div>
@@ -1136,19 +1204,19 @@
                     <button onclick="handleAnswer('${opt.replace(/'/g, "\\'")}')" 
                         ${state.showExplanation ? 'disabled' : ''}
                         class="${btnClass}">
-                        <div class="text-lg font-bold mb-1">${opt}</div>
-                        ${description ? `<div class="text-sm opacity-80">${description}</div>` : ''}
+                        <div class="text-lg font-bold mb-1">${opt.split(' (')[0]}</div>
+                        ${description ? `<div class="shot-description">${description}</div>` : ''}
                     </button>
                 `;
             });
 
             app.innerHTML = `
-                <div class="min-h-screen bg-gradient-to-br from-green-900 via-blue-900 to-purple-900 p-6">
+                <div class="min-h-screen golf-bg p-6">
                     <div class="max-w-5xl mx-auto">
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div class="bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg rounded-lg p-4 text-center">
+                            <div class="text-white shadow-lg rounded-lg p-4 text-center" style="background: linear-gradient(135deg, var(--masters-gold), #B8860B);">
                                 <p class="text-sm opacity-90">Tokens</p>
-                                <p class="text-2xl font-bold">${state.user.tokens}</p>
+                                <p class="text-2xl font-bold text-black">${state.user.tokens}</p>
                             </div>
                             <div class="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg rounded-lg p-4 text-center">
                                 <p class="text-sm opacity-90">Accuracy</p>
@@ -1215,7 +1283,7 @@
                         </div>
 
                         <div class="bg-white rounded-lg shadow-2xl">
-                            <div class="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-t-lg">
+                            <div class="text-white p-6 rounded-t-lg" style="background: linear-gradient(135deg, var(--augusta-green), var(--augusta-dark));">
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <h2 class="text-2xl font-bold">Level ${state.difficulty} • Scenario #${state.scenarioNumber} • Card ${state.currentCard} of ${totalCards}</h2>
