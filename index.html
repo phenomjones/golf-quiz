@@ -26,7 +26,11 @@
             currentScenarioData: null,
             showConfidenceBoost: false,
             confidenceMultiplier: 1,
-            hasUsedBoost: false
+            hasUsedBoost: false,
+            boostCountdown: 20,
+            boostTimer: null,
+            boostCardResults: [], // Track card results for multi-card scenarios
+            boostLost: false
         };
 
         const difficultyLevels = [
@@ -76,10 +80,10 @@
             
             // Club-specific physics
             const clubPhysics = {
-                driver: { startFaceInfluence: 0.85, curveMultiplier: 5, loft: 10 },
-                wood: { startFaceInfluence: 0.82, curveMultiplier: 4.5, loft: 18 },
-                iron: { startFaceInfluence: 0.75, curveMultiplier: 4, loft: 34 },
-                wedge: { startFaceInfluence: 0.70, curveMultiplier: 3, loft: 50 }
+                driver: { startFaceInfluence: 0.85, curveMultiplier: 6, loft: 10, gearMultiplier: 0.6 },
+                wood: { startFaceInfluence: 0.82, curveMultiplier: 5, loft: 18, gearMultiplier: 0.5 },
+                iron: { startFaceInfluence: 0.75, curveMultiplier: 4, loft: 34, gearMultiplier: 0.3 },
+                wedge: { startFaceInfluence: 0.70, curveMultiplier: 3, loft: 50, gearMultiplier: 0.15 }
             };
             const physics = clubPhysics[clubType];
             
@@ -88,11 +92,24 @@
             let speed = baseClubSpeed[clubType] + (Math.random() * speedVariance - speedVariance/2);
             let carry = baseCarryDistance[clubType] + (Math.random() * (speedVariance * 2) - speedVariance);
             
-            // Angles now -11 to +11 for all levels
-            let face = (Math.random() * 22 - 11);
+            // Bell curve distribution for angles using Box-Muller transform
+            // This creates a normal distribution centered at 0
+            function bellCurve(min, max, stdDev) {
+                // Box-Muller transform for normal distribution
+                let u1 = Math.random();
+                let u2 = Math.random();
+                let z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+                // Scale to desired std deviation and clamp to range
+                let value = z * stdDev;
+                return Math.max(min, Math.min(max, value));
+            }
+            
+            // Face: bell curve with std dev of 3° (most shots within ±3°)
+            let face = bellCurve(-11, 11, 3);
             face = parseFloat(face.toFixed(1));
             
-            let path = (Math.random() * 22 - 11);
+            // Path: bell curve with std dev of 3.5° (slightly wider than face)
+            let path = bellCurve(-11, 11, 3.5);
             path = parseFloat(path.toFixed(1));
             
             let gearEffect = 0; // Will be set if impact location exists
@@ -136,7 +153,7 @@
                 
                 // Gear effect: heel creates FADE spin (negative impact = positive gear effect = fade)
                 // toe creates DRAW spin (positive impact = negative gear effect = draw)
-                gearEffect = clubType === "driver" ? impact * -0.3 : impact * -0.15;
+                gearEffect = impact * -physics.gearMultiplier;
                 impactLocationText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
             }
             
@@ -303,48 +320,50 @@
                 }
                 
                 // Build detailed calculation explanation
+                // baseFaceToPath already calculated above
                 let calcParts = [];
                 
-                // Show start position from face
-                const faceDir = face > 0 ? "right" : "left";
-                const faceYards = Math.abs(faceContribution).toFixed(0);
-                calcParts.push(`<strong>Start direction (face):</strong> ${face}° = ${faceYards} yards ${faceDir}`);
+                // Show start position from face (keep precision)
+                const faceDir = faceContribution > 0 ? "right" : "left";
+                const faceYards = Math.abs(faceContribution);
+                calcParts.push(`<strong>Start direction (face):</strong> ${face}° = ${faceYards.toFixed(1)} yards ${faceDir}`);
                 
-                // Show base curve from face-to-path
+                // Show base curve from face-to-path (keep precision)
                 const baseFTPDir = baseFaceToPath < 0 ? "draw" : "fade";
-                const baseFTPYards = Math.abs(baseCurveContribution).toFixed(0);
+                const baseFTPYards = Math.abs(baseCurveContribution);
                 const baseFTPSign = baseFaceToPath < 0 ? "left" : "right";
-                calcParts.push(`<strong>Face-to-path curve:</strong> ${baseFaceToPath.toFixed(1)}° ${baseFTPDir} = ${baseFTPYards} yards ${baseFTPSign}`);
+                calcParts.push(`<strong>Face-to-path curve:</strong> ${baseFaceToPath.toFixed(1)}° ${baseFTPDir} = ${baseFTPYards.toFixed(1)} yards ${baseFTPSign}`);
                 
-                // Show gear effect if present
+                // Show gear effect if present (keep precision)
                 if (gearEffect !== 0) {
                     const gearDir = gearEffect > 0 ? "fade" : "draw";
-                    const gearYards = Math.abs(gearContribution).toFixed(0);
+                    const gearYards = Math.abs(gearContribution);
                     const gearSign = gearEffect > 0 ? "right" : "left";
                     const gearRelation = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0) ? "additional" : "opposing";
-                    calcParts.push(`<strong>Gear effect (${gearRelation}):</strong> ${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin = ${gearYards} yards ${gearSign}`);
+                    calcParts.push(`<strong>Gear effect (${gearRelation}):</strong> ${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin = ${gearYards.toFixed(1)} yards ${gearSign}`);
                 }
                 
-                // Show wind if present
+                // Show wind if present (keep precision)
                 if (windEffect !== 0) {
                     const windSign = windEffect > 0 ? "right" : "left";
-                    const windYards = Math.abs(windEffect).toFixed(0);
-                    calcParts.push(`<strong>Wind:</strong> ${windDir} = ${windYards} yards ${windSign}`);
+                    const windYards = Math.abs(windEffect);
+                    calcParts.push(`<strong>Wind:</strong> ${windDir} = ${windYards.toFixed(1)} yards ${windSign}`);
                 }
                 
-                // Show net calculation with clear signs
-                const faceSign = face > 0 ? "+" : "";
-                const curveSign = curveContribution > 0 ? "+" : "";
-                const windSign = windEffect !== 0 ? (windEffect > 0 ? "+" : "") : "";
-                const faceLabel = face > 0 ? " right" : " left";
-                const curveLabel = curveContribution > 0 ? " right" : " left";
-                const windLabel = windEffect > 0 ? " right" : windEffect < 0 ? " left" : "";
+                // Show net calculation with ALL THREE components separately
+                let netCalcParts = [];
+                netCalcParts.push(`${faceContribution > 0 ? '+' : ''}${faceContribution.toFixed(1)} ${faceContribution > 0 ? 'right' : 'left'}`);
+                netCalcParts.push(`${baseCurveContribution > 0 ? '+' : ''}${baseCurveContribution.toFixed(1)} ${baseCurveContribution > 0 ? 'right' : 'left'}`);
                 
-                let netCalc = `${faceSign}${faceContribution.toFixed(0)}${faceLabel} ${curveSign}${curveContribution.toFixed(0)}${curveLabel}`;
+                if (gearEffect !== 0) {
+                    netCalcParts.push(`${gearContribution > 0 ? '+' : ''}${gearContribution.toFixed(1)} ${gearContribution > 0 ? 'right' : 'left'}`);
+                }
+                
                 if (windEffect !== 0) {
-                    netCalc += ` ${windSign}${windEffect.toFixed(0)}${windLabel}`;
+                    netCalcParts.push(`${windEffect > 0 ? '+' : ''}${windEffect.toFixed(1)} ${windEffect > 0 ? 'right' : 'left'}`);
                 }
-                netCalc += ` = ${netOffline.toFixed(0)} yards`;
+                
+                const netCalc = netCalcParts.join(' ') + ` = ${netOffline.toFixed(1)} yards`;
                 
                 calcParts.push(`<strong>Net calculation:</strong> ${netCalc}`);
                 calcParts.push(`<strong>Final result:</strong> ${roundedYards} yards ${offlineDir}`);
@@ -378,84 +397,232 @@
         async function saveScore() {
             if (!state.user) return;
             
+            const timestamp = new Date().toISOString();
+            const scoreData = {
+                name: state.user.name,
+                level: state.difficulty,
+                tokens: state.user.tokens,
+                questionsAnswered: state.user.questionsAnswered,
+                correctAnswers: state.user.correctAnswers,
+                accuracy: state.user.questionsAnswered > 0 ? 
+                    Math.round((state.user.correctAnswers / state.user.questionsAnswered) * 100) : 0,
+                bestStreak: state.user.bestStreak,
+                timestamp: timestamp,
+                displayTime: new Date(timestamp).toLocaleString()
+            };
+            
+            const key = 'score_' + state.user.name + '_' + Date.now();
+            
+            // Try window.storage first (global), fallback to localStorage
             try {
-                const timestamp = new Date().toISOString();
-                const scoreData = {
-                    name: state.user.name,
-                    level: state.difficulty,
-                    tokens: state.user.tokens,
-                    questionsAnswered: state.user.questionsAnswered,
-                    correctAnswers: state.user.correctAnswers,
-                    accuracy: state.user.questionsAnswered > 0 ? 
-                        Math.round((state.user.correctAnswers / state.user.questionsAnswered) * 100) : 0,
-                    timestamp: timestamp,
-                    displayTime: new Date(timestamp).toLocaleString()
-                };
-                
-                const key = 'score_' + state.user.name + '_' + Date.now();
                 await window.storage.set(key, JSON.stringify(scoreData), true);
             } catch (error) {
-                console.error('Failed to save score:', error);
+                // Fallback to localStorage
+                try {
+                    localStorage.setItem(key, JSON.stringify(scoreData));
+                } catch (e) {
+                    console.log('Storage not available:', e.message);
+                }
             }
         }
 
         async function loadLeaderboard() {
+            let isGlobal = false;
+            let scores = [];
+            
+            // Try window.storage first (global)
             try {
                 const result = await window.storage.list('score_', true);
-                if (!result || !result.keys) return [];
-                
-                const scores = [];
-                for (const key of result.keys) {
-                    try {
-                        const scoreResult = await window.storage.get(key, true);
-                        if (scoreResult && scoreResult.value) {
-                            scores.push(JSON.parse(scoreResult.value));
+                if (result && result.keys) {
+                    isGlobal = true;
+                    for (const key of result.keys) {
+                        try {
+                            const scoreResult = await window.storage.get(key, true);
+                            if (scoreResult && scoreResult.value) {
+                                scores.push(JSON.parse(scoreResult.value));
+                            }
+                        } catch (e) {
+                            console.error('Failed to load score:', e);
                         }
-                    } catch (e) {
-                        console.error('Failed to load score:', e);
                     }
                 }
-                
-                scores.sort((a, b) => {
-                    if (b.tokens !== a.tokens) return b.tokens - a.tokens;
-                    return new Date(b.timestamp) - new Date(a.timestamp);
-                });
-                
-                return scores.slice(0, 50);
             } catch (error) {
-                console.error('Failed to load leaderboard:', error);
-                return [];
+                // Fallback to localStorage
+                try {
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith('score_')) {
+                            const value = localStorage.getItem(key);
+                            if (value) {
+                                scores.push(JSON.parse(value));
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to load from localStorage:', e);
+                }
             }
+            
+            scores.sort((a, b) => {
+                if (b.tokens !== a.tokens) return b.tokens - a.tokens;
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            });
+            
+            return { scores: scores.slice(0, 50), isGlobal };
         }
 
         function openLeaderboard() {
-            const leaderboardWindow = window.open('', 'Leaderboard', 'width=900,height=700');
+            const leaderboardWindow = window.open('', 'Leaderboard', 'width=1100,height=700');
             
-            loadLeaderboard().then(scores => {
-                let html = '<!DOCTYPE html><html><head><title>Leaderboard</title><script src="https://cdn.tailwindcss.com"><' + '/script></head><body class="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 p-8"><div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-8"><h1 class="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">🏆 Leaderboard</h1>';
+            loadLeaderboard().then(data => {
+                const { scores, isGlobal } = data;
+                
+                let html = `<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaderboard</title>
+    <script src="https://cdn.tailwindcss.com"><` + `/script>
+    <style>
+        th { cursor: pointer; user-select: none; }
+        th:hover { background-color: #f3f4f6; }
+        .sort-arrow { display: inline-block; margin-left: 4px; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 p-8">
+    <div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl p-8">
+        <h1 class="text-4xl font-bold text-center mb-4 bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
+            🏆 Leaderboard
+        </h1>
+        <div class="text-center mb-6">
+            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold ${isGlobal ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">
+                ${isGlobal ? '🌍 Global Leaderboard - Compete with players worldwide!' : '📊 Personal High Scores - Playing in local mode'}
+            </span>
+        </div>
+        
+        <div class="mb-4">
+            <label class="font-semibold mr-2">Filter by Level:</label>
+            <select id="levelFilter" onchange="filterScores()" class="px-4 py-2 border-2 border-gray-300 rounded-lg">
+                <option value="all">All Levels</option>`;
+                
+                for (let i = 1; i <= 10; i++) {
+                    html += `<option value="${i}">Level ${i}: ${difficultyLevels[i-1].name}</option>`;
+                }
+                
+                html += `
+            </select>
+        </div>`;
                 
                 if (scores.length === 0) {
                     html += '<div class="text-center py-12"><p class="text-xl text-gray-600">No scores yet. Be the first!</p></div>';
                 } else {
-                    html += '<div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2 border-gray-300"><th class="text-left py-3 px-4 font-bold text-gray-700">Rank</th><th class="text-left py-3 px-4 font-bold text-gray-700">Player</th><th class="text-left py-3 px-4 font-bold text-gray-700">Level</th><th class="text-left py-3 px-4 font-bold text-gray-700">Tokens</th><th class="text-left py-3 px-4 font-bold text-gray-700">Accuracy</th><th class="text-left py-3 px-4 font-bold text-gray-700">Last Played</th></tr></thead><tbody>';
-                    
-                    scores.forEach((score, idx) => {
-                        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1);
-                        const rowClass = idx < 3 ? 'bg-yellow-50' : '';
-                        html += '<tr class="border-b border-gray-200 hover:bg-gray-50 ' + rowClass + '">';
-                        html += '<td class="py-3 px-4 font-semibold">' + medal + '</td>';
-                        html += '<td class="py-3 px-4 font-medium">' + score.name + '</td>';
-                        html += '<td class="py-3 px-4"><span class="text-sm">' + difficultyLevels[score.level - 1].name + '</span></td>';
-                        html += '<td class="py-3 px-4"><span class="font-bold text-blue-600">' + score.tokens + '</span></td>';
-                        html += '<td class="py-3 px-4"><span class="text-sm">' + score.accuracy + '%</span><span class="text-xs text-gray-500">(' + score.correctAnswers + '/' + score.questionsAnswered + ')</span></td>';
-                        html += '<td class="py-3 px-4 text-sm text-gray-600">' + score.displayTime + '</td>';
-                        html += '</tr>';
-                    });
-                    
-                    html += '</tbody></table></div>';
+                    html += `
+        <div class="overflow-x-auto">
+            <table class="w-full" id="leaderboardTable">
+                <thead>
+                    <tr class="border-b-2 border-gray-300">
+                        <th class="text-left py-3 px-4 font-bold text-gray-700">Rank</th>
+                        <th class="text-left py-3 px-4 font-bold text-gray-700">Player</th>
+                        <th class="text-left py-3 px-4 font-bold text-gray-700">Level</th>
+                        <th class="text-left py-3 px-4 font-bold text-gray-700" onclick="sortBy('tokens')">Tokens <span class="sort-arrow" id="arrow-tokens">↓</span></th>
+                        <th class="text-left py-3 px-4 font-bold text-gray-700" onclick="sortBy('accuracy')">Accuracy <span class="sort-arrow" id="arrow-accuracy"></span></th>
+                        <th class="text-left py-3 px-4 font-bold text-gray-700" onclick="sortBy('correctAnswers')">Correct <span class="sort-arrow" id="arrow-correctAnswers"></span></th>
+                        <th class="text-left py-3 px-4 font-bold text-gray-700" onclick="sortBy('bestStreak')">Best Streak <span class="sort-arrow" id="arrow-bestStreak"></span></th>
+                        <th class="text-left py-3 px-4 font-bold text-gray-700" onclick="sortBy('timestamp')">Last Played <span class="sort-arrow" id="arrow-timestamp"></span></th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody">
+                </tbody>
+            </table>
+        </div>`;
                 }
                 
-                html += '</div></body></html>';
+                html += `
+    </div>
+    <script>
+        let allScores = ${JSON.stringify(scores)};
+        let currentSort = { field: 'tokens', ascending: false };
+        let currentFilter = 'all';
+        
+        const difficultyLevels = ${JSON.stringify(difficultyLevels)};
+        
+        function renderTable(scoresToShow) {
+            const tbody = document.getElementById('leaderboardBody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            scoresToShow.forEach((score, idx) => {
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1);
+                const rowClass = idx < 3 ? 'bg-yellow-50' : '';
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-200 hover:bg-gray-50 ' + rowClass;
+                row.innerHTML = \`
+                    <td class="py-3 px-4 font-semibold">\${medal}</td>
+                    <td class="py-3 px-4 font-medium">\${score.name}</td>
+                    <td class="py-3 px-4"><span class="text-sm">\${difficultyLevels[score.level - 1].name}</span></td>
+                    <td class="py-3 px-4"><span class="font-bold text-blue-600">\${score.tokens}</span></td>
+                    <td class="py-3 px-4"><span class="text-sm">\${score.accuracy}%</span></td>
+                    <td class="py-3 px-4"><span class="font-bold text-green-600">\${score.correctAnswers}</span></td>
+                    <td class="py-3 px-4"><span class="font-bold text-purple-600">\${score.bestStreak || 0}</span></td>
+                    <td class="py-3 px-4 text-sm text-gray-600">\${score.displayTime}</td>
+                \`;
+                tbody.appendChild(row);
+            });
+        }
+        
+        function sortBy(field) {
+            if (currentSort.field === field) {
+                currentSort.ascending = !currentSort.ascending;
+            } else {
+                currentSort.field = field;
+                currentSort.ascending = field === 'timestamp';
+            }
+            
+            // Clear all arrows
+            document.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
+            
+            // Set current arrow
+            const arrow = document.getElementById('arrow-' + field);
+            if (arrow) arrow.textContent = currentSort.ascending ? '↑' : '↓';
+            
+            const filtered = filterScores(true);
+            const sorted = [...filtered].sort((a, b) => {
+                let aVal = a[field];
+                let bVal = b[field];
+                
+                if (field === 'timestamp') {
+                    aVal = new Date(aVal);
+                    bVal = new Date(bVal);
+                }
+                
+                if (currentSort.ascending) {
+                    return aVal > bVal ? 1 : -1;
+                } else {
+                    return aVal < bVal ? 1 : -1;
+                }
+            });
+            
+            renderTable(sorted);
+        }
+        
+        function filterScores(returnOnly = false) {
+            currentFilter = document.getElementById('levelFilter').value;
+            
+            let filtered = allScores;
+            if (currentFilter !== 'all') {
+                filtered = allScores.filter(s => s.level === parseInt(currentFilter));
+            }
+            
+            if (returnOnly) return filtered;
+            
+            sortBy(currentSort.field);
+        }
+        
+        // Initial render
+        renderTable(allScores);
+    <` + `/script>
+</body>
+</html>`;
+                
                 leaderboardWindow.document.write(html);
                 leaderboardWindow.document.close();
             });
@@ -478,8 +645,21 @@
             if (Math.random() < 0.2 && !state.showConfidenceBoost) {
                 state.showConfidenceBoost = true;
                 state.hasUsedBoost = false;
+                state.boostCountdown = 20;
                 // 50% chance to show before question, 50% after seeing the question
                 state.boostTiming = Math.random() < 0.5 ? 'before' : 'after';
+                
+                // Start countdown timer
+                if (state.boostTimer) clearInterval(state.boostTimer);
+                state.boostTimer = setInterval(() => {
+                    state.boostCountdown--;
+                    if (state.boostCountdown <= 0) {
+                        clearInterval(state.boostTimer);
+                        state.showConfidenceBoost = false;
+                        state.confidenceMultiplier = 1;
+                    }
+                    render();
+                }, 1000);
             }
         }
 
@@ -487,6 +667,12 @@
             state.confidenceMultiplier = multiplier;
             state.showConfidenceBoost = false;
             state.hasUsedBoost = true;
+            state.boostCardResults = [];
+            state.boostLost = false;
+            if (state.boostTimer) {
+                clearInterval(state.boostTimer);
+                state.boostTimer = null;
+            }
             render();
         }
 
@@ -643,6 +829,32 @@
                             </div>
                         </div>
 
+                        ${state.hasUsedBoost ? `
+                            <div class="mb-6 p-4 rounded-xl shadow-lg ${state.boostLost ? 'bg-gray-300 opacity-75' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}">
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold ${state.boostLost ? 'text-gray-700' : 'text-white'} mb-2">
+                                        ${state.boostLost ? '❌' : '🎯'} ${state.boostLost ? '<span class="line-through">' + state.confidenceMultiplier + 'x</span>' : state.confidenceMultiplier + 'x'} BOOST ${state.boostLost ? 'LOST' : 'ACTIVE'}
+                                    </div>
+                                    <div class="flex justify-center items-center gap-2 mb-2">
+                                        <span class="${state.boostLost ? 'text-gray-700' : 'text-white'} font-semibold">Progress:</span>
+                                        ${Array.from({length: difficultyLevels[state.difficulty - 1].cards}, (_, i) => {
+                                            if (i < state.boostCardResults.length) {
+                                                return state.boostCardResults[i] ? '<span class="text-2xl">✓</span>' : '<span class="text-2xl text-red-600">✗</span>';
+                                            } else {
+                                                return '<span class="text-2xl text-white">○</span>';
+                                            }
+                                        }).join('')}
+                                        <span class="${state.boostLost ? 'text-gray-700' : 'text-white'} text-sm">(${state.boostCardResults.length}/${difficultyLevels[state.difficulty - 1].cards} cards)</span>
+                                    </div>
+                                    ${state.boostLost ? `
+                                        <div class="text-sm text-gray-700 font-semibold">Failed Card ${state.boostCardResults.findIndex(r => !r) + 1}</div>
+                                    ` : state.boostCardResults.length > 0 && state.boostCardResults.length < difficultyLevels[state.difficulty - 1].cards ? `
+                                        <div class="text-sm text-white font-semibold">Still eligible! ${difficultyLevels[state.difficulty - 1].cards - state.boostCardResults.length} card(s) remaining</div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <div class="bg-white rounded-lg shadow-lg p-4 mb-6">
                             <div class="flex justify-between items-center">
                                 <div>
@@ -679,11 +891,26 @@
                                     </div>
                                 </div>
 
-                                ${state.showConfidenceBoost && state.boostTiming === 'before' ? `
+                                ${state.showConfidenceBoost && !state.selectedAnswer && state.boostTiming === 'before' ? `
                                     <div class="mb-6 p-6 bg-gradient-to-r from-yellow-400 to-orange-500 border-4 border-yellow-600 rounded-xl shadow-2xl">
                                         <h3 class="text-3xl font-bold text-white mb-3 text-center">🎯 CONFIDENCE BOOSTER! 🎯</h3>
                                         <p class="text-white text-lg mb-4 text-center">We're showing you this BEFORE revealing the question! This is a true test of confidence.</p>
                                         <p class="text-white font-semibold mb-4 text-center">Choose your multiplier now, then answer the question:</p>
+                                        
+                                        <!-- Bomb Countdown -->
+                                        <div class="mb-4 bg-white/30 rounded-lg p-3">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-white font-bold">Time remaining: ${state.boostCountdown}s</span>
+                                                <span class="text-white font-bold">${state.boostCountdown <= 5 ? '⚠️ HURRY!' : ''}</span>
+                                            </div>
+                                            <div class="relative h-8 bg-white/20 rounded-full overflow-hidden">
+                                                <div class="absolute top-0 left-0 h-full bg-red-500/50 transition-all duration-1000" style="width: ${(state.boostCountdown / 20) * 100}%"></div>
+                                                <div class="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style="left: ${((20 - state.boostCountdown) / 20) * 100}%">
+                                                    <span class="text-3xl">${state.boostCountdown <= 3 ? '💥' : '💣'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
                                         <div class="grid grid-cols-3 gap-4">
                                             <button onclick="selectConfidence(1)" class="bg-white text-gray-900 p-4 rounded-lg font-bold text-xl hover:bg-gray-100 transition-all">
                                                 1x<br><span class="text-sm">Play it safe</span>
@@ -698,11 +925,26 @@
                                     </div>
                                 ` : ''}
 
-                                ${state.showConfidenceBoost && state.boostTiming === 'after' ? `
+                                ${state.showConfidenceBoost && !state.selectedAnswer && state.boostTiming === 'after' ? `
                                     <div class="mb-6 p-6 bg-gradient-to-r from-blue-400 to-purple-500 border-4 border-blue-600 rounded-xl shadow-2xl">
                                         <h3 class="text-3xl font-bold text-white mb-3 text-center">🎯 CONFIDENCE BOOSTER! 🎯</h3>
                                         <p class="text-white text-lg mb-4 text-center">You've seen the question and data. How confident are you?</p>
                                         <p class="text-white font-semibold mb-4 text-center">Choose your multiplier:</p>
+                                        
+                                        <!-- Bomb Countdown -->
+                                        <div class="mb-4 bg-white/30 rounded-lg p-3">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-white font-bold">Time remaining: ${state.boostCountdown}s</span>
+                                                <span class="text-white font-bold">${state.boostCountdown <= 5 ? '⚠️ HURRY!' : ''}</span>
+                                            </div>
+                                            <div class="relative h-8 bg-white/20 rounded-full overflow-hidden">
+                                                <div class="absolute top-0 left-0 h-full bg-red-500/50 transition-all duration-1000" style="width: ${(state.boostCountdown / 20) * 100}%"></div>
+                                                <div class="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style="left: ${((20 - state.boostCountdown) / 20) * 100}%">
+                                                    <span class="text-3xl">${state.boostCountdown <= 3 ? '💥' : '💣'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
                                         <div class="grid grid-cols-3 gap-4">
                                             <button onclick="selectConfidence(1)" class="bg-white text-gray-900 p-4 rounded-lg font-bold text-xl hover:bg-gray-100 transition-all">
                                                 1x<br><span class="text-sm">Not sure</span>
@@ -725,9 +967,34 @@
 
                                 ${state.showExplanation ? `
                                     <div class="p-4 rounded-lg mb-4 ${state.isCorrect ? 'bg-green-50 border-2 border-green-500' : 'bg-red-50 border-2 border-red-500'}">
-                                        <p class="font-bold text-lg">
-                                            ${state.isCorrect ? '✓ Correct! +' + (difficultyLevels[state.difficulty - 1].baseReward * (state.hasUsedBoost ? state.confidenceMultiplier : 1)) + ' tokens' + (state.hasUsedBoost && state.confidenceMultiplier > 1 ? ` (${state.confidenceMultiplier}x multiplier!)` : '') : '✗ Wrong!' + (state.hasUsedBoost && state.confidenceMultiplier > 1 ? ' (No tokens with multiplier)' : '')}
-                                        </p>
+                                        ${(() => {
+                                            const totalCards = difficultyLevels[state.difficulty - 1].cards;
+                                            const baseReward = difficultyLevels[state.difficulty - 1].baseReward;
+                                            const isLastCard = state.currentCard >= totalCards;
+                                            const allCorrect = state.boostCardResults.every(r => r === true) && state.boostCardResults.length === totalCards;
+                                            
+                                            if (state.isCorrect) {
+                                                if (state.hasUsedBoost && isLastCard) {
+                                                    if (allCorrect && !state.boostLost) {
+                                                        const multipliedReward = baseReward * state.confidenceMultiplier;
+                                                        return `<p class="font-bold text-lg">✓ Correct! You got ALL ${totalCards} cards correct!</p><p class="text-lg mt-2">🎯 ${state.confidenceMultiplier}x multiplier applied: <span class="text-green-700">+${multipliedReward} tokens</span> (${baseReward} base × ${state.confidenceMultiplier})</p>`;
+                                                    } else {
+                                                        return `<p class="font-bold text-lg">✓ Correct! +${baseReward} tokens</p><p class="text-sm mt-2 text-red-600">Lost ${state.confidenceMultiplier}x multiplier from earlier incorrect answer</p>`;
+                                                    }
+                                                } else if (state.hasUsedBoost && !isLastCard) {
+                                                    const remaining = totalCards - state.currentCard;
+                                                    return `<p class="font-bold text-lg">✓ Correct! Still eligible for ${state.confidenceMultiplier}x boost!</p><p class="text-sm mt-2">${remaining} card(s) remaining - get them all correct to earn the bonus!</p>`;
+                                                } else {
+                                                    return `<p class="font-bold text-lg">✓ Correct! +${baseReward} tokens</p>`;
+                                                }
+                                            } else {
+                                                if (state.hasUsedBoost && state.confidenceMultiplier > 1) {
+                                                    return `<p class="font-bold text-lg">✗ Wrong!</p><p class="text-sm mt-2 text-red-600">Lost ${state.confidenceMultiplier}x multiplier - no bonus tokens</p>`;
+                                                } else {
+                                                    return `<p class="font-bold text-lg">✗ Wrong!</p>`;
+                                                }
+                                            }
+                                        })()}
                                     </div>
                                     <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300 mb-4">
                                         <h4 class="font-bold text-blue-900 mb-3">Explanation:</h4>
@@ -779,7 +1046,8 @@
                     tokens: 100,
                     questionsAnswered: 0,
                     correctAnswers: 0,
-                    currentStreak: 0
+                    currentStreak: 0,
+                    bestStreak: 0
                 };
                 state.showAuth = false;
                 state.showLevelSelect = true;
@@ -788,23 +1056,58 @@
         }
 
         function handleAnswer(answer) {
+            // Hide confidence boost countdown once answer is selected
+            if (state.showConfidenceBoost) {
+                state.showConfidenceBoost = false;
+                if (state.boostTimer) {
+                    clearInterval(state.boostTimer);
+                    state.boostTimer = null;
+                }
+            }
+            
             state.selectedAnswer = answer;
             const card = state.currentScenarioData.cards[state.currentCard - 1];
             state.isCorrect = card.correctBase ? answer.split(' (')[0] === card.correctBase : answer === card.correct;
             state.showExplanation = true;
+            
+            // Track boost progress if active
+            if (state.hasUsedBoost && !state.boostLost) {
+                state.boostCardResults.push(state.isCorrect);
+                if (!state.isCorrect) {
+                    state.boostLost = true;
+                }
+            }
+            
             render();
         }
 
         function handleNext() {
             const totalCards = difficultyLevels[state.difficulty - 1].cards;
             const baseReward = difficultyLevels[state.difficulty - 1].baseReward;
-            const multiplier = state.hasUsedBoost ? state.confidenceMultiplier : 1;
+            
+            // Determine if boost applies (only on last card of scenario)
+            let multiplier = 1;
+            let allCardsCorrect = false;
+            
+            if (state.currentCard >= totalCards && state.hasUsedBoost) {
+                // Check if ALL cards were correct
+                allCardsCorrect = state.boostCardResults.every(result => result === true) && state.boostCardResults.length === totalCards;
+                if (allCardsCorrect && !state.boostLost) {
+                    multiplier = state.confidenceMultiplier;
+                }
+            }
+            
             const reward = state.isCorrect ? baseReward * multiplier : 0;
             
             state.user.tokens = Math.max(0, state.user.tokens + reward);
             state.user.questionsAnswered++;
             state.user.correctAnswers += state.isCorrect ? 1 : 0;
             state.user.currentStreak = state.isCorrect ? state.user.currentStreak + 1 : 0;
+            
+            // Update best streak
+            if (state.user.currentStreak > state.user.bestStreak) {
+                state.user.bestStreak = state.user.currentStreak;
+            }
             
             if (state.isCorrect) {
                 saveScore();
@@ -816,6 +1119,11 @@
                 state.scenarioNumber++;
                 state.currentCard = 1;
                 state.currentScenarioData = generateScenario(state.difficulty);
+                // Reset boost tracking for new scenario
+                state.confidenceMultiplier = 1;
+                state.hasUsedBoost = false;
+                state.boostCardResults = [];
+                state.boostLost = false;
                 // Potentially show confidence boost for next scenario
                 maybeShowConfidenceBoost();
             }
@@ -823,8 +1131,6 @@
             state.selectedAnswer = null;
             state.showExplanation = false;
             state.isCorrect = null;
-            state.confidenceMultiplier = 1;
-            state.hasUsedBoost = false;
             render();
         }
 
