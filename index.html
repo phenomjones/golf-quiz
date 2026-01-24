@@ -23,13 +23,10 @@
             isCorrect: null,
             difficulty: 1,
             showDifficultySelector: false,
-            gambleAmount: 10,
-            gambleMultiplier: 1,
-            showGamble: false,
             currentScenarioData: null,
-            aiQuestion: '',
-            aiResponse: '',
-            isAskingAI: false
+            showConfidenceBoost: false,
+            confidenceMultiplier: 1,
+            hasUsedBoost: false
         };
 
         const difficultyLevels = [
@@ -77,20 +74,25 @@
                              club.includes("Wood") ? "wood" : 
                              club.includes("PW") ? "wedge" : "iron";
             
+            // Club-specific physics
+            const clubPhysics = {
+                driver: { startFaceInfluence: 0.85, curveMultiplier: 5, loft: 10 },
+                wood: { startFaceInfluence: 0.82, curveMultiplier: 4.5, loft: 18 },
+                iron: { startFaceInfluence: 0.75, curveMultiplier: 4, loft: 34 },
+                wedge: { startFaceInfluence: 0.70, curveMultiplier: 3, loft: 50 }
+            };
+            const physics = clubPhysics[clubType];
+            
             const speedVariance = diffLevel % 2 === 0 ? 15 : 10;
-            const angleVariance = diffLevel % 2 === 0 ? 6 : 4;
             
             let speed = baseClubSpeed[clubType] + (Math.random() * speedVariance - speedVariance/2);
             let carry = baseCarryDistance[clubType] + (Math.random() * (speedVariance * 2) - speedVariance);
             
-            const minAngle = diffLevel <= 4 ? 1.5 : diffLevel <= 7 ? 0.8 : 0;
-            
-            let face = (Math.random() * angleVariance - angleVariance/2);
-            if (Math.abs(face) < minAngle) face = face >= 0 ? minAngle : -minAngle;
+            // Angles now -11 to +11 for all levels
+            let face = (Math.random() * 22 - 11);
             face = parseFloat(face.toFixed(1));
             
-            let path = (Math.random() * (angleVariance + 2) - (angleVariance + 2)/2);
-            if (Math.abs(path) < minAngle) path = path >= 0 ? minAngle : -minAngle;
+            let path = (Math.random() * 22 - 11);
             path = parseFloat(path.toFixed(1));
             
             let gearEffect = 0; // Will be set if impact location exists
@@ -171,12 +173,12 @@
                 };
             }
 
-            const faceToPath = face - path + gearEffect; // Include gear effect!
+            const faceToPath = face - path + gearEffect;
             const startDir = face > 0 ? "right" : face < 0 ? "left" : "straight";
             
-            // Determine shape
+            // Determine shape based on tighter thresholds
             const absFTP = Math.abs(faceToPath);
-            const curveType = absFTP <= 1 ? "straight" : absFTP <= 3 ? "slight" : absFTP <= 6 ? "moderate" : absFTP <= 10 ? "heavy" : "extreme";
+            const curveType = absFTP <= 0.5 ? "straight" : absFTP <= 1.5 ? "slight" : absFTP <= 3.0 ? "moderate" : absFTP <= 5.0 ? "heavy" : "extreme";
             const startType = Math.abs(face) <= 1 ? "straight" : face > 1 ? "push" : "pull";
             const isDrawCurve = faceToPath < 0;
             
@@ -217,13 +219,14 @@
             
             // Build explanation for Card 1 (shot shape)
             let explanationParts = [];
+            explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
             explanationParts.push(`<strong>Face:</strong> ${face}°`);
             explanationParts.push(`<strong>Path:</strong> ${path}°`);
             explanationParts.push(`<strong>Face-to-path:</strong> ${(face - path).toFixed(1)}°`);
             
             if (gearEffect !== 0) {
                 const gearDir = gearEffect > 0 ? "fade" : "draw";
-                explanationParts.push(`<strong>Gear effect:</strong> ${impactLocationText} adds ${Math.abs(gearEffect).toFixed(1)}° of ${gearDir} spin`);
+                explanationParts.push(`<strong>Gear effect:</strong> ${impactLocationText} = ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin`);
                 explanationParts.push(`<strong>Total face-to-path:</strong> ${faceToPath.toFixed(1)}° (with gear effect)`);
             }
             
@@ -244,78 +247,107 @@
                     question: "Will the ball start left or right of the target?",
                     options: ["Left of target", "Right of target", "Straight at target"],
                     correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
-                    explanation: `<div><strong>Face angle:</strong> ${face}°</div><div>The ball starts <strong>${startDir}</strong> because face angle controls 75-85% of initial direction.</div>`
+                    explanation: `<div><strong>Face angle:</strong> ${face}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
                 });
             }
             
             if (diffLevel >= 5) {
-                // Calculate components
+                // Calculate components with club-specific physics
                 const faceContribution = face * 3; // Keep sign - positive = right, negative = left
-                const curveContribution = faceToPath * 5; // Keep sign - positive = fade right, negative = draw left
+                const baseFaceToPath = face - path; // WITHOUT gear effect
+                const baseCurveContribution = baseFaceToPath * physics.curveMultiplier; // Use club-specific multiplier
+                const gearContribution = gearEffect * physics.curveMultiplier; // Gear effect also uses club multiplier
+                const curveContribution = baseCurveContribution + gearContribution; // Total curve
                 
-                // Net offline is: where it starts (face) + how much it curves (faceToPath)
+                // Net offline is: where it starts (face) + how much it curves (total)
                 const netOffline = faceContribution + curveContribution + windEffect;
                 const offlineYards = Math.abs(netOffline);
+                const roundedYards = Math.round(offlineYards);
                 const offlineDir = netOffline > 0 ? "right" : "left";
                 
                 let opts, corr;
                 
                 if (diffLevel <= 6) {
+                    // 7-yard ranges
                     opts = [
-                        `0-9 yards ${offlineDir}`,
-                        `10-19 yards ${offlineDir}`,
-                        `20-34 yards ${offlineDir}`,
+                        `0-6 yards ${offlineDir}`,
+                        `7-13 yards ${offlineDir}`,
+                        `14-20 yards ${offlineDir}`,
+                        `21-27 yards ${offlineDir}`,
+                        `28-34 yards ${offlineDir}`,
                         `35+ yards ${offlineDir}`
                     ];
-                    corr = offlineYards < 10 ? opts[0] : offlineYards < 20 ? opts[1] : offlineYards < 35 ? opts[2] : opts[3];
+                    corr = roundedYards <= 6 ? opts[0] : roundedYards <= 13 ? opts[1] : roundedYards <= 20 ? opts[2] : roundedYards <= 27 ? opts[3] : roundedYards <= 34 ? opts[4] : opts[5];
                 } else if (diffLevel <= 8) {
+                    // 5-yard ranges
                     opts = [
-                        `0-7 yards ${offlineDir}`,
-                        `8-14 yards ${offlineDir}`,
-                        `15-24 yards ${offlineDir}`,
+                        `0-4 yards ${offlineDir}`,
+                        `5-9 yards ${offlineDir}`,
+                        `10-14 yards ${offlineDir}`,
+                        `15-19 yards ${offlineDir}`,
+                        `20-24 yards ${offlineDir}`,
                         `25+ yards ${offlineDir}`
                     ];
-                    corr = offlineYards < 8 ? opts[0] : offlineYards < 15 ? opts[1] : offlineYards < 25 ? opts[2] : opts[3];
+                    corr = roundedYards <= 4 ? opts[0] : roundedYards <= 9 ? opts[1] : roundedYards <= 14 ? opts[2] : roundedYards <= 19 ? opts[3] : roundedYards <= 24 ? opts[4] : opts[5];
                 } else {
-                    const ry = Math.round(offlineYards);
+                    // 3-yard ranges for level 9-10
                     opts = [
-                        `${Math.max(0, ry - 3)}-${ry + 1} yards ${offlineDir}`,
-                        `${ry + 2}-${ry + 6} yards ${offlineDir}`,
-                        `${Math.max(0, ry - 8)}-${Math.max(0, ry - 4)} yards ${offlineDir}`,
-                        `${ry + 7}+ yards ${offlineDir}`
+                        `0-2 yards ${offlineDir}`,
+                        `3-5 yards ${offlineDir}`,
+                        `6-8 yards ${offlineDir}`,
+                        `9-11 yards ${offlineDir}`,
+                        `12-14 yards ${offlineDir}`,
+                        `15+ yards ${offlineDir}`
                     ];
-                    corr = opts[0];
+                    corr = roundedYards <= 2 ? opts[0] : roundedYards <= 5 ? opts[1] : roundedYards <= 8 ? opts[2] : roundedYards <= 11 ? opts[3] : roundedYards <= 14 ? opts[4] : opts[5];
                 }
                 
                 // Build detailed calculation explanation
-                const baseFaceToPath = face - path; // WITHOUT gear effect
                 let calcParts = [];
                 
                 // Show start position from face
                 const faceDir = face > 0 ? "right" : "left";
-                calcParts.push(`<strong>Face angle:</strong> ${face}° contributes ~${Math.abs(faceContribution).toFixed(0)} yards ${faceDir}`);
+                const faceYards = Math.abs(faceContribution).toFixed(0);
+                calcParts.push(`<strong>Start direction (face):</strong> ${face}° = ${faceYards} yards ${faceDir}`);
                 
-                // Show curve from face-to-path
-                const baseFTPDir = baseFaceToPath < 0 ? "draw (left)" : "fade (right)";
-                const baseFTPContribution = baseFaceToPath * 5;
-                calcParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}° ${baseFTPDir} adds ~${Math.abs(baseFTPContribution).toFixed(0)} yards of curve`);
+                // Show base curve from face-to-path
+                const baseFTPDir = baseFaceToPath < 0 ? "draw" : "fade";
+                const baseFTPYards = Math.abs(baseCurveContribution).toFixed(0);
+                const baseFTPSign = baseFaceToPath < 0 ? "left" : "right";
+                calcParts.push(`<strong>Face-to-path curve:</strong> ${baseFaceToPath.toFixed(1)}° ${baseFTPDir} = ${baseFTPYards} yards ${baseFTPSign}`);
                 
-                // Show gear effect
+                // Show gear effect if present
                 if (gearEffect !== 0) {
-                    const gearDir = gearEffect > 0 ? "fade (right)" : "draw (left)";
-                    const gearContribution = gearEffect * 5;
-                    calcParts.push(`<strong>Gear effect:</strong> ${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° of ${gearDir} = ~${Math.abs(gearContribution).toFixed(0)} yards more curve`);
+                    const gearDir = gearEffect > 0 ? "fade" : "draw";
+                    const gearYards = Math.abs(gearContribution).toFixed(0);
+                    const gearSign = gearEffect > 0 ? "right" : "left";
+                    const gearRelation = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0) ? "additional" : "opposing";
+                    calcParts.push(`<strong>Gear effect (${gearRelation}):</strong> ${impactLocationText} creates ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin = ${gearYards} yards ${gearSign}`);
                 }
                 
-                // Show wind
+                // Show wind if present
                 if (windEffect !== 0) {
-                    const windDir = windEffect > 0 ? "right" : "left";
-                    calcParts.push(`<strong>Wind:</strong> ${windDir} wind pushes ~${Math.abs(windEffect).toFixed(0)} yards ${windDir}`);
+                    const windSign = windEffect > 0 ? "right" : "left";
+                    const windYards = Math.abs(windEffect).toFixed(0);
+                    calcParts.push(`<strong>Wind:</strong> ${windDir} = ${windYards} yards ${windSign}`);
                 }
                 
-                // Show net result
-                calcParts.push(`<strong>Net calculation:</strong> ${faceContribution.toFixed(0)} (start) + ${(curveContribution).toFixed(0)} (curve)${windEffect !== 0 ? ' + ' + windEffect.toFixed(0) + ' (wind)' : ''} = ${netOffline.toFixed(0)} yards`);
-                calcParts.push(`<strong>Total offline:</strong> ~${Math.floor(offlineYards)} yards ${offlineDir}`);
+                // Show net calculation with clear signs
+                const faceSign = face > 0 ? "+" : "";
+                const curveSign = curveContribution > 0 ? "+" : "";
+                const windSign = windEffect !== 0 ? (windEffect > 0 ? "+" : "") : "";
+                const faceLabel = face > 0 ? " right" : " left";
+                const curveLabel = curveContribution > 0 ? " right" : " left";
+                const windLabel = windEffect > 0 ? " right" : windEffect < 0 ? " left" : "";
+                
+                let netCalc = `${faceSign}${faceContribution.toFixed(0)}${faceLabel} ${curveSign}${curveContribution.toFixed(0)}${curveLabel}`;
+                if (windEffect !== 0) {
+                    netCalc += ` ${windSign}${windEffect.toFixed(0)}${windLabel}`;
+                }
+                netCalc += ` = ${netOffline.toFixed(0)} yards`;
+                
+                calcParts.push(`<strong>Net calculation:</strong> ${netCalc}`);
+                calcParts.push(`<strong>Final result:</strong> ${roundedYards} yards ${offlineDir}`);
                 
                 cards.push({
                     question: "How far offline will the ball finish from the target?",
@@ -437,6 +469,24 @@
         function startGame() {
             state.showLevelSelect = false;
             state.currentScenarioData = generateScenario(state.difficulty);
+            maybeShowConfidenceBoost();
+            render();
+        }
+
+        function maybeShowConfidenceBoost() {
+            // Random chance (20%) to show confidence boost
+            if (Math.random() < 0.2 && !state.showConfidenceBoost) {
+                state.showConfidenceBoost = true;
+                state.hasUsedBoost = false;
+                // 50% chance to show before question, 50% after seeing the question
+                state.boostTiming = Math.random() < 0.5 ? 'before' : 'after';
+            }
+        }
+
+        function selectConfidence(multiplier) {
+            state.confidenceMultiplier = multiplier;
+            state.showConfidenceBoost = false;
+            state.hasUsedBoost = true;
             render();
         }
 
@@ -470,10 +520,10 @@
                         </div>
                     </div>
                 `;
-            document.getElementById('username').addEventListener('input', e => {
-                state.username = e.target.value;
-            });
-            return;
+                document.getElementById('username').addEventListener('input', e => {
+                    state.username = e.target.value;
+                });
+                return;
             }
 
             if (state.showLevelSelect) {
@@ -629,6 +679,44 @@
                                     </div>
                                 </div>
 
+                                ${state.showConfidenceBoost && state.boostTiming === 'before' ? `
+                                    <div class="mb-6 p-6 bg-gradient-to-r from-yellow-400 to-orange-500 border-4 border-yellow-600 rounded-xl shadow-2xl">
+                                        <h3 class="text-3xl font-bold text-white mb-3 text-center">🎯 CONFIDENCE BOOSTER! 🎯</h3>
+                                        <p class="text-white text-lg mb-4 text-center">We're showing you this BEFORE revealing the question! This is a true test of confidence.</p>
+                                        <p class="text-white font-semibold mb-4 text-center">Choose your multiplier now, then answer the question:</p>
+                                        <div class="grid grid-cols-3 gap-4">
+                                            <button onclick="selectConfidence(1)" class="bg-white text-gray-900 p-4 rounded-lg font-bold text-xl hover:bg-gray-100 transition-all">
+                                                1x<br><span class="text-sm">Play it safe</span>
+                                            </button>
+                                            <button onclick="selectConfidence(2)" class="bg-white text-orange-600 p-4 rounded-lg font-bold text-xl hover:bg-orange-50 transition-all">
+                                                2x<br><span class="text-sm">Feeling good!</span>
+                                            </button>
+                                            <button onclick="selectConfidence(3)" class="bg-white text-red-600 p-4 rounded-lg font-bold text-xl hover:bg-red-50 transition-all">
+                                                3x<br><span class="text-sm">All in!</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                ${state.showConfidenceBoost && state.boostTiming === 'after' ? `
+                                    <div class="mb-6 p-6 bg-gradient-to-r from-blue-400 to-purple-500 border-4 border-blue-600 rounded-xl shadow-2xl">
+                                        <h3 class="text-3xl font-bold text-white mb-3 text-center">🎯 CONFIDENCE BOOSTER! 🎯</h3>
+                                        <p class="text-white text-lg mb-4 text-center">You've seen the question and data. How confident are you?</p>
+                                        <p class="text-white font-semibold mb-4 text-center">Choose your multiplier:</p>
+                                        <div class="grid grid-cols-3 gap-4">
+                                            <button onclick="selectConfidence(1)" class="bg-white text-gray-900 p-4 rounded-lg font-bold text-xl hover:bg-gray-100 transition-all">
+                                                1x<br><span class="text-sm">Not sure</span>
+                                            </button>
+                                            <button onclick="selectConfidence(2)" class="bg-white text-orange-600 p-4 rounded-lg font-bold text-xl hover:bg-orange-50 transition-all">
+                                                2x<br><span class="text-sm">Pretty sure!</span>
+                                            </button>
+                                            <button onclick="selectConfidence(3)" class="bg-white text-red-600 p-4 rounded-lg font-bold text-xl hover:bg-red-50 transition-all">
+                                                3x<br><span class="text-sm">Definitely!</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
                                 <h3 class="font-bold text-2xl mb-4 text-purple-900">${card.question}</h3>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -638,7 +726,7 @@
                                 ${state.showExplanation ? `
                                     <div class="p-4 rounded-lg mb-4 ${state.isCorrect ? 'bg-green-50 border-2 border-green-500' : 'bg-red-50 border-2 border-red-500'}">
                                         <p class="font-bold text-lg">
-                                            ${state.isCorrect ? '✓ Correct! +' + (difficultyLevels[state.difficulty - 1].baseReward * (state.showGamble ? state.gambleAmount / 10 : 1)) + ' tokens' : '✗ Wrong!'}
+                                            ${state.isCorrect ? '✓ Correct! +' + (difficultyLevels[state.difficulty - 1].baseReward * (state.hasUsedBoost ? state.confidenceMultiplier : 1)) + ' tokens' + (state.hasUsedBoost && state.confidenceMultiplier > 1 ? ` (${state.confidenceMultiplier}x multiplier!)` : '') : '✗ Wrong!' + (state.hasUsedBoost && state.confidenceMultiplier > 1 ? ' (No tokens with multiplier)' : '')}
                                         </p>
                                     </div>
                                     <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300 mb-4">
@@ -651,21 +739,15 @@
                                             💬 Ask AI About This Scenario
                                         </h4>
                                         <div class="flex gap-2 mb-3">
-                                            <input type="text" id="aiQuestion" value="${state.aiQuestion}" 
-                                                placeholder="Ask about the physics or data..." 
+                                            <input type="text" id="aiQuestion" value="This feature is coming soon!" 
+                                                placeholder="This feature is coming soon!" 
                                                 class="flex-1 p-3 border-2 border-purple-200 rounded-lg"
-                                                ${state.isAskingAI ? 'disabled' : ''}>
-                                            <button onclick="handleAskAI()" 
-                                                ${state.isAskingAI || !state.aiQuestion || state.aiQuestion.trim() === '' ? 'disabled' : ''}
-                                                class="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:bg-gray-400">
-                                                ${state.isAskingAI ? 'Asking...' : 'Ask'}
+                                                disabled>
+                                            <button disabled
+                                                class="px-6 py-3 bg-gray-400 text-white rounded-lg font-semibold cursor-not-allowed">
+                                                Coming Soon
                                             </button>
                                         </div>
-                                        ${state.aiResponse ? `
-                                            <div class="bg-white p-4 rounded-lg border-2 border-purple-200">
-                                                <p class="text-gray-700 whitespace-pre-wrap">${state.aiResponse}</p>
-                                            </div>
-                                        ` : ''}
                                     </div>
                                     
                                     <button onclick="handleNext()" 
@@ -716,7 +798,8 @@
         function handleNext() {
             const totalCards = difficultyLevels[state.difficulty - 1].cards;
             const baseReward = difficultyLevels[state.difficulty - 1].baseReward;
-            const reward = state.isCorrect ? baseReward : 0;
+            const multiplier = state.hasUsedBoost ? state.confidenceMultiplier : 1;
+            const reward = state.isCorrect ? baseReward * multiplier : 0;
             
             state.user.tokens = Math.max(0, state.user.tokens + reward);
             state.user.questionsAnswered++;
@@ -733,13 +816,15 @@
                 state.scenarioNumber++;
                 state.currentCard = 1;
                 state.currentScenarioData = generateScenario(state.difficulty);
+                // Potentially show confidence boost for next scenario
+                maybeShowConfidenceBoost();
             }
             
             state.selectedAnswer = null;
             state.showExplanation = false;
             state.isCorrect = null;
-            state.aiQuestion = '';
-            state.aiResponse = '';
+            state.confidenceMultiplier = 1;
+            state.hasUsedBoost = false;
             render();
         }
 
