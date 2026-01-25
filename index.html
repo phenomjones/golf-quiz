@@ -203,10 +203,13 @@
                 pathDisplay = path + "°";
             }
             
+            // Initialize carry label (will be updated if wind exists)
+            let carryLabel = "Club / Club Speed / Carry";
+            
             let data = {
-                "Club / Speed / Carry": {
+                [carryLabel]: {
                     icon: "🏌️",
-                    label: "Club / Speed / Carry",
+                    label: carryLabel,
                     value: club + " • " + speed.toFixed(1) + " mph • " + Math.round(carry) + " yards"
                 },
                 "Club Face": {
@@ -267,20 +270,55 @@
                 };
             }
             
+            let windSpeedMPH = 0;
+            let windMultiplier = 1.0; // How wind affects spin/curve
+            let carryAdjustment = 0; // How wind affects distance
+            
             if (diffLevel >= 7) {
-                const windSpeed = Math.floor(Math.random() * (diffLevel === 7 ? 15 : 25) + 5);
+                // Bell curve distribution: mean ~7 MPH, std dev ~5, capped at 25
+                const bellCurve = () => {
+                    const u1 = Math.random();
+                    const u2 = Math.random();
+                    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+                    return z * 5 + 7; // std dev 5, mean 7
+                };
+                windSpeedMPH = Math.max(0, Math.min(25, Math.round(bellCurve())));
+                
                 const windDirs = ["Headwind", "Tailwind", "Left-to-Right", "Right-to-Left"];
                 windDir = windDirs[Math.floor(Math.random() * windDirs.length)];
+                
                 data["Wind"] = {
                     icon: "💨",
                     label: "Wind",
-                    value: windSpeed + " mph " + windDir
+                    value: windSpeedMPH + " mph " + windDir
                 };
                 
-                // Wind effect on offline distance
-                if (windDir === "Left-to-Right") windEffect = windSpeed * 0.3; // Push ball right
-                else if (windDir === "Right-to-Left") windEffect = windSpeed * -0.3; // Push ball left
-                // Headwind/tailwind affect distance but not lateral position as much
+                // Wind physics
+                if (windDir === "Headwind") {
+                    carryAdjustment = -windSpeedMPH * 2; // Headwind hurts more
+                    windMultiplier = 1.0 + (windSpeedMPH / 100); // Amplifies spin/curve by ~20-30% at strong wind
+                } else if (windDir === "Tailwind") {
+                    carryAdjustment = windSpeedMPH * 1; // Tailwind helps less
+                    windMultiplier = 1.0 - (windSpeedMPH / 150); // Dampens spin/curve by ~15-20% at strong wind
+                } else {
+                    // Crosswind: lateral push based on speed tier
+                    const carryInTens = carry / 10;
+                    let yardsPerTen;
+                    if (windSpeedMPH <= 10) yardsPerTen = 0.5; // Light
+                    else if (windSpeedMPH <= 15) yardsPerTen = 0.75; // Moderate
+                    else yardsPerTen = 1.0; // Strong
+                    
+                    windEffect = (windDir === "Left-to-Right" ? 1 : -1) * yardsPerTen * carryInTens;
+                    carryAdjustment = -windSpeedMPH * 0.1; // Slight drag from crosswind
+                }
+            }
+            
+            // Apply carry adjustment
+            carry = Math.round(carry + carryAdjustment);
+            
+            // Update carry label if wind affected distance
+            if (windSpeedMPH > 0 && carryAdjustment !== 0) {
+                carryLabel = "Club / Club Speed / Carry (after wind)";
             }
             
             if (diffLevel >= 9) {
@@ -475,8 +513,8 @@
                 // Offline distance (Level 5+) - always include
                 // Calculate components with club-specific physics
                 const faceContribution = face * 3; // Keep sign - positive = right, negative = left
-                const baseCurveContribution = baseFaceToPath * physics.curveMultiplier; // Use club-specific multiplier
-                const gearContribution = gearEffect * physics.curveMultiplier; // Gear effect also uses club multiplier
+                const baseCurveContribution = baseFaceToPath * physics.curveMultiplier * windMultiplier; // Wind affects spin/curve
+                const gearContribution = gearEffect * physics.curveMultiplier * windMultiplier; // Gear effect also affected by wind
                 const curveContribution = baseCurveContribution + gearContribution; // Total curve
                 
                 // Add hypothetical question now that we have the values
@@ -800,15 +838,39 @@
                 displayTime: new Date(timestamp).toLocaleString()
             };
             
-            const key = 'score_' + state.user.name + '_' + Date.now();
+            // Use consistent key for each player (no timestamp)
+            const key = 'score_' + state.user.name.toLowerCase().replace(/\s+/g, '_');
             
             // Try window.storage first (global), fallback to localStorage
             try {
-                await window.storage.set(key, JSON.stringify(scoreData), true);
+                // Check if player already has a score
+                let existingScore = null;
+                try {
+                    const result = await window.storage.get(key, true);
+                    if (result && result.value) {
+                        existingScore = JSON.parse(result.value);
+                    }
+                } catch (e) {
+                    // No existing score
+                }
+                
+                // Only save if new score is better OR no existing score
+                if (!existingScore || scoreData.tokens > existingScore.tokens) {
+                    await window.storage.set(key, JSON.stringify(scoreData), true);
+                }
             } catch (error) {
                 // Fallback to localStorage
                 try {
-                    localStorage.setItem(key, JSON.stringify(scoreData));
+                    let existingScore = null;
+                    const storedValue = localStorage.getItem(key);
+                    if (storedValue) {
+                        existingScore = JSON.parse(storedValue);
+                    }
+                    
+                    // Only save if new score is better OR no existing score
+                    if (!existingScore || scoreData.tokens > existingScore.tokens) {
+                        localStorage.setItem(key, JSON.stringify(scoreData));
+                    }
                 } catch (e) {
                     console.log('Storage not available:', e.message);
                 }
