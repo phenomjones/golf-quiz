@@ -119,7 +119,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "Updated: January 24, 2026 - 11:45 PM EST";
+        const APP_VERSION = "Updated: January 25, 2026 - 12:00 AM EST";
         
         // Simple state management
         let state = {
@@ -344,15 +344,6 @@
                     const horizontalText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
                     const verticalText = Math.abs(verticalImpact).toFixed(1) + "mm " + verticalSide;
                     data["Impact Location"].value = horizontalText + ", " + verticalText;
-                    
-                    // Generate clubhead visual with both horizontal and vertical
-                    const maxImpactByClub = {
-                        driver: 30,
-                        wood: 27.5,
-                        iron: 25,
-                        wedge: 22.5
-                    };
-                    data["Impact Location"].visual = generateClubheadVisual(clubType, impact, maxImpactByClub[clubType], verticalImpact);
                 }
                 
                 // Calculate vertical gear effect (club-specific)
@@ -374,22 +365,17 @@
                     verticalGearMultiplier = 1.0 - ((1.0 - multipliers.low) * (absVertical / 12));
                 }
             } else if (diffLevel >= 3) {
-                // Level 3-4: Generate clubhead visual with only horizontal impact (no vertical yet)
-                const maxImpactByClub = {
-                    driver: 30,
-                    wood: 27.5,
-                    iron: 25,
-                    wedge: 22.5
-                };
-                data["Impact Location"].visual = generateClubheadVisual(clubType, impact, maxImpactByClub[clubType], 0);
+                // Level 3-4: No visual needed anymore
             }
             
             // Lie Angle added at level 7
             let lieAngleAdjustment = 0;
+            let originalFace = face; // Store original before lie adjustment
+            let lieAngle = 0;
             
             if (diffLevel >= 7) {
                 // Generate lie angle: -3° (flat) to +3° (upright)
-                const lieAngle = (Math.random() * 6) - 3;
+                lieAngle = (Math.random() * 6) - 3;
                 const lieType = lieAngle > 0.5 ? "upright" : lieAngle < -0.5 ? "flat" : "standard";
                 
                 // Display lie angle
@@ -718,10 +704,19 @@
                 // baseFaceToPath already calculated above
                 let calcParts = [];
                 
-                // Show start position from face (keep precision)
+                // Show start position from face with lie angle adjustment if applicable
                 const faceDir = faceContribution > 0 ? "right" : "left";
                 const faceYards = Math.abs(faceContribution);
-                calcParts.push(`<strong>Start direction (face):</strong> ${face}° = ${faceYards.toFixed(1)} yards ${faceDir}`);
+                
+                if (lieAngleAdjustment !== 0) {
+                    // Show lie angle adjustment
+                    const lieDir = lieAngle > 0 ? "upright" : "flat";
+                    const adjustmentText = lieAngleAdjustment > 0 ? "+" + lieAngleAdjustment.toFixed(1) : lieAngleAdjustment.toFixed(1);
+                    calcParts.push(`<strong>Lie angle adjustment:</strong> ${Math.abs(lieAngle).toFixed(1)}° ${lieDir} × 0.5 = ${adjustmentText}°`);
+                    calcParts.push(`<strong>Effective face:</strong> ${originalFace.toFixed(1)}° ${adjustmentText}° = ${face.toFixed(1)}°`);
+                }
+                
+                calcParts.push(`<strong>Start direction (face):</strong> ${face.toFixed(1)}° × 3 = ${faceYards.toFixed(1)} yards ${faceDir}`);
                 
                 // Show base curve from face-to-path (keep precision)
                 const baseFTPDir = baseFaceToPath < 0 ? "draw" : "fade";
@@ -830,183 +825,6 @@
             return descs[name] || "";
         }
 
-        function generateClubheadVisual(clubType, impactMM, maxImpact, verticalImpactMM = 0) {
-            // Face-on view (as if you're the ball looking at the club)
-            // For a righty: HEEL is on the RIGHT side, TOE is on the LEFT side
-            
-            // Normalize impact to -1 to 1 range for positioning
-            const normalizedHorizontal = impactMM / maxImpact;
-            const normalizedVertical = verticalImpactMM / 12; // ±12mm vertical range
-            
-            // SVG dimensions
-            const width = 140;
-            const height = 100;
-            const centerX = width / 2;
-            const centerY = height / 2;
-            
-            // Calculate dot position
-            // IMPORTANT: Negative impact (heel) = RIGHT side, Positive impact (toe) = LEFT side
-            const dotX = centerX - (normalizedHorizontal * 50); // Flip sign: heel goes right, toe goes left
-            const dotY = centerY - (normalizedVertical * 35); // Negative = low, positive = high
-            
-            let clubPath = '';
-            let hoselPath = '';
-            let grooves = '';
-            let clubColor = '#2a2a2a';
-            let faceWidth = 0;
-            let faceHeight = 0;
-            
-            if (clubType === 'driver') {
-                // Driver: Large, shallow face, modern rounded shape
-                faceWidth = 100;
-                faceHeight = 50;
-                const x = centerX - faceWidth/2;
-                const y = centerY - faceHeight/2;
-                
-                // Main face with rounded edges
-                clubPath = `
-                    <defs>
-                        <linearGradient id="driverGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#1a1a1a;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#3a3a3a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#1a1a1a;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect x="${x}" y="${y}" width="${faceWidth}" height="${faceHeight}" 
-                          rx="8" fill="url(#driverGrad)" stroke="#000" stroke-width="2"/>
-                `;
-                
-                // Hosel on right side (heel)
-                hoselPath = `
-                    <ellipse cx="${x + faceWidth + 8}" cy="${centerY}" rx="8" ry="25" 
-                             fill="#444" stroke="#222" stroke-width="1.5"/>
-                `;
-                
-                // Horizontal grooves (5 lines)
-                for (let i = 0; i < 5; i++) {
-                    const gy = y + faceHeight * 0.25 + (i * faceHeight * 0.125);
-                    grooves += `<line x1="${x + 10}" y1="${gy}" x2="${x + faceWidth - 10}" y2="${gy}" 
-                                     stroke="#555" stroke-width="1" opacity="0.6"/>`;
-                }
-                
-            } else if (clubType === 'wood') {
-                // Fairway Wood: Medium, slightly deeper
-                faceWidth = 85;
-                faceHeight = 55;
-                const x = centerX - faceWidth/2;
-                const y = centerY - faceHeight/2;
-                
-                clubPath = `
-                    <defs>
-                        <linearGradient id="woodGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#252525;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#404040;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#252525;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect x="${x}" y="${y}" width="${faceWidth}" height="${faceHeight}" 
-                          rx="7" fill="url(#woodGrad)" stroke="#000" stroke-width="2"/>
-                `;
-                
-                hoselPath = `
-                    <ellipse cx="${x + faceWidth + 7}" cy="${centerY}" rx="7" ry="22" 
-                             fill="#4a4a4a" stroke="#222" stroke-width="1.5"/>
-                `;
-                
-                for (let i = 0; i < 5; i++) {
-                    const gy = y + faceHeight * 0.25 + (i * faceHeight * 0.125);
-                    grooves += `<line x1="${x + 8}" y1="${gy}" x2="${x + faceWidth - 8}" y2="${gy}" 
-                                     stroke="#555" stroke-width="1" opacity="0.6"/>`;
-                }
-                
-            } else if (clubType === 'iron') {
-                // Iron: Taller, more rectangular blade
-                faceWidth = 70;
-                faceHeight = 65;
-                const x = centerX - faceWidth/2;
-                const y = centerY - faceHeight/2;
-                
-                clubPath = `
-                    <defs>
-                        <linearGradient id="ironGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#2a2a2a;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#454545;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#2a2a2a;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect x="${x}" y="${y}" width="${faceWidth}" height="${faceHeight}" 
-                          rx="4" fill="url(#ironGrad)" stroke="#000" stroke-width="2"/>
-                `;
-                
-                hoselPath = `
-                    <ellipse cx="${x + faceWidth + 6}" cy="${centerY}" rx="6" ry="20" 
-                             fill="#505050" stroke="#222" stroke-width="1.5"/>
-                `;
-                
-                for (let i = 0; i < 6; i++) {
-                    const gy = y + faceHeight * 0.2 + (i * faceHeight * 0.12);
-                    grooves += `<line x1="${x + 6}" y1="${gy}" x2="${x + faceWidth - 6}" y2="${gy}" 
-                                     stroke="#555" stroke-width="1" opacity="0.7"/>`;
-                }
-                
-            } else {
-                // Wedge: Most compact, pronounced grooves
-                faceWidth = 65;
-                faceHeight = 60;
-                const x = centerX - faceWidth/2;
-                const y = centerY - faceHeight/2;
-                
-                clubPath = `
-                    <defs>
-                        <linearGradient id="wedgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#2f2f2f;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#4a4a4a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#2f2f2f;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect x="${x}" y="${y}" width="${faceWidth}" height="${faceHeight}" 
-                          rx="3" fill="url(#wedgeGrad)" stroke="#000" stroke-width="2"/>
-                `;
-                
-                hoselPath = `
-                    <ellipse cx="${x + faceWidth + 5}" cy="${centerY}" rx="5" ry="18" 
-                             fill="#555" stroke="#222" stroke-width="1.5"/>
-                `;
-                
-                for (let i = 0; i < 7; i++) {
-                    const gy = y + faceHeight * 0.15 + (i * faceHeight * 0.11);
-                    grooves += `<line x1="${x + 5}" y1="${gy}" x2="${x + faceWidth - 5}" y2="${gy}" 
-                                     stroke="#555" stroke-width="1.2" opacity="0.8"/>`;
-                }
-            }
-            
-            // Determine dot color based on position extremity
-            const isExtremeHorizontal = Math.abs(normalizedHorizontal) > 0.6;
-            const isExtremeVertical = Math.abs(normalizedVertical) > 0.6;
-            const isExtreme = isExtremeHorizontal || isExtremeVertical;
-            const dotColor = isExtreme ? '#ef4444' : '#3b82f6';
-            
-            // Center reference line (vertical)
-            const centerLine = `<line x1="${centerX}" y1="${centerY - 40}" x2="${centerX}" y2="${centerY + 40}" 
-                                     stroke="#666" stroke-width="1" stroke-dasharray="3,3" opacity="0.4"/>`;
-            
-            return `
-                <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display: block; margin: 0 auto;">
-                    ${clubPath}
-                    ${grooves}
-                    ${hoselPath}
-                    ${centerLine}
-                    
-                    <!-- Impact dot with glow -->
-                    <circle cx="${dotX}" cy="${dotY}" r="7" fill="${dotColor}" opacity="0.3"/>
-                    <circle cx="${dotX}" cy="${dotY}" r="5" fill="${dotColor}" stroke="white" stroke-width="2"/>
-                    
-                    <!-- Labels -->
-                    <text x="8" y="12" font-size="9" fill="#666" font-weight="bold">TOE</text>
-                    <text x="${width - 8}" y="12" font-size="9" fill="#666" font-weight="bold" text-anchor="end">HEEL</text>
-                </svg>
-            `;
-        }
 
         function generateFaceToPathQuestion(face, path, diffLevel) {
             const correctAnswer = face - path;
@@ -2046,7 +1864,6 @@
                                 <span class="text-3xl">${item.icon}</span>
                                 <span class="font-bold text-gray-700 text-sm">${item.label}</span>
                             </div>
-                            ${item.visual ? `<div class="mb-3 mt-3">${item.visual}</div>` : ''}
                             <div class="text-xl font-bold text-gray-900 mt-2">${item.value}</div>
                         </div>
                         <div class="tooltip">${tooltipText}</div>
