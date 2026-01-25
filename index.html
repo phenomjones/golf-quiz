@@ -118,6 +118,10 @@
 <body>
     <div id="app"></div>
     <script>
+        // VERSION INFO
+        const APP_VERSION = "v2.2.0";
+        const RELEASE_DATE = "January 25, 2026 - 1:15 AM EST";
+        
         // Simple state management
         let state = {
             user: null,
@@ -159,21 +163,21 @@
         ];
 
         const shotShapeDescriptions = {
-            "Straight": "starts on target, flies straight with minimal curve",
-            "Push": "starts right of target, flies straight right",
-            "Pull": "starts left of target, flies straight left",
-            "Draw": "curves moderately left, consistent predictable shape",
-            "Fade": "curves moderately right, consistent predictable shape",
-            "Hook": "curves severely left, hard to control",
-            "Slice": "curves severely right, hard to control",
-            "Push-draw": "starts right, curves back left toward target",
-            "Push-fade": "starts right, curves further right",
-            "Push-hook": "starts right, curves severely back left",
-            "Push-slice": "starts right, curves strongly further right",
-            "Pull-draw": "starts left, curves further left",
-            "Pull-fade": "starts left, curves back right toward target",
-            "Pull-hook": "starts left, curves severely further left",
-            "Pull-slice": "starts left, curves strongly back right"
+            "Straight": "starts on target, flies straight",
+            "Push": "starts right, flies straight",
+            "Pull": "starts left, flies straight",
+            "Draw": "starts on target, curves left",
+            "Fade": "starts on target, curves right",
+            "Hook": "starts on target, curves severely left",
+            "Slice": "starts on target, curves severely right",
+            "Push-draw": "starts right, curves left",
+            "Push-fade": "starts right, curves right",
+            "Push-hook": "starts right, curves severely left",
+            "Push-slice": "starts right, curves severely right",
+            "Pull-draw": "starts left, curves left",
+            "Pull-fade": "starts left, curves right",
+            "Pull-hook": "starts left, curves severely left",
+            "Pull-slice": "starts left, curves severely right"
         };
         
         const dataTooltips = {
@@ -313,13 +317,12 @@
                 }
                 
                 impactSide = impact > 0 ? "toe" : impact < 0 ? "heel" : "center";
-                const clubheadVisual = generateClubheadVisual(clubType, impact, maxImpact);
                 
                 data["Impact Location"] = {
                     icon: "📍",
                     label: "Impact Location",
                     value: Math.abs(impact).toFixed(1) + "mm " + impactSide,
-                    visual: clubheadVisual
+                    visual: null // Will be set after vertical impact is calculated
                 };
                 
                 // Gear effect: heel creates FADE spin (negative impact = positive gear effect = fade)
@@ -342,6 +345,15 @@
                     const horizontalText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
                     const verticalText = Math.abs(verticalImpact).toFixed(1) + "mm " + verticalSide;
                     data["Impact Location"].value = horizontalText + ", " + verticalText;
+                    
+                    // Generate clubhead visual with both horizontal and vertical
+                    const maxImpactByClub = {
+                        driver: 30,
+                        wood: 27.5,
+                        iron: 25,
+                        wedge: 22.5
+                    };
+                    data["Impact Location"].visual = generateClubheadVisual(clubType, impact, maxImpactByClub[clubType], verticalImpact);
                 }
                 
                 // Calculate vertical gear effect (club-specific)
@@ -362,6 +374,15 @@
                     // Low on face: less sidespin effectiveness
                     verticalGearMultiplier = 1.0 - ((1.0 - multipliers.low) * (absVertical / 12));
                 }
+            } else if (diffLevel >= 3) {
+                // Level 3-4: Generate clubhead visual with only horizontal impact (no vertical yet)
+                const maxImpactByClub = {
+                    driver: 30,
+                    wood: 27.5,
+                    iron: 25,
+                    wedge: 22.5
+                };
+                data["Impact Location"].visual = generateClubheadVisual(clubType, impact, maxImpactByClub[clubType], 0);
             }
             
             // Lie Angle added at level 7
@@ -496,7 +517,6 @@
                 const numWrongOptions = 2; // 3 total
                 const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
                 const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
-                const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
                 
                 let explanationParts = [];
                 explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
@@ -515,8 +535,8 @@
                 
                 cards.push({
                     question: "What will be the shot shape?",
-                    options: optionsWithDescriptions,
-                    correct: shape + " (" + shapeDesc + ")",
+                    options: options,
+                    correct: shape,
                     correctBase: shape,
                     explanation: '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
                 });
@@ -537,7 +557,6 @@
                 const numWrongOptions = 3; // 4 total
                 const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
                 const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
-                const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
                 
                 let explanationParts = [];
                 explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
@@ -556,8 +575,8 @@
                 
                 cards.push({
                     question: "What will be the shot shape?",
-                    options: optionsWithDescriptions,
-                    correct: shape + " (" + shapeDesc + ")",
+                    options: options,
+                    correct: shape,
                     correctBase: shape,
                     explanation: '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
                 });
@@ -578,7 +597,6 @@
                 
                 const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
                 const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
-                const optionsWithDescriptions = options.map(o => o + " (" + getShapeDesc(o) + ")");
                 
                 let explanationParts = [];
                 explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
@@ -597,8 +615,8 @@
                 
                 questionPool.push({
                     question: "What will be the shot shape?",
-                    options: optionsWithDescriptions,
-                    correct: shape + " (" + shapeDesc + ")",
+                    options: options,
+                    correct: shape,
                     correctBase: shape,
                     explanation: '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
                 });
@@ -744,12 +762,13 @@
                 calcParts.push(`<strong>Net calculation:</strong> ${netCalc}`);
                 calcParts.push(`<strong>Final result:</strong> ${roundedYards} yards ${offlineDir}`);
                 
-                questionPool.push({
+                // Separate the offline distance question (always last to avoid spoilers)
+                const offlineQuestion = {
                     question: "How far offline will the ball finish from the target?",
                     options: opts,
                     correct: corr,
                     explanation: '<div class="space-y-1">' + calcParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
-                });
+                };
                 
                 // Level 7+: Filter out obvious questions to increase challenge
                 if (diffLevel >= 7) {
@@ -774,8 +793,13 @@
                 
                 // Select questions from pool based on number of cards for this level
                 const numCards = difficultyLevels[diffLevel - 1].cards;
-                const selectedQuestions = questionPool.sort(() => Math.random() - 0.5).slice(0, numCards);
-                selectedQuestions.forEach(q => cards.push(q));
+                
+                // Select N-1 questions randomly, then always add offline distance as the last card
+                const randomQuestions = questionPool.sort(() => Math.random() - 0.5).slice(0, numCards - 1);
+                randomQuestions.forEach(q => cards.push(q));
+                
+                // Always add offline distance question last (it reveals the full calculation)
+                cards.push(offlineQuestion);
             }
             
             return { data, cards, isTrickScenario };
@@ -783,97 +807,199 @@
 
         function getShapeDesc(name) {
             const descs = {
-                "Straight": "starts on target, flies straight with minimal curve", 
-                "Push": "starts right of target, flies straight right", 
-                "Pull": "starts left of target, flies straight left",
-                "Draw": "curves moderately left, consistent predictable shape", 
-                "Fade": "curves moderately right, consistent predictable shape",
-                "Hook": "curves severely left, hard to control", 
-                "Slice": "curves severely right, hard to control",
-                "Push-draw": "starts right, curves back left toward target", 
-                "Push-fade": "starts right, curves further right",
-                "Push-hook": "starts right, curves severely back left", 
-                "Push-slice": "starts right, curves strongly further right",
-                "Pull-draw": "starts left, curves further left",
-                "Pull-fade": "starts left, curves back right toward target",
-                "Pull-hook": "starts left, curves severely further left", 
-                "Pull-slice": "starts left, curves strongly back right"
+                "Straight": "starts on target, flies straight",
+                "Push": "starts right, flies straight",
+                "Pull": "starts left, flies straight",
+                "Draw": "starts on target, curves left",
+                "Fade": "starts on target, curves right",
+                "Hook": "starts on target, curves severely left",
+                "Slice": "starts on target, curves severely right",
+                "Push-draw": "starts right, curves left",
+                "Push-fade": "starts right, curves right",
+                "Push-hook": "starts right, curves severely left",
+                "Push-slice": "starts right, curves severely right",
+                "Pull-draw": "starts left, curves left",
+                "Pull-fade": "starts left, curves right",
+                "Pull-hook": "starts left, curves severely left",
+                "Pull-slice": "starts left, curves severely right"
             };
             return descs[name] || "";
         }
 
-        function generateClubheadVisual(clubType, impactMM, maxImpact) {
+        function generateClubheadVisual(clubType, impactMM, maxImpact, verticalImpactMM = 0) {
+            // Face-on view (as if you're the ball looking at the club)
+            // For a righty: HEEL is on the RIGHT side, TOE is on the LEFT side
+            
             // Normalize impact to -1 to 1 range for positioning
-            const normalizedImpact = impactMM / maxImpact;
+            const normalizedHorizontal = impactMM / maxImpact;
+            const normalizedVertical = verticalImpactMM / 12; // ±12mm vertical range
             
             // SVG dimensions
-            const width = 120;
-            const height = 80;
+            const width = 140;
+            const height = 100;
             const centerX = width / 2;
             const centerY = height / 2;
             
-            // Calculate dot position (toe = right, heel = left)
-            const dotX = centerX + (normalizedImpact * 45); // ±45px from center
-            const dotY = centerY;
+            // Calculate dot position
+            // IMPORTANT: Negative impact (heel) = RIGHT side, Positive impact (toe) = LEFT side
+            const dotX = centerX - (normalizedHorizontal * 50); // Flip sign: heel goes right, toe goes left
+            const dotY = centerY - (normalizedVertical * 35); // Negative = low, positive = high
             
-            // Different clubhead shapes
             let clubPath = '';
-            let clubColor = '#333';
+            let hoselPath = '';
+            let grooves = '';
+            let clubColor = '#2a2a2a';
+            let faceWidth = 0;
+            let faceHeight = 0;
             
             if (clubType === 'driver') {
-                // Large rounded driver head
-                clubPath = `M ${centerX - 40} ${centerY - 25} 
-                           Q ${centerX - 50} ${centerY} ${centerX - 40} ${centerY + 25}
-                           L ${centerX + 40} ${centerY + 25}
-                           Q ${centerX + 50} ${centerY} ${centerX + 40} ${centerY - 25} Z`;
-                clubColor = '#1a1a1a';
+                // Driver: Large, shallow face, modern rounded shape
+                faceWidth = 100;
+                faceHeight = 50;
+                const x = centerX - faceWidth/2;
+                const y = centerY - faceHeight/2;
+                
+                // Main face with rounded edges
+                clubPath = `
+                    <defs>
+                        <linearGradient id="driverGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#1a1a1a;stop-opacity:1" />
+                            <stop offset="50%" style="stop-color:#3a3a3a;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#1a1a1a;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="${x}" y="${y}" width="${faceWidth}" height="${faceHeight}" 
+                          rx="8" fill="url(#driverGrad)" stroke="#000" stroke-width="2"/>
+                `;
+                
+                // Hosel on right side (heel)
+                hoselPath = `
+                    <ellipse cx="${x + faceWidth + 8}" cy="${centerY}" rx="8" ry="25" 
+                             fill="#444" stroke="#222" stroke-width="1.5"/>
+                `;
+                
+                // Horizontal grooves (5 lines)
+                for (let i = 0; i < 5; i++) {
+                    const gy = y + faceHeight * 0.25 + (i * faceHeight * 0.125);
+                    grooves += `<line x1="${x + 10}" y1="${gy}" x2="${x + faceWidth - 10}" y2="${gy}" 
+                                     stroke="#555" stroke-width="1" opacity="0.6"/>`;
+                }
+                
             } else if (clubType === 'wood') {
-                // Medium rounded fairway wood
-                clubPath = `M ${centerX - 35} ${centerY - 22} 
-                           Q ${centerX - 42} ${centerY} ${centerX - 35} ${centerY + 22}
-                           L ${centerX + 35} ${centerY + 22}
-                           Q ${centerX + 42} ${centerY} ${centerX + 35} ${centerY - 22} Z`;
-                clubColor = '#2a2a2a';
+                // Fairway Wood: Medium, slightly deeper
+                faceWidth = 85;
+                faceHeight = 55;
+                const x = centerX - faceWidth/2;
+                const y = centerY - faceHeight/2;
+                
+                clubPath = `
+                    <defs>
+                        <linearGradient id="woodGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#252525;stop-opacity:1" />
+                            <stop offset="50%" style="stop-color:#404040;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#252525;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="${x}" y="${y}" width="${faceWidth}" height="${faceHeight}" 
+                          rx="7" fill="url(#woodGrad)" stroke="#000" stroke-width="2"/>
+                `;
+                
+                hoselPath = `
+                    <ellipse cx="${x + faceWidth + 7}" cy="${centerY}" rx="7" ry="22" 
+                             fill="#4a4a4a" stroke="#222" stroke-width="1.5"/>
+                `;
+                
+                for (let i = 0; i < 5; i++) {
+                    const gy = y + faceHeight * 0.25 + (i * faceHeight * 0.125);
+                    grooves += `<line x1="${x + 8}" y1="${gy}" x2="${x + faceWidth - 8}" y2="${gy}" 
+                                     stroke="#555" stroke-width="1" opacity="0.6"/>`;
+                }
+                
             } else if (clubType === 'iron') {
-                // Compact iron head with slight taper
-                clubPath = `M ${centerX - 30} ${centerY - 20} 
-                           L ${centerX - 32} ${centerY + 20}
-                           L ${centerX + 32} ${centerY + 20}
-                           L ${centerX + 30} ${centerY - 20} Z`;
-                clubColor = '#3a3a3a';
+                // Iron: Taller, more rectangular blade
+                faceWidth = 70;
+                faceHeight = 65;
+                const x = centerX - faceWidth/2;
+                const y = centerY - faceHeight/2;
+                
+                clubPath = `
+                    <defs>
+                        <linearGradient id="ironGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#2a2a2a;stop-opacity:1" />
+                            <stop offset="50%" style="stop-color:#454545;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#2a2a2a;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="${x}" y="${y}" width="${faceWidth}" height="${faceHeight}" 
+                          rx="4" fill="url(#ironGrad)" stroke="#000" stroke-width="2"/>
+                `;
+                
+                hoselPath = `
+                    <ellipse cx="${x + faceWidth + 6}" cy="${centerY}" rx="6" ry="20" 
+                             fill="#505050" stroke="#222" stroke-width="1.5"/>
+                `;
+                
+                for (let i = 0; i < 6; i++) {
+                    const gy = y + faceHeight * 0.2 + (i * faceHeight * 0.12);
+                    grooves += `<line x1="${x + 6}" y1="${gy}" x2="${x + faceWidth - 6}" y2="${gy}" 
+                                     stroke="#555" stroke-width="1" opacity="0.7"/>`;
+                }
+                
             } else {
-                // Wedge - smallest, most compact
-                clubPath = `M ${centerX - 25} ${centerY - 18} 
-                           L ${centerX - 27} ${centerY + 18}
-                           L ${centerX + 27} ${centerY + 18}
-                           L ${centerX + 25} ${centerY - 18} Z`;
-                clubColor = '#4a4a4a';
+                // Wedge: Most compact, pronounced grooves
+                faceWidth = 65;
+                faceHeight = 60;
+                const x = centerX - faceWidth/2;
+                const y = centerY - faceHeight/2;
+                
+                clubPath = `
+                    <defs>
+                        <linearGradient id="wedgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#2f2f2f;stop-opacity:1" />
+                            <stop offset="50%" style="stop-color:#4a4a4a;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#2f2f2f;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="${x}" y="${y}" width="${faceWidth}" height="${faceHeight}" 
+                          rx="3" fill="url(#wedgeGrad)" stroke="#000" stroke-width="2"/>
+                `;
+                
+                hoselPath = `
+                    <ellipse cx="${x + faceWidth + 5}" cy="${centerY}" rx="5" ry="18" 
+                             fill="#555" stroke="#222" stroke-width="1.5"/>
+                `;
+                
+                for (let i = 0; i < 7; i++) {
+                    const gy = y + faceHeight * 0.15 + (i * faceHeight * 0.11);
+                    grooves += `<line x1="${x + 5}" y1="${gy}" x2="${x + faceWidth - 5}" y2="${gy}" 
+                                     stroke="#555" stroke-width="1.2" opacity="0.8"/>`;
+                }
             }
             
-            // Determine dot color based on position
-            const isExtreme = Math.abs(normalizedImpact) > 0.6;
-            const dotColor = isExtreme ? '#ef4444' : '#3b82f6'; // Red for extreme, blue for moderate
+            // Determine dot color based on position extremity
+            const isExtremeHorizontal = Math.abs(normalizedHorizontal) > 0.6;
+            const isExtremeVertical = Math.abs(normalizedVertical) > 0.6;
+            const isExtreme = isExtremeHorizontal || isExtremeVertical;
+            const dotColor = isExtreme ? '#ef4444' : '#3b82f6';
             
-            // Labels
-            const label = impactMM > 0 ? 'TOE' : impactMM < 0 ? 'HEEL' : 'CENTER';
-            const labelX = impactMM > 0 ? width - 15 : 15;
-            const labelAnchor = impactMM > 0 ? 'end' : 'start';
+            // Center reference line (vertical)
+            const centerLine = `<line x1="${centerX}" y1="${centerY - 40}" x2="${centerX}" y2="${centerY + 40}" 
+                                     stroke="#666" stroke-width="1" stroke-dasharray="3,3" opacity="0.4"/>`;
             
             return `
                 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display: block; margin: 0 auto;">
-                    <!-- Clubhead -->
-                    <path d="${clubPath}" fill="${clubColor}" stroke="#666" stroke-width="1.5"/>
+                    ${clubPath}
+                    ${grooves}
+                    ${hoselPath}
+                    ${centerLine}
                     
-                    <!-- Center line reference -->
-                    <line x1="${centerX}" y1="${centerY - 30}" x2="${centerX}" y2="${centerY + 30}" 
-                          stroke="#888" stroke-width="1" stroke-dasharray="2,2" opacity="0.5"/>
+                    <!-- Impact dot with glow -->
+                    <circle cx="${dotX}" cy="${dotY}" r="7" fill="${dotColor}" opacity="0.3"/>
+                    <circle cx="${dotX}" cy="${dotY}" r="5" fill="${dotColor}" stroke="white" stroke-width="2"/>
                     
-                    <!-- Impact dot -->
-                    <circle cx="${dotX}" cy="${dotY}" r="6" fill="${dotColor}" stroke="white" stroke-width="2"/>
-                    
-                    <!-- Toe/Heel labels -->
-                    <text x="10" y="12" font-size="10" fill="#888" font-weight="bold">HEEL</text>
-                    <text x="${width - 10}" y="12" font-size="10" fill="#888" font-weight="bold" text-anchor="end">TOE</text>
+                    <!-- Labels -->
+                    <text x="8" y="12" font-size="9" fill="#666" font-weight="bold">TOE</text>
+                    <text x="${width - 8}" y="12" font-size="9" fill="#666" font-weight="bold" text-anchor="end">HEEL</text>
                 </svg>
             `;
         }
@@ -1791,7 +1917,10 @@
             if (state.showAuth) {
                 app.innerHTML = `
                     <div class="min-h-screen golf-bg p-6 flex items-center justify-center">
-                        <div class="bg-white rounded-lg shadow-2xl max-w-md w-full">
+                        <div class="bg-white rounded-lg shadow-2xl max-w-md w-full relative">
+                            <div class="absolute top-3 right-3 text-xs text-gray-400 bg-white/90 px-2 py-1 rounded">
+                                ${APP_VERSION} • ${RELEASE_DATE}
+                            </div>
                             <div class="p-6 rounded-t-lg text-center" style="background: linear-gradient(135deg, var(--augusta-green), var(--augusta-dark));">
                                 <div class="text-6xl mb-3">🏌️‍♂️⛳</div>
                                 <h1 class="text-4xl font-bold text-white mb-2">Ball Flight Master</h1>
@@ -1829,7 +1958,10 @@
                 app.innerHTML = `
                     <div class="min-h-screen golf-bg p-4">
                         <div class="max-w-6xl mx-auto">
-                            <div class="bg-white rounded-2xl shadow-2xl p-8 mb-4">
+                            <div class="bg-white rounded-2xl shadow-2xl p-8 mb-4 relative">
+                                <div class="absolute top-3 right-3 text-xs text-gray-400 bg-white/90 px-2 py-1 rounded">
+                                    ${APP_VERSION} • ${RELEASE_DATE}
+                                </div>
                                 <div class="text-center mb-2">
                                     <div class="text-5xl mb-3">⛳</div>
                                     <h1 class="text-4xl font-bold mb-2" style="color: var(--augusta-green);">
@@ -1918,12 +2050,14 @@
 
             let optionsHTML = '';
             card.options.forEach((opt, idx) => {
+                // Get description for shot shapes (if it exists in shotShapeDescriptions)
                 const description = shotShapeDescriptions[opt] || '';
                 let btnClass = "w-full text-left p-5 rounded-xl border-2 transition-all font-semibold shadow-md hover:shadow-lg";
                 if (!state.showExplanation) {
                     btnClass += state.selectedAnswer === opt ? " border-purple-600 bg-purple-600 text-white" : " border-gray-300 bg-white hover:border-purple-400 hover:bg-purple-50";
                 } else {
-                    const isCorrect = card.correctBase ? opt.split(' (')[0] === card.correctBase : opt === card.correct;
+                    // Check correctness - now options are plain names
+                    const isCorrect = opt === card.correct;
                     if (isCorrect) btnClass += " border-green-600 bg-green-500 text-white";
                     else if (opt === state.selectedAnswer) btnClass += " border-red-600 bg-red-500 text-white";
                     else btnClass += " border-gray-300 bg-gray-200 text-gray-500";
@@ -1933,7 +2067,7 @@
                     <button onclick="handleAnswer('${opt.replace(/'/g, "\\'")}')" 
                         ${state.showExplanation ? 'disabled' : ''}
                         class="${btnClass}">
-                        <div class="text-lg font-bold mb-1">${opt.split(' (')[0]}</div>
+                        <div class="text-lg font-bold mb-1">${opt}</div>
                         ${description ? `<div class="shot-description">${description}</div>` : ''}
                     </button>
                 `;
@@ -1941,7 +2075,10 @@
 
             app.innerHTML = `
                 <div class="min-h-screen golf-bg p-6">
-                    <div class="max-w-5xl mx-auto">
+                    <div class="max-w-5xl mx-auto relative">
+                        <div class="absolute -top-2 right-2 text-xs text-white/80 bg-black/40 px-3 py-1.5 rounded-lg backdrop-blur-sm shadow-lg" style="z-index: 100;">
+                            ${APP_VERSION} • ${RELEASE_DATE}
+                        </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                             <div class="text-white shadow-lg rounded-lg p-4 text-center" style="background: linear-gradient(135deg, var(--masters-gold), #B8860B);">
                                 <p class="text-sm opacity-90">Tokens</p>
@@ -2149,7 +2286,12 @@
                                         <div class="text-gray-800">${card.explanation}</div>
                                     </div>
                                     
-                                    <div class="mb-4 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
+                                    <button onclick="handleNext()" 
+                                        class="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg mb-4">
+                                        ${state.currentCard < totalCards ? `Next Card (${state.currentCard + 1} of ${totalCards})` : 'Next Scenario'}
+                                    </button>
+                                    
+                                    <div class="p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
                                         <h4 class="font-bold text-purple-900 mb-3 flex items-center gap-2">
                                             💬 Ask AI About This Scenario
                                         </h4>
@@ -2164,11 +2306,6 @@
                                             </button>
                                         </div>
                                     </div>
-                                    
-                                    <button onclick="handleNext()" 
-                                        class="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold text-lg">
-                                        ${state.currentCard < totalCards ? `Next Card (${state.currentCard + 1} of ${totalCards})` : 'Next Scenario'}
-                                    </button>
                                 ` : ''}
                             </div>
                         </div>
@@ -2293,7 +2430,7 @@
             
             state.selectedAnswer = answer;
             const card = state.currentScenarioData.cards[state.currentCard - 1];
-            state.isCorrect = card.correctBase ? answer.split(' (')[0] === card.correctBase : answer === card.correct;
+            state.isCorrect = answer === card.correct;
             state.showExplanation = true;
             
             // Track boost progress if active
