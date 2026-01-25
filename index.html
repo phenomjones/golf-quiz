@@ -119,7 +119,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "Updated: January 25, 2026 - 12:00 AM EST";
+        const APP_VERSION = "Updated: January 25, 2026 - 12:00 PM EST";
         
         // Simple state management
         let state = {
@@ -179,15 +179,34 @@
             "Pull-slice": "starts left, curves severely right"
         };
         
-        const dataTooltips = {
-            "Club / Club Speed / Carry": "The club used, clubhead speed at impact, and estimated carry distance (affected by wind at level 8+)",
-            "Club / Club Speed / Carry (after wind)": "Carry distance has been adjusted for wind effects. Headwind reduces distance, tailwind increases it.",
-            "Club Face": "Direction the clubface points at impact. Negative = left, positive = right. Controls ~75-85% of start direction.",
-            "Club Path": "Direction the club is swinging. Negative = left, positive = right. Face-to-path difference creates curve.",
-            "Impact Location": "Where ball strikes the face. Toe creates draw spin, heel creates fade spin. High on face increases sidespin, low decreases it.",
-            "Lie Angle": "Club's lie at impact. Upright closes the face (ball goes left), flat opens it (ball goes right). ~0.5° face change per degree of lie.",
-            "Wind": "Wind conditions affect both distance and spin. Headwind amplifies curve, tailwind reduces it. Crosswind pushes the ball laterally."
-        };
+        function getDataTooltips(diffLevel) {
+            const isHighLevel = diffLevel >= 7;
+            
+            if (isHighLevel) {
+                // Simplified tooltips for advanced players (Level 7+)
+                return {
+                    "Club / Club Speed / Carry": "The club, clubhead speed, and carry distance",
+                    "Club / Club Speed / Carry (after wind)": "Carry distance adjusted for wind",
+                    "Club Face": "Direction the clubface points at impact",
+                    "Club Path": "Direction the club is swinging",
+                    "Impact Location": "Where ball strikes the face",
+                    "Lie Angle": "Club's lie angle at impact",
+                    "Wind": "Wind conditions affecting the shot"
+                };
+            } else {
+                // Detailed tooltips for beginners (Level 1-6)
+                return {
+                    "Club / Club Speed / Carry": "The club used, clubhead speed at impact, and estimated carry distance (affected by wind at level 8+)",
+                    "Club / Club Speed / Carry (after wind)": "Carry distance has been adjusted for wind effects. Headwind reduces distance, tailwind increases it.",
+                    "Club Face": "Direction the clubface points at impact. Negative = left, positive = right. Controls ~75-85% of start direction.",
+                    "Club Path": "Direction the club is swinging. Negative = left, positive = right. Face-to-path difference creates curve.",
+                    "Impact Location": "Where ball strikes the face. Toe creates draw spin, heel creates fade spin. High on face increases sidespin, low decreases it.",
+                    "Lie Angle": "Club's lie at impact. Upright closes the face, flat opens it. Effect varies by club type.",
+                    "Wind": "Wind conditions affect both distance and spin. Headwind amplifies curve, tailwind reduces it. Crosswind pushes the ball laterally."
+                };
+            }
+        }
+
 
         function generateScenario(diffLevel) {
             let isTrickScenario = false; // Track if this is a trick scenario
@@ -388,8 +407,18 @@
                     };
                     
                     // Lie angle affects face angle: upright closes face (left), flat opens face (right)
-                    // Approximate: 1° lie angle = 0.5° face angle change
-                    lieAngleAdjustment = lieAngle * 0.5;
+                    // Club-specific multipliers (realistic physics)
+                    const lieMultipliers = {
+                        driver: 0.3,  // Long clubs less affected
+                        wood: 0.4,
+                        iron: 0.5,
+                        wedge: 0.7    // Short clubs more affected
+                    };
+                    const lieMultiplier = lieMultipliers[clubType];
+                    
+                    // CRITICAL: Upright (positive) = closes face (negative adjustment)
+                    // Flat (negative) = opens face (positive adjustment)
+                    lieAngleAdjustment = lieAngle * -lieMultiplier;
                     face = face + lieAngleAdjustment;
                 }
             }
@@ -492,10 +521,8 @@
                 // Level 1-2: Teach face-to-path calculation + shot shape
                 cards.push(generateFaceToPathQuestion(face, path, diffLevel));
                 
-                // Level 2: Add "Will this shot curve?" question
-                if (diffLevel === 2) {
-                    cards.push(generateWillCurveQuestion(baseFaceToPath, diffLevel));
-                }
+                // Add "Will this shot curve?" question to Level 1 (basic)
+                cards.push(generateWillCurveQuestion(baseFaceToPath, diffLevel));
                 
                 // Then shot shape question
                 const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
@@ -534,7 +561,9 @@
                     question: "Will the ball start left or right of the target?",
                     options: ["Left of target", "Right of target", "Straight at target"],
                     correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
-                    explanation: `<div><strong>Face angle:</strong> ${face}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
+                    explanation: lieAngleAdjustment !== 0 
+                        ? `<div><strong>Original face:</strong> ${originalFace.toFixed(1)}°</div><div><strong>Lie adjustment:</strong> ${lieAngleAdjustment.toFixed(1)}°</div><div><strong>Effective face:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
+                        : `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
                 });
                 
                 // Shot shape
@@ -573,6 +602,7 @@
                 // Organize questions by priority to avoid spoilers
                 let basicQuestions = []; // Safe questions that don't reveal answers
                 const spoilerQuestions = []; // Questions that reveal calculation results
+                const hypotheticalQuestions = []; // What-if questions (come after knowing original result)
                 
                 // Shot shape (always available - basic question)
                 const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
@@ -615,7 +645,9 @@
                     question: "Will the ball start left or right of the target?",
                     options: ["Left of target", "Right of target", "Straight at target"],
                     correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
-                    explanation: `<div><strong>Face angle:</strong> ${face}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
+                    explanation: lieAngleAdjustment !== 0 
+                        ? `<div><strong>Original face:</strong> ${originalFace.toFixed(1)}°</div><div><strong>Lie adjustment:</strong> ${lieAngleAdjustment.toFixed(1)}°</div><div><strong>Effective face:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
+                        : `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
                 });
                 
                 // Start position in yards (SPOILER - reveals direction) - Level 5+
@@ -650,7 +682,7 @@
                 
                 // Add hypothetical question and vertical impact question (Level 8+)
                 if (diffLevel >= 8) {
-                    spoilerQuestions.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel));
+                    hypotheticalQuestions.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel, physics.curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect));
                     // Add vertical impact curve question if significant vertical impact
                     if (Math.abs(verticalImpact) > 2 && Math.abs(baseFaceToPath) > 1) {
                         basicQuestions.push(generateVerticalImpactCurveQuestion(verticalImpact, verticalGearMultiplier, baseFaceToPath, diffLevel));
@@ -709,10 +741,17 @@
                 const faceYards = Math.abs(faceContribution);
                 
                 if (lieAngleAdjustment !== 0) {
-                    // Show lie angle adjustment
+                    // Show lie angle adjustment with club-specific multiplier
                     const lieDir = lieAngle > 0 ? "upright" : "flat";
+                    const lieMultipliers = {
+                        driver: 0.3,
+                        wood: 0.4,
+                        iron: 0.5,
+                        wedge: 0.7
+                    };
+                    const lieMultiplier = lieMultipliers[clubType];
                     const adjustmentText = lieAngleAdjustment > 0 ? "+" + lieAngleAdjustment.toFixed(1) : lieAngleAdjustment.toFixed(1);
-                    calcParts.push(`<strong>Lie angle adjustment:</strong> ${Math.abs(lieAngle).toFixed(1)}° ${lieDir} × 0.5 = ${adjustmentText}°`);
+                    calcParts.push(`<strong>Lie angle adjustment:</strong> ${Math.abs(lieAngle).toFixed(1)}° ${lieDir} × ${lieMultiplier} = ${adjustmentText}°`);
                     calcParts.push(`<strong>Effective face:</strong> ${originalFace.toFixed(1)}° ${adjustmentText}° = ${face.toFixed(1)}°`);
                 }
                 
@@ -789,13 +828,24 @@
                     });
                 }
                 
-                // Select questions from pools in proper order: basic → spoiler → offline distance
+                // Select questions from pools in proper order: basic → spoiler → hypothetical → offline distance
                 const numCards = difficultyLevels[diffLevel - 1].cards;
                 
-                // Combine pools in priority order, then select N-1 questions
-                const allQuestions = [...basicQuestions, ...spoilerQuestions];
-                const selectedQuestions = allQuestions.sort(() => Math.random() - 0.5).slice(0, numCards - 1);
+                // Strategy: Fill cards in priority order, but ensure offline distance is always last
+                // and hypothetical (if any) is second-to-last
+                
+                const hasHypothetical = hypotheticalQuestions.length > 0;
+                const availableSlots = hasHypothetical ? numCards - 2 : numCards - 1; // Reserve last slot for offline, second-to-last for hypothetical
+                
+                // Combine basic and spoiler questions, randomize, and take what we need
+                const nonHypotheticalQuestions = [...basicQuestions, ...spoilerQuestions];
+                const selectedQuestions = nonHypotheticalQuestions.sort(() => Math.random() - 0.5).slice(0, availableSlots);
                 selectedQuestions.forEach(q => cards.push(q));
+                
+                // Add hypothetical question second-to-last (if exists)
+                if (hasHypothetical) {
+                    cards.push(hypotheticalQuestions[0]);
+                }
                 
                 // Always add offline distance question last (it reveals the full calculation)
                 cards.push(offlineQuestion);
@@ -936,11 +986,18 @@
             };
         }
 
-        function generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel) {
+        function generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel, curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect) {
             // What if face was 2° more closed?
             const newFace = face - 2;
             const newFaceContribution = newFace * 3;
-            const newNetOffline = newFaceContribution + curveContribution + windEffect;
+            
+            // CRITICAL: Recalculate curve with new face-to-path
+            const newFaceToPath = newFace - path;
+            const newBaseCurveContribution = newFaceToPath * curveMultiplier * windMultiplier * verticalGearMultiplier;
+            const newGearContribution = gearEffect * curveMultiplier * windMultiplier * verticalGearMultiplier; // Gear stays same
+            const newCurveContribution = newBaseCurveContribution + newGearContribution;
+            
+            const newNetOffline = newFaceContribution + newCurveContribution + windEffect;
             const newRoundedYards = Math.round(Math.abs(newNetOffline));
             const newDir = newNetOffline > 0 ? "right" : "left";
             
@@ -963,7 +1020,7 @@
                 question: "If you CLOSED the face by 2° (keeping path the same), where would the ball finish?",
                 options: options,
                 correct: correctRange,
-                explanation: `<div><strong>Original face:</strong> ${face.toFixed(1)}°</div><div><strong>New face:</strong> ${newFace.toFixed(1)}°</div><div><strong>New start direction:</strong> ${Math.abs(newFaceContribution).toFixed(1)} yards ${newFaceContribution > 0 ? 'right' : 'left'}</div><div><strong>Curve stays the same:</strong> ${Math.abs(curveContribution).toFixed(1)} yards</div><div><strong>New final position:</strong> ${newRoundedYards} yards ${newDir}</div>`
+                explanation: `<div><strong>Original face:</strong> ${face.toFixed(1)}°</div><div><strong>New face:</strong> ${newFace.toFixed(1)}°</div><div><strong>New start direction:</strong> ${Math.abs(newFaceContribution).toFixed(1)} yards ${newFaceContribution > 0 ? 'right' : 'left'}</div><div><strong>New curve:</strong> ${Math.abs(newCurveContribution).toFixed(1)} yards ${newCurveContribution > 0 ? 'right' : 'left'}</div><div><strong>New final position:</strong> ${newRoundedYards} yards ${newDir}</div>`
             };
         }
 
@@ -1314,6 +1371,24 @@
 
         function selectLevel(level) {
             state.difficulty = level;
+            
+            // If we're in a game (not at level select), regenerate scenario with new level
+            if (!state.showLevelSelect && state.currentScenarioData) {
+                state.currentScenarioData = generateScenario(state.difficulty);
+                state.currentCard = 1;
+                state.selectedAnswer = null;
+                state.showExplanation = false;
+                state.isCorrect = false;
+                
+                // Auto-show tutorial if switching to a tutorial level not seen before
+                const tutorialLevels = [1, 3, 5, 7, 8];
+                if (tutorialLevels.includes(state.difficulty) && !state.tutorialsShown.includes(state.difficulty)) {
+                    state.showTutorial = true;
+                    state.tutorialLevel = state.difficulty;
+                    state.tutorialsShown.push(state.difficulty);
+                }
+            }
+            
             render();
         }
 
@@ -1855,8 +1930,9 @@
             const accuracy = state.user.questionsAnswered > 0 ? Math.round((state.user.correctAnswers / state.user.questionsAnswered) * 100) : 0;
 
             let dataHTML = '';
+            const tooltips = getDataTooltips(state.difficulty);
             for (let [key, item] of Object.entries(state.currentScenarioData.data)) {
-                const tooltipText = dataTooltips[item.label] || "Hover for more information";
+                const tooltipText = tooltips[item.label] || "Hover for more information";
                 dataHTML += `
                     <div class="data-card">
                         <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md hover:shadow-lg transition-all">
