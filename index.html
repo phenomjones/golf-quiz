@@ -119,7 +119,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "Updated: January 25, 2026 - 12:00 PM EST";
+        const APP_VERSION = "Updated: January 25, 2026 - 12:20 PM EST";
         
         // Simple state management
         let state = {
@@ -145,7 +145,10 @@
             showLevelModal: false,
             showTutorial: false,
             tutorialLevel: null, // Which level's tutorial to show
-            tutorialsShown: [] // Track which level tutorials have been shown
+            tutorialsShown: [], // Track which level tutorials have been shown
+            levelPerformance: {}, // Track stats per level: { 1: { scenarios: 15, correct: 42, total: 45, recent: [3,2,3,3,2] }, ... }
+            showLevelUpPromotion: false,
+            promotionTargetLevel: null
         };
 
         const difficultyLevels = [
@@ -518,11 +521,14 @@
             
             // LEVEL-BASED CARD GENERATION
             if (diffLevel <= 2) {
-                // Level 1-2: Teach face-to-path calculation + shot shape
+                // Level 1: 2 questions - Face-to-path + Shot shape
+                // Level 2: 3 questions - Face-to-path + Curve direction + Shot shape
                 cards.push(generateFaceToPathQuestion(face, path, diffLevel));
                 
-                // Add "Will this shot curve?" question to Level 1 (basic)
-                cards.push(generateWillCurveQuestion(baseFaceToPath, diffLevel));
+                // Level 2: Add curve direction question
+                if (diffLevel === 2) {
+                    cards.push(generateCurveDirectionQuestion(baseFaceToPath, diffLevel));
+                }
                 
                 // Then shot shape question
                 const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
@@ -664,6 +670,20 @@
                     basicQuestions.push(generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel));
                 }
                 
+                // Level 5-6: Add face percentage and curve comparison questions
+                if (diffLevel >= 5 && diffLevel <= 6) {
+                    basicQuestions.push(generateFacePercentageQuestion(club, physics, diffLevel));
+                    if (gearEffect !== 0 && Math.abs(baseFaceToPath) > 1) {
+                        basicQuestions.push(generateCurveComparisonQuestion(baseFaceToPath, gearEffect, clubType, diffLevel));
+                    }
+                }
+                
+                // Level 7: Add lie angle questions
+                if (diffLevel >= 7 && Math.abs(lieAngle) > 0.5) {
+                    basicQuestions.push(generateLieEffectDirectionQuestion(lieAngle, diffLevel));
+                    spoilerQuestions.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, faceContribution, curveContribution, windEffect, diffLevel));
+                }
+                
                 // Advanced questions for level 7-10
                 if (diffLevel >= 7) {
                     spoilerQuestions.push(generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
@@ -682,11 +702,26 @@
                 
                 // Add hypothetical question and vertical impact question (Level 8+)
                 if (diffLevel >= 8) {
+                    // Wind amplify/dampen and worst-case questions
+                    if (windSpeedMPH > 0 && Math.abs(baseFaceToPath) > 1) {
+                        basicQuestions.push(generateWindAmplifyDampenQuestion(windDir, baseFaceToPath, diffLevel));
+                        basicQuestions.push(generateWorstWindScenarioQuestion(baseFaceToPath, diffLevel));
+                    }
+                    
+                    // Hypothetical question
                     hypotheticalQuestions.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel, physics.curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect));
+                    
                     // Add vertical impact curve question if significant vertical impact
                     if (Math.abs(verticalImpact) > 2 && Math.abs(baseFaceToPath) > 1) {
                         basicQuestions.push(generateVerticalImpactCurveQuestion(verticalImpact, verticalGearMultiplier, baseFaceToPath, diffLevel));
                     }
+                }
+                
+                // Level 9-10: Advanced strategic questions
+                if (diffLevel >= 9) {
+                    spoilerQuestions.push(generateOpposingForcesQuestion(face, path, gearEffect, windEffect, baseFaceToPath, diffLevel));
+                    spoilerQuestions.push(generateBestVariableQuestion(face, path, gearEffect, windEffect, diffLevel));
+                    spoilerQuestions.push(generateRankByImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
                 }
                 
                 // Net offline is: where it starts (face) + how much it curves (total)
@@ -1063,7 +1098,298 @@
             };
         }
 
-        // Level 5: Will gear effect from impact location help or hurt?
+        // Level 2: Which direction will it curve?
+        function generateCurveDirectionQuestion(baseFaceToPath, diffLevel) {
+            let correct;
+            if (Math.abs(baseFaceToPath) <= 1) {
+                correct = "No curve (straight)";
+            } else if (baseFaceToPath < 0) {
+                correct = "Left";
+            } else {
+                correct = "Right";
+            }
+            
+            const options = ["Left", "Right", "No curve (straight)"];
+            
+            return {
+                question: "Which direction will the ball curve?",
+                options: options,
+                correct: correct,
+                explanation: `<div><strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°</div><div>${baseFaceToPath < -1 ? 'Face is LEFT of path → draw spin → curves LEFT' : baseFaceToPath > 1 ? 'Face is RIGHT of path → fade spin → curves RIGHT' : 'Face and path nearly aligned → flies relatively STRAIGHT'}</div>`
+            };
+        }
+
+
+        // Level 5-6: Face percentage control question
+        function generateFacePercentageQuestion(club, physics, diffLevel) {
+            const percentage = Math.round(physics.startFaceInfluence * 100);
+            const correct = `${percentage}%`;
+            
+            // Generate nearby wrong answers
+            const wrongPercentages = [percentage - 10, percentage - 5, percentage + 5, percentage + 10]
+                .filter(p => p > 0 && p <= 100 && p !== percentage)
+                .map(p => `${p}%`);
+            
+            const numOptions = diffLevel <= 9 ? 5 : 6;
+            const selectedWrong = wrongPercentages.sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
+            const options = [correct, ...selectedWrong].sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "What percentage of the start direction is controlled by face angle?",
+                options: options,
+                correct: correct,
+                explanation: `<div><strong>Club:</strong> ${club}</div><div>Face angle controls <strong>${percentage}%</strong> of initial direction for this club. Longer clubs (driver) have higher face influence (~85%), shorter clubs (wedges) have lower face influence (~70%).</div>`
+            };
+        }
+
+        // Level 5-6: Curve comparison question
+        function generateCurveComparisonQuestion(baseFaceToPath, gearEffect, clubType, diffLevel) {
+            const faceToPathCurve = Math.abs(baseFaceToPath) * 5; // Approximate yards of curve
+            const gearCurve = Math.abs(gearEffect) * 5;
+            
+            const correct = faceToPathCurve > gearCurve ? 
+                `${Math.abs(baseFaceToPath).toFixed(1)}° face-to-path` : 
+                `${Math.abs(gearEffect * 20).toFixed(1)}mm impact location`;
+            
+            const options = [
+                `${Math.abs(baseFaceToPath).toFixed(1)}° face-to-path`,
+                `${Math.abs(gearEffect * 20).toFixed(1)}mm impact location`,
+                "They produce equal curve"
+            ];
+            
+            return {
+                question: "Which will produce MORE curve on this shot?",
+                options: options,
+                correct: correct,
+                explanation: `<div><strong>Face-to-path curve:</strong> ~${faceToPathCurve.toFixed(1)} yards</div><div><strong>Gear effect curve:</strong> ~${gearCurve.toFixed(1)} yards</div><div>Face-to-path is the dominant factor in ball flight curvature.</div>`
+            };
+        }
+
+        // Level 7: Lie angle effect direction
+        function generateLieEffectDirectionQuestion(lieAngle, diffLevel) {
+            let correct;
+            if (lieAngle > 0.5) {
+                correct = "Closes the face (ball goes left)";
+            } else if (lieAngle < -0.5) {
+                correct = "Opens the face (ball goes right)";
+            } else {
+                correct = "No significant effect";
+            }
+            
+            const options = [
+                "Opens the face (ball goes right)",
+                "Closes the face (ball goes left)",
+                "No significant effect"
+            ];
+            
+            return {
+                question: "How will the lie angle affect the face angle?",
+                options: options,
+                correct: correct,
+                explanation: `<div><strong>Lie angle:</strong> ${Math.abs(lieAngle).toFixed(1)}° ${lieAngle > 0 ? 'upright' : 'flat'}</div><div>${lieAngle > 0.5 ? 'Upright lie CLOSES the face (aims left)' : lieAngle < -0.5 ? 'Flat lie OPENS the face (aims right)' : 'Standard lie has minimal effect'}</div>`
+            };
+        }
+
+        // Level 7: Standard lie hypothetical
+        function generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, faceContribution, curveContribution, windEffect, diffLevel) {
+            // Calculate what would happen with standard lie (no adjustment)
+            const standardFace = originalFace; // No lie adjustment
+            const standardFaceContribution = standardFace * 3;
+            const standardNetOffline = standardFaceContribution + curveContribution + windEffect;
+            const standardRoundedYards = Math.round(Math.abs(standardNetOffline));
+            const standardDir = standardNetOffline > 0 ? "right" : "left";
+            
+            const numOptions = diffLevel <= 9 ? 5 : 6;
+            let correctRange;
+            if (standardRoundedYards <= 6) correctRange = `0-6 yards ${standardDir}`;
+            else if (standardRoundedYards <= 13) correctRange = `7-13 yards ${standardDir}`;
+            else if (standardRoundedYards <= 20) correctRange = `14-20 yards ${standardDir}`;
+            else if (standardRoundedYards <= 27) correctRange = `21-27 yards ${standardDir}`;
+            else correctRange = `28+ yards ${standardDir}`;
+            
+            const allOptions = [
+                "0-6 yards left", "7-13 yards left", "14-20 yards left", "21-27 yards left", "28+ yards left",
+                "0-6 yards right", "7-13 yards right", "14-20 yards right", "21-27 yards right", "28+ yards right"
+            ];
+            const wrongOptions = allOptions.filter(o => o !== correctRange).sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
+            const options = [correctRange, ...wrongOptions].sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "If this shot was hit with STANDARD lie angle instead, where would the ball finish?",
+                options: options,
+                correct: correctRange,
+                explanation: `<div><strong>Current face (with lie):</strong> ${face.toFixed(1)}°</div><div><strong>Standard lie face:</strong> ${standardFace.toFixed(1)}°</div><div><strong>Difference:</strong> ${Math.abs(lieAngleAdjustment).toFixed(1)}° ${lieAngleAdjustment > 0 ? 'more open' : 'more closed'}</div><div><strong>Result with standard lie:</strong> ${standardRoundedYards} yards ${standardDir}</div>`
+            };
+        }
+
+        // Level 8: Wind amplify/dampen question
+        function generateWindAmplifyDampenQuestion(windDir, baseFaceToPath, diffLevel) {
+            let correct;
+            if (windDir === "Headwind") {
+                correct = "Amplify the curve";
+            } else if (windDir === "Tailwind") {
+                correct = "Dampen the curve";
+            } else {
+                correct = "Not affect the curve significantly";
+            }
+            
+            const options = ["Amplify the curve", "Dampen the curve", "Not affect the curve significantly"];
+            
+            let explanation;
+            if (windDir === "Headwind") {
+                explanation = `<div><strong>Wind:</strong> ${windDir}</div><div>Headwind increases spin rate and keeps the ball in the air longer, which AMPLIFIES sidespin and increases curve.</div>`;
+            } else if (windDir === "Tailwind") {
+                explanation = `<div><strong>Wind:</strong> ${windDir}</div><div>Tailwind reduces spin rate and shortens flight time, which DAMPENS sidespin and reduces curve.</div>`;
+            } else {
+                explanation = `<div><strong>Wind:</strong> ${windDir}</div><div>Crosswind primarily affects lateral movement but doesn't significantly change the curve from face-to-path.</div>`;
+            }
+            
+            return {
+                question: "Will the wind amplify or dampen the curve on this shot?",
+                options: options,
+                correct: correct,
+                explanation: explanation
+            };
+        }
+
+        // Level 8: Worst-case wind scenario
+        function generateWorstWindScenarioQuestion(baseFaceToPath, diffLevel) {
+            const curveDirection = baseFaceToPath < 0 ? "left" : "right";
+            let correct;
+            
+            if (curveDirection === "left") {
+                correct = "Headwind from the right";
+            } else {
+                correct = "Headwind from the left";
+            }
+            
+            const options = [
+                "Headwind from the left",
+                "Headwind from the right",
+                "Tailwind from the left",
+                "Tailwind from the right"
+            ];
+            
+            return {
+                question: "What wind condition would make this shot go FURTHEST offline?",
+                options: options,
+                correct: correct,
+                explanation: `<div><strong>Shot curves:</strong> ${curveDirection}</div><div>The worst case combines: (1) Headwind to AMPLIFY the curve, and (2) Crosswind pushing in the SAME direction as the curve.</div><div>This creates maximum offline distance.</div>`
+            };
+        }
+
+        // Level 9-10: Opposing forces question
+        function generateOpposingForcesQuestion(face, path, gearEffect, windEffect, baseFaceToPath, diffLevel) {
+            const forces = [];
+            
+            // Check face-to-path direction
+            const faceToPathDir = baseFaceToPath > 0 ? "right" : "left";
+            
+            // Check gear effect
+            if (gearEffect !== 0) {
+                const gearDir = gearEffect > 0 ? "right" : "left";
+                if (gearDir !== faceToPathDir) {
+                    forces.push(`Face-to-path (${faceToPathDir}) and Gear effect (${gearDir})`);
+                }
+            }
+            
+            // Check wind
+            if (windEffect !== 0) {
+                const windDir = windEffect > 0 ? "right" : "left";
+                if (windDir !== faceToPathDir) {
+                    forces.push(`Face-to-path (${faceToPathDir}) and Wind (${windDir})`);
+                }
+            }
+            
+            if (forces.length === 0) {
+                forces.push("No opposing forces - all factors push the same direction");
+            }
+            
+            const correct = forces[0];
+            
+            // Generate wrong options
+            const allPossible = [
+                `Face-to-path and Gear effect`,
+                `Face-to-path and Wind`,
+                `Gear effect and Wind`,
+                `No opposing forces - all factors push the same direction`
+            ];
+            
+            const wrongOptions = allPossible.filter(o => o !== correct).sort(() => Math.random() - 0.5).slice(0, 4);
+            const options = [correct, ...wrongOptions].sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "Which TWO factors are working AGAINST each other?",
+                options: options,
+                correct: correct,
+                explanation: `<div><strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}° (${faceToPathDir})</div><div><strong>Gear effect:</strong> ${gearEffect.toFixed(1)}° (${gearEffect > 0 ? 'right' : 'left'})</div><div><strong>Wind:</strong> ${windEffect.toFixed(1)} yards (${windEffect > 0 ? 'right' : 'left'})</div><div>Opposing forces make shots harder to predict and control.</div>`
+            };
+        }
+
+        // Level 9-10: Best variable to change
+        function generateBestVariableQuestion(face, path, gearEffect, windEffect, diffLevel) {
+            // Calculate impact of changing each by 2°
+            const faceDelta = Math.abs(2 * 3); // Face × 3 = start yards
+            const pathDelta = Math.abs(2 * 5); // Face-to-path change × 5 = curve yards
+            const totalFace = faceDelta;
+            const totalPath = pathDelta;
+            
+            let correct;
+            if (totalPath > totalFace * 1.5) {
+                correct = "Club path (affects both start and curve)";
+            } else {
+                correct = "Club face (directly controls start direction)";
+            }
+            
+            const options = [
+                "Club face (directly controls start direction)",
+                "Club path (affects both start and curve)",
+                "Impact location (creates gear effect)",
+                "They would all have equal impact"
+            ];
+            
+            return {
+                question: "If you could change ONE variable by 2°, which would improve the shot most?",
+                options: options,
+                correct: correct,
+                explanation: `<div><strong>Changing face 2°:</strong> ~${faceDelta} yards start direction</div><div><strong>Changing path 2°:</strong> ~${pathDelta} yards curve change</div><div>Path changes affect BOTH the start (slightly) and curve (significantly), making it often the most impactful adjustment.</div>`
+            };
+        }
+
+        // Level 9-10: Rank by impact
+        function generateRankByImpactQuestion(face, path, gearEffect, windEffect, diffLevel) {
+            const faceContribution = Math.abs(face * 3);
+            const pathContribution = Math.abs((face - path) * 5);
+            const gearContribution = Math.abs(gearEffect * 5);
+            const windContribution = Math.abs(windEffect);
+            
+            const causes = [
+                { name: "Face angle", value: faceContribution },
+                { name: "Face-to-path", value: pathContribution },
+                { name: "Gear effect", value: gearContribution },
+                { name: "Wind", value: windContribution }
+            ];
+            causes.sort((a, b) => b.value - a.value); // Sort descending - highest first
+            
+            const correct = `${causes[0].name} > ${causes[1].name} > ${causes[2].name} > ${causes[3].name}`;
+            
+            // Generate a few wrong orderings
+            const wrongOptions = [];
+            const shuffled1 = [...causes].sort(() => Math.random() - 0.5);
+            wrongOptions.push(`${shuffled1[0].name} > ${shuffled1[1].name} > ${shuffled1[2].name} > ${shuffled1[3].name}`);
+            const shuffled2 = [...causes].sort(() => Math.random() - 0.5);
+            wrongOptions.push(`${shuffled2[0].name} > ${shuffled2[1].name} > ${shuffled2[2].name} > ${shuffled2[3].name}`);
+            
+            const options = [correct, ...wrongOptions.filter(o => o !== correct).slice(0, 2)].sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "Rank these factors by their impact on the ball's final position (most to least):",
+                options: options,
+                correct: correct,
+                explanation: `<div>${causes.map((c, i) => `<div><strong>#${i+1}: ${c.name}</strong> (~${Math.round(c.value)} yards impact)</div>`).join('')}</div>`
+            };
+        }
+
         function generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel) {
             // Determine if gear effect is helping (opposing the curve) or hurting (adding to curve)
             const sameDirection = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0);
@@ -1548,6 +1874,15 @@
                         </div>
                         
                         <p class="text-sm italic text-gray-600">💡 Pro Tip: Always consider if gear effect is HELPING or HURTING your face-to-path relationship!</p>
+                        
+                        <hr class="my-6 border-t-2 border-gray-300">
+                        
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h4 class="font-bold mb-3 text-lg" style="color: var(--augusta-green);">📖 What We've Already Learned:</h4>
+                            <ul class="space-y-2 text-sm">
+                                <li><strong>✅ Level 1-2:</strong> Club face angle, Club path, Face-to-path calculation, Shot shapes, Curve direction</li>
+                            </ul>
+                        </div>
                     `
                 },
                 5: {
@@ -1615,6 +1950,16 @@
                         </div>
                         
                         <p class="text-sm italic text-gray-600">💡 Pro Tip: High on face = more curve. Low on face = less curve. Simple rule with complex implications!</p>
+                        
+                        <hr class="my-6 border-t-2 border-gray-300">
+                        
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h4 class="font-bold mb-3 text-lg" style="color: var(--augusta-green);">📖 What We've Already Learned:</h4>
+                            <ul class="space-y-2 text-sm">
+                                <li><strong>✅ Level 1-2:</strong> Face angle, Path, Face-to-path, Shot shapes, Curve direction</li>
+                                <li><strong>✅ Level 3-4:</strong> Horizontal gear effect (toe/heel), Start direction, Impact location affects curve</li>
+                            </ul>
+                        </div>
                     `
                 },
                 7: {
@@ -1632,7 +1977,7 @@
                                         <li>Shaft more vertical at address</li>
                                         <li>Toe UP in the air</li>
                                         <li>Face effectively CLOSES (points left)</li>
-                                        <li>Every +1° lie = -0.5° face angle change</li>
+                                        <li>Club-specific multipliers (driver ~0.3, wedge ~0.7)</li>
                                     </ul>
                                 </li>
                                 <li><strong>FLAT LIE</strong> (negative degrees):
@@ -1640,7 +1985,7 @@
                                         <li>Shaft more horizontal at address</li>
                                         <li>Heel UP in the air</li>
                                         <li>Face effectively OPENS (points right)</li>
-                                        <li>Every -1° lie = +0.5° face angle change</li>
+                                        <li>Club-specific multipliers (driver ~0.3, wedge ~0.7)</li>
                                     </ul>
                                 </li>
                             </ul>
@@ -1650,12 +1995,12 @@
                             <h4 class="font-bold mb-2">📊 How Lie Angle Changes Everything:</h4>
                             <div class="space-y-3">
                                 <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Example: Face shows -2°, Lie is +3° upright</p>
+                                    <p class="font-semibold">Example: Face shows -2°, Lie is +3° upright (Iron)</p>
                                     <p class="text-sm mt-1"><strong>Calculation:</strong> -2° face + (3° × -0.5) = -3.5° effective face</p>
                                     <p class="text-sm text-blue-600 font-bold">The upright lie CLOSED the face by 1.5°!</p>
                                 </div>
                                 <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Example: Face shows +4°, Lie is -2° flat</p>
+                                    <p class="font-semibold">Example: Face shows +4°, Lie is -2° flat (Iron)</p>
                                     <p class="text-sm mt-1"><strong>Calculation:</strong> +4° face + (-2° × -0.5) = +5° effective face</p>
                                     <p class="text-sm text-orange-600 font-bold">The flat lie OPENED the face by 1°!</p>
                                 </div>
@@ -1686,6 +2031,17 @@
                         </div>
                         
                         <p class="text-sm italic text-gray-600">💡 Pro Tip: Always calculate effective face FIRST (original face + lie adjustment), then analyze path relationship!</p>
+                        
+                        <hr class="my-6 border-t-2 border-gray-300">
+                        
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h4 class="font-bold mb-3 text-lg" style="color: var(--augusta-green);">📖 What We've Already Learned:</h4>
+                            <ul class="space-y-2 text-sm">
+                                <li><strong>✅ Level 1-2:</strong> Face angle, Path, Face-to-path, Shot shapes, Curve direction</li>
+                                <li><strong>✅ Level 3-4:</strong> Horizontal gear effect (toe/heel), Start direction, Impact affects curve</li>
+                                <li><strong>✅ Level 5-6:</strong> Vertical gear effect (high/low), Spin amplification/dampening, Complex interactions</li>
+                            </ul>
+                        </div>
                     `
                 },
                 8: {
@@ -1770,6 +2126,18 @@
                         </div>
                         
                         <p class="text-sm italic text-gray-600">💡 Pro Tip: Headwind = more curve. Tailwind = less curve. Crosswind = lateral push. Master these and you're ready for any conditions!</p>
+                        
+                        <hr class="my-6 border-t-2 border-gray-300">
+                        
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h4 class="font-bold mb-3 text-lg" style="color: var(--augusta-green);">📖 What We've Already Learned:</h4>
+                            <ul class="space-y-2 text-sm">
+                                <li><strong>✅ Level 1-2:</strong> Face angle, Path, Face-to-path, Shot shapes, Curve direction</li>
+                                <li><strong>✅ Level 3-4:</strong> Horizontal gear effect (toe/heel), Start direction, Impact affects curve</li>
+                                <li><strong>✅ Level 5-6:</strong> Vertical gear effect (high/low), Spin amplification/dampening, Complex interactions</li>
+                                <li><strong>✅ Level 7:</strong> Lie angle effects, Effective face calculation, Club-specific multipliers</li>
+                            </ul>
+                        </div>
                     `
                 }
             };
@@ -1796,6 +2164,94 @@
             state.showTutorial = false;
             render();
         }
+
+        // Track performance for adaptive level-up
+        function trackLevelPerformance(level, correct, total) {
+            if (!state.levelPerformance[level]) {
+                state.levelPerformance[level] = {
+                    scenarios: 0,
+                    correct: 0,
+                    total: 0,
+                    recent: [] // Last 5 scenarios: cards correct out of total
+                };
+            }
+            
+            const perf = state.levelPerformance[level];
+            perf.scenarios++;
+            perf.correct += correct;
+            perf.total += total;
+            
+            // Track recent performance (last 5 scenarios)
+            perf.recent.push({ correct, total });
+            if (perf.recent.length > 5) {
+                perf.recent.shift(); // Keep only last 5
+            }
+        }
+
+        // Check if player should be promoted to next level
+        function checkLevelPromotion(currentLevel) {
+            if (currentLevel >= 10) return false; // Already at max level
+            
+            const perf = state.levelPerformance[currentLevel];
+            if (!perf || perf.scenarios < 15) return false; // Need at least 15 scenarios
+            
+            // Calculate overall accuracy
+            const overallAccuracy = perf.correct / perf.total;
+            if (overallAccuracy < 0.80) return false; // Need 80%+ overall
+            
+            // Calculate recent accuracy (last 5 scenarios)
+            if (perf.recent.length < 5) return false; // Need 5 recent scenarios
+            
+            let recentCorrect = 0;
+            let recentTotal = 0;
+            let hasTerribleRun = false;
+            
+            for (const scenario of perf.recent) {
+                recentCorrect += scenario.correct;
+                recentTotal += scenario.total;
+                
+                // Check for terrible performance (below 50%)
+                if (scenario.correct / scenario.total < 0.5) {
+                    hasTerribleRun = true;
+                }
+            }
+            
+            const recentAccuracy = recentCorrect / recentTotal;
+            if (recentAccuracy < 0.75) return false; // Need 75%+ recent average
+            if (hasTerribleRun) return false; // No terrible runs in last 5
+            
+            return true; // Ready to promote!
+        }
+
+        function showLevelUpPromotion(targetLevel) {
+            state.showLevelUpPromotion = true;
+            state.promotionTargetLevel = targetLevel;
+            render();
+        }
+
+        function acceptPromotion() {
+            state.difficulty = state.promotionTargetLevel;
+            state.showLevelUpPromotion = false;
+            state.scenarioNumber = 1;
+            state.currentCard = 1;
+            state.currentScenarioData = generateScenario(state.difficulty);
+            
+            // Auto-show tutorial if applicable
+            const tutorialLevels = [1, 3, 5, 7, 8];
+            if (tutorialLevels.includes(state.difficulty) && !state.tutorialsShown.includes(state.difficulty)) {
+                state.showTutorial = true;
+                state.tutorialLevel = state.difficulty;
+                state.tutorialsShown.push(state.difficulty);
+            }
+            
+            render();
+        }
+
+        function declinePromotion() {
+            state.showLevelUpPromotion = false;
+            render();
+        }
+
 
         function selectConfidence(multiplier) {
             state.confidenceMultiplier = multiplier;
@@ -2290,6 +2746,60 @@
                 `;
             }
             
+            // Level-Up Promotion Modal
+            if (state.showLevelUpPromotion) {
+                const nextLevel = state.promotionTargetLevel;
+                const levelInfo = difficultyLevels[nextLevel - 1];
+                const currentPerf = state.levelPerformance[state.difficulty];
+                const overallAcc = Math.round((currentPerf.correct / currentPerf.total) * 100);
+                
+                app.innerHTML += `
+                    <div class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+                        <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl shadow-2xl max-w-lg w-full p-8 border-4 border-yellow-400">
+                            <div class="text-center mb-6">
+                                <div class="text-6xl mb-4">🎯</div>
+                                <h2 class="text-3xl font-bold mb-2" style="color: var(--augusta-green);">
+                                    You're Ready to Level Up!
+                                </h2>
+                                <p class="text-gray-600 text-lg">
+                                    You're crushing Level ${state.difficulty}!
+                                </p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-5 mb-6 shadow-inner">
+                                <h3 class="font-bold text-lg mb-3 text-center text-gray-800">Your Performance:</h3>
+                                <div class="grid grid-cols-2 gap-4 text-center">
+                                    <div class="bg-green-50 rounded-lg p-3">
+                                        <div class="text-3xl font-bold text-green-600">${currentPerf.scenarios}</div>
+                                        <div class="text-sm text-gray-600">Scenarios</div>
+                                    </div>
+                                    <div class="bg-blue-50 rounded-lg p-3">
+                                        <div class="text-3xl font-bold text-blue-600">${overallAcc}%</div>
+                                        <div class="text-sm text-gray-600">Accuracy</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-5 mb-6 border-2 border-green-200">
+                                <h3 class="font-bold text-lg mb-2 text-center">Ready for Level ${nextLevel}:</h3>
+                                <p class="text-center font-bold text-xl mb-2" style="color: var(--augusta-green);">${levelInfo.name}</p>
+                                <p class="text-center text-gray-600 text-sm">${levelInfo.description}</p>
+                                <p class="text-center text-sm mt-3 text-gray-500">${levelInfo.details}</p>
+                            </div>
+                            
+                            <div class="flex gap-3">
+                                <button onclick="declinePromotion()" class="flex-1 py-3 px-4 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition">
+                                    Not Yet
+                                </button>
+                                <button onclick="acceptPromotion()" class="flex-1 py-3 px-4 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 transition">
+                                    Level Up! 🚀
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
             // Add event listener for AI question input
             if (state.showExplanation) {
                 const aiInput = document.getElementById('aiQuestion');
@@ -2386,6 +2896,16 @@
             if (state.currentCard < totalCards) {
                 state.currentCard++;
             } else {
+                // Scenario complete - track performance
+                const scenarioCorrect = state.boostCardResults.filter(r => r).length;
+                const scenarioTotal = state.boostCardResults.length;
+                trackLevelPerformance(state.difficulty, scenarioCorrect, scenarioTotal);
+                
+                // Check for level-up promotion
+                if (checkLevelPromotion(state.difficulty)) {
+                    showLevelUpPromotion(state.difficulty + 1);
+                }
+                
                 state.scenarioNumber++;
                 state.currentCard = 1;
                 state.currentScenarioData = generateScenario(state.difficulty);
