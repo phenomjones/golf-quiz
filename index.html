@@ -119,7 +119,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "Updated: January 25, 2026 - 12:20 PM EST";
+        const APP_VERSION = "Updated: January 25, 2026 - 12:30 PM EST";
         
         // Simple state management
         let state = {
@@ -678,10 +678,9 @@
                     }
                 }
                 
-                // Level 7: Add lie angle questions
+                // Level 7: Add lie angle effect direction question
                 if (diffLevel >= 7 && Math.abs(lieAngle) > 0.5) {
                     basicQuestions.push(generateLieEffectDirectionQuestion(lieAngle, diffLevel));
-                    spoilerQuestions.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, faceContribution, curveContribution, windEffect, diffLevel));
                 }
                 
                 // Advanced questions for level 7-10
@@ -699,6 +698,11 @@
                 const baseCurveContribution = baseFaceToPath * physics.curveMultiplier * windMultiplier * verticalGearMultiplier; // Wind and vertical impact affect spin/curve
                 const gearContribution = gearEffect * physics.curveMultiplier * windMultiplier * verticalGearMultiplier; // Gear effect also affected by wind and vertical impact
                 const curveContribution = baseCurveContribution + gearContribution; // Total curve
+                
+                // Level 7: Add standard lie hypothetical (after curveContribution is calculated)
+                if (diffLevel >= 7 && Math.abs(lieAngle) > 0.5) {
+                    spoilerQuestions.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, faceContribution, curveContribution, windEffect, diffLevel));
+                }
                 
                 // Add hypothetical question and vertical impact question (Level 8+)
                 if (diffLevel >= 8) {
@@ -1877,11 +1881,18 @@
                         
                         <hr class="my-6 border-t-2 border-gray-300">
                         
-                        <div class="bg-blue-50 rounded-lg p-4">
-                            <h4 class="font-bold mb-3 text-lg" style="color: var(--augusta-green);">📖 What We've Already Learned:</h4>
-                            <ul class="space-y-2 text-sm">
-                                <li><strong>✅ Level 1-2:</strong> Club face angle, Club path, Face-to-path calculation, Shot shapes, Curve direction</li>
-                            </ul>
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <h4 class="font-bold mb-4 text-xl" style="color: var(--augusta-green);">📖 What We've Already Learned</h4>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-green-700">✅ Level 1-2: Ball Flight Fundamentals</h5>
+                                <div class="space-y-2 text-sm">
+                                    <p><strong>Club Face Angle:</strong> Direction the clubface points at impact. Controls 75-85% of start direction. Negative = left, positive = right, zero = square.</p>
+                                    <p><strong>Club Path:</strong> Direction the clubhead is traveling. Negative = swinging left (in-to-out), positive = swinging right (out-to-in).</p>
+                                    <p><strong>Face-to-Path (The Golden Rule):</strong> Ball curves based on the DIFFERENCE between face and path. Face LEFT of path = draw/hook (curves left). Face RIGHT of path = fade/slice (curves right). Face equals path = straight.</p>
+                                    <p><strong>Curve Direction:</strong> If face-to-path is negative (face left of path) → curves left. If positive (face right of path) → curves right. If near zero → flies straight.</p>
+                                </div>
+                            </div>
                         </div>
                     `
                 },
@@ -1953,12 +1964,26 @@
                         
                         <hr class="my-6 border-t-2 border-gray-300">
                         
-                        <div class="bg-blue-50 rounded-lg p-4">
-                            <h4 class="font-bold mb-3 text-lg" style="color: var(--augusta-green);">📖 What We've Already Learned:</h4>
-                            <ul class="space-y-2 text-sm">
-                                <li><strong>✅ Level 1-2:</strong> Face angle, Path, Face-to-path, Shot shapes, Curve direction</li>
-                                <li><strong>✅ Level 3-4:</strong> Horizontal gear effect (toe/heel), Start direction, Impact location affects curve</li>
-                            </ul>
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <h4 class="font-bold mb-4 text-xl" style="color: var(--augusta-green);">📖 What We've Already Learned</h4>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-green-700">✅ Level 1-2: Ball Flight Fundamentals</h5>
+                                <div class="space-y-2 text-sm">
+                                    <p><strong>Face-to-Path Rule:</strong> Ball curves based on difference between face and path. Face left of path = curves left. Face right of path = curves right.</p>
+                                    <p><strong>Start Direction:</strong> Controlled primarily by face angle (75-85% depending on club).</p>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-purple-700">✅ Level 3-4: Horizontal Gear Effect</h5>
+                                <div class="space-y-2 text-sm">
+                                    <p><strong>Impact Location (Toe/Heel):</strong> Off-center hits create gear effect - the clubface twists at impact, adding sidespin.</p>
+                                    <p><strong>Toe Hits (positive mm):</strong> Face twists OPEN, ball gets DRAW spin (curves left). This FIGHTS a natural fade.</p>
+                                    <p><strong>Heel Hits (negative mm):</strong> Face twists CLOSED, ball gets FADE spin (curves right). This FIGHTS a natural draw.</p>
+                                    <p><strong>Help or Hurt:</strong> Gear effect can either amplify or reduce your intended curve depending on if it's working with or against your face-to-path.</p>
+                                </div>
+                            </div>
                         </div>
                     `
                 },
@@ -2034,13 +2059,34 @@
                         
                         <hr class="my-6 border-t-2 border-gray-300">
                         
-                        <div class="bg-blue-50 rounded-lg p-4">
-                            <h4 class="font-bold mb-3 text-lg" style="color: var(--augusta-green);">📖 What We've Already Learned:</h4>
-                            <ul class="space-y-2 text-sm">
-                                <li><strong>✅ Level 1-2:</strong> Face angle, Path, Face-to-path, Shot shapes, Curve direction</li>
-                                <li><strong>✅ Level 3-4:</strong> Horizontal gear effect (toe/heel), Start direction, Impact affects curve</li>
-                                <li><strong>✅ Level 5-6:</strong> Vertical gear effect (high/low), Spin amplification/dampening, Complex interactions</li>
-                            </ul>
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <h4 class="font-bold mb-4 text-xl" style="color: var(--augusta-green);">📖 What We've Already Learned</h4>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-green-700">✅ Level 1-2: Ball Flight Fundamentals</h5>
+                                <div class="space-y-1 text-sm">
+                                    <p><strong>Face-to-Path:</strong> Difference between face and path creates curve.</p>
+                                    <p><strong>Start Direction:</strong> Controlled by face angle (75-85%).</p>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-purple-700">✅ Level 3-4: Horizontal Gear Effect</h5>
+                                <div class="space-y-1 text-sm">
+                                    <p><strong>Toe Hits:</strong> Create draw spin, fight fades.</p>
+                                    <p><strong>Heel Hits:</strong> Create fade spin, fight draws.</p>
+                                    <p><strong>Key Insight:</strong> Gear effect can help or hurt depending on your face-to-path relationship.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-indigo-700">✅ Level 5-6: Vertical Gear Effect</h5>
+                                <div class="space-y-1 text-sm">
+                                    <p><strong>High on Face:</strong> Amplifies sidespin - curves MORE than expected. Draws become hooks, fades become slices.</p>
+                                    <p><strong>Low on Face:</strong> Dampens sidespin - curves LESS than expected. Hooks become draws, slices become fades.</p>
+                                    <p><strong>Club-Specific:</strong> Drivers amplify more (1.3x), wedges less (1.05x).</p>
+                                </div>
+                            </div>
                         </div>
                     `
                 },
@@ -2129,14 +2175,32 @@
                         
                         <hr class="my-6 border-t-2 border-gray-300">
                         
-                        <div class="bg-blue-50 rounded-lg p-4">
-                            <h4 class="font-bold mb-3 text-lg" style="color: var(--augusta-green);">📖 What We've Already Learned:</h4>
-                            <ul class="space-y-2 text-sm">
-                                <li><strong>✅ Level 1-2:</strong> Face angle, Path, Face-to-path, Shot shapes, Curve direction</li>
-                                <li><strong>✅ Level 3-4:</strong> Horizontal gear effect (toe/heel), Start direction, Impact affects curve</li>
-                                <li><strong>✅ Level 5-6:</strong> Vertical gear effect (high/low), Spin amplification/dampening, Complex interactions</li>
-                                <li><strong>✅ Level 7:</strong> Lie angle effects, Effective face calculation, Club-specific multipliers</li>
-                            </ul>
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <h4 class="font-bold mb-4 text-xl" style="color: var(--augusta-green);">📖 What We've Already Learned</h4>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-green-700">✅ Level 1-2: Ball Flight Fundamentals</h5>
+                                <p class="text-sm"><strong>Core Rule:</strong> Face-to-path difference creates curve. Face controls start direction.</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-purple-700">✅ Level 3-4: Horizontal Gear Effect</h5>
+                                <p class="text-sm"><strong>Impact Location:</strong> Toe hits add draw spin, heel hits add fade spin. Can help or hurt your shot.</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-indigo-700">✅ Level 5-6: Vertical Gear Effect</h5>
+                                <p class="text-sm"><strong>Vertical Position:</strong> High on face amplifies curve (more sidespin), low dampens curve (less sidespin).</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4 mb-3">
+                                <h5 class="font-bold mb-2 text-red-700">✅ Level 7: Lie Angle Effects</h5>
+                                <div class="space-y-1 text-sm">
+                                    <p><strong>Upright Lie (positive):</strong> CLOSES the face (ball goes left). Club-specific effect - driver ~0.3°, wedge ~0.7° per degree of lie.</p>
+                                    <p><strong>Flat Lie (negative):</strong> OPENS the face (ball goes right).</p>
+                                    <p><strong>Critical Step:</strong> Calculate effective face FIRST (original + lie adjustment), then proceed with normal analysis.</p>
+                                </div>
+                            </div>
                         </div>
                     `
                 }
@@ -2485,9 +2549,11 @@
                                     <h3 class="font-bold text-lg">Level ${state.difficulty} - ${difficultyLevels[state.difficulty - 1].name}</h3>
                                     <p class="text-sm text-gray-600">${difficultyLevels[state.difficulty - 1].description}</p>
                                 </div>
-                                <button onclick="showTutorial(${state.difficulty})" class="px-4 py-2 text-white rounded-lg mr-2" style="background: var(--masters-gold); color: var(--augusta-dark); font-weight: 600;">
-                                    📚 Tutorial
-                                </button>
+                                ${[1, 3, 5, 7, 8].includes(state.difficulty) ? `
+                                    <button onclick="showTutorial(${state.difficulty})" class="px-4 py-2 text-white rounded-lg mr-2" style="background: var(--masters-gold); color: var(--augusta-dark); font-weight: 600;">
+                                        📚 Tutorial
+                                    </button>
+                                ` : ''}
                                 <button onclick="toggleDifficulty()" class="px-4 py-2 bg-blue-600 text-white rounded-lg mr-2">
                                     Change Level
                                 </button>
