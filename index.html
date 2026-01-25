@@ -119,8 +119,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v2.2.0";
-        const RELEASE_DATE = "January 25, 2026 - 1:15 AM EST";
+        const APP_VERSION = "Updated: January 24, 2026 - 11:45 PM EST";
         
         // Simple state management
         let state = {
@@ -585,7 +584,11 @@
                 // Level 5+: Mix of questions, progressively harder
                 const questionPool = [];
                 
-                // Shot shape (always available)
+                // Organize questions by priority to avoid spoilers
+                let basicQuestions = []; // Safe questions that don't reveal answers
+                const spoilerQuestions = []; // Questions that reveal calculation results
+                
+                // Shot shape (always available - basic question)
                 const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
                 
                 // Determine number of options: 1-3=3, 4-6=4, 7-9=5, 10=6
@@ -613,7 +616,7 @@
                 }
                 explanationParts.push(`<strong>Result:</strong> ${shape} - ${shapeDesc}`);
                 
-                questionPool.push({
+                basicQuestions.push({
                     question: "What will be the shot shape?",
                     options: options,
                     correct: shape,
@@ -621,31 +624,31 @@
                     explanation: '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
                 });
                 
-                // Start position in yards (Level 5+)
-                questionPool.push(generateStartPositionQuestion(face, physics, diffLevel));
-                
-                // Start direction (Level 5+)
-                questionPool.push({
+                // Start direction (basic - just left/right, no distance) - Level 5+
+                basicQuestions.push({
                     question: "Will the ball start left or right of the target?",
                     options: ["Left of target", "Right of target", "Straight at target"],
                     correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
                     explanation: `<div><strong>Face angle:</strong> ${face}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
                 });
                 
+                // Start position in yards (SPOILER - reveals direction) - Level 5+
+                spoilerQuestions.push(generateStartPositionQuestion(face, physics, diffLevel));
+                
                 // Advanced questions for level 6+
                 if (diffLevel >= 6) {
-                    questionPool.push(generatePrimaryCauseQuestion(face, path, gearEffect, windEffect, diffLevel));
-                    questionPool.push(generateNetCurveQuestion(baseFaceToPath, gearEffect, windEffect, diffLevel));
+                    spoilerQuestions.push(generatePrimaryCauseQuestion(face, path, gearEffect, windEffect, diffLevel));
+                    spoilerQuestions.push(generateNetCurveQuestion(baseFaceToPath, gearEffect, windEffect, diffLevel));
                 }
                 
                 // Level 5: Add gear effect help/hurt question if gear effect exists
                 if (diffLevel >= 5 && gearEffect !== 0 && Math.abs(baseFaceToPath) > 1) {
-                    questionPool.push(generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel));
+                    basicQuestions.push(generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel));
                 }
                 
                 // Advanced questions for level 7-10
                 if (diffLevel >= 7) {
-                    questionPool.push(generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
+                    spoilerQuestions.push(generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
                 }
                 
                 if (diffLevel >= 8) {
@@ -661,10 +664,10 @@
                 
                 // Add hypothetical question and vertical impact question (Level 8+)
                 if (diffLevel >= 8) {
-                    questionPool.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel));
+                    spoilerQuestions.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel));
                     // Add vertical impact curve question if significant vertical impact
                     if (Math.abs(verticalImpact) > 2 && Math.abs(baseFaceToPath) > 1) {
-                        questionPool.push(generateVerticalImpactCurveQuestion(verticalImpact, verticalGearMultiplier, baseFaceToPath, diffLevel));
+                        basicQuestions.push(generateVerticalImpactCurveQuestion(verticalImpact, verticalGearMultiplier, baseFaceToPath, diffLevel));
                     }
                 }
                 
@@ -772,7 +775,7 @@
                 
                 // Level 7+: Filter out obvious questions to increase challenge
                 if (diffLevel >= 7) {
-                    questionPool = questionPool.filter(q => {
+                    basicQuestions = basicQuestions.filter(q => {
                         // Skip "start direction" if face angle is too obvious (|face| > 2°)
                         if (q.question.includes("start left or right") && Math.abs(face) > 2) {
                             return false;
@@ -791,12 +794,13 @@
                     });
                 }
                 
-                // Select questions from pool based on number of cards for this level
+                // Select questions from pools in proper order: basic → spoiler → offline distance
                 const numCards = difficultyLevels[diffLevel - 1].cards;
                 
-                // Select N-1 questions randomly, then always add offline distance as the last card
-                const randomQuestions = questionPool.sort(() => Math.random() - 0.5).slice(0, numCards - 1);
-                randomQuestions.forEach(q => cards.push(q));
+                // Combine pools in priority order, then select N-1 questions
+                const allQuestions = [...basicQuestions, ...spoilerQuestions];
+                const selectedQuestions = allQuestions.sort(() => Math.random() - 0.5).slice(0, numCards - 1);
+                selectedQuestions.forEach(q => cards.push(q));
                 
                 // Always add offline distance question last (it reveals the full calculation)
                 cards.push(offlineQuestion);
@@ -1502,7 +1506,9 @@
             // Auto-show tutorial for key levels if not shown before
             const tutorialLevels = [1, 3, 5, 7, 8];
             if (tutorialLevels.includes(state.difficulty) && !state.tutorialsShown.includes(state.difficulty)) {
-                showTutorial(state.difficulty);
+                state.showTutorial = true;
+                state.tutorialLevel = state.difficulty;
+                state.tutorialsShown.push(state.difficulty);
             } else {
                 maybeShowConfidenceBoost();
             }
@@ -1919,7 +1925,7 @@
                     <div class="min-h-screen golf-bg p-6 flex items-center justify-center">
                         <div class="bg-white rounded-lg shadow-2xl max-w-md w-full relative">
                             <div class="absolute top-3 right-3 text-xs text-gray-400 bg-white/90 px-2 py-1 rounded">
-                                ${APP_VERSION} • ${RELEASE_DATE}
+                                ${APP_VERSION}
                             </div>
                             <div class="p-6 rounded-t-lg text-center" style="background: linear-gradient(135deg, var(--augusta-green), var(--augusta-dark));">
                                 <div class="text-6xl mb-3">🏌️‍♂️⛳</div>
@@ -1960,7 +1966,7 @@
                         <div class="max-w-6xl mx-auto">
                             <div class="bg-white rounded-2xl shadow-2xl p-8 mb-4 relative">
                                 <div class="absolute top-3 right-3 text-xs text-gray-400 bg-white/90 px-2 py-1 rounded">
-                                    ${APP_VERSION} • ${RELEASE_DATE}
+                                    ${APP_VERSION}
                                 </div>
                                 <div class="text-center mb-2">
                                     <div class="text-5xl mb-3">⛳</div>
@@ -2077,7 +2083,7 @@
                 <div class="min-h-screen golf-bg p-6">
                     <div class="max-w-5xl mx-auto relative">
                         <div class="absolute -top-2 right-2 text-xs text-white/80 bg-black/40 px-3 py-1.5 rounded-lg backdrop-blur-sm shadow-lg" style="z-index: 100;">
-                            ${APP_VERSION} • ${RELEASE_DATE}
+                            ${APP_VERSION}
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                             <div class="text-white shadow-lg rounded-lg p-4 text-center" style="background: linear-gradient(135deg, var(--masters-gold), #B8860B);">
@@ -2366,8 +2372,8 @@
                 `;
             }
             
-            // Tutorial Modal
-            if (state.showTutorial) {
+            // Tutorial Modal - only show when in game view (not level select or auth)
+            if (state.showTutorial && !state.showAuth && !state.showLevelSelect && state.currentScenarioData) {
                 const tutorialContent = getTutorialContent(state.tutorialLevel);
                 app.innerHTML += `
                     <div class="tutorial-modal" onclick="closeTutorial()">
