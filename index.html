@@ -119,7 +119,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v2.7.0 - Updated: January 25, 2026 - 11:35 PM EST";
+        const APP_VERSION = "v2.8.0 - Updated: January 26, 2026 - 12:15 AM EST";
         
         // Simple state management
         let state = {
@@ -216,21 +216,25 @@
             
             const baseClubSpeed = { driver: 105, wood: 95, iron: 85, wedge: 75 };
             const baseCarryDistance = { driver: 250, wood: 220, iron: 165, wedge: 120 };
-            const clubs = diffLevel <= 2 ? ["7 Iron"] : 
+            const clubs = diffLevel <= 2 ? ["Driver", "7 Iron"] : 
                          diffLevel <= 5 ? ["Driver", "5 Wood", "7 Iron"] :
                          ["Driver", "3 Wood", "5 Iron", "7 Iron", "PW"];
             const club = clubs[Math.floor(Math.random() * clubs.length)];
             
+            // Granular club type mapping for realistic physics
             const clubType = club.includes("Driver") ? "driver" : 
                              club.includes("Wood") ? "wood" : 
-                             club.includes("PW") ? "wedge" : "iron";
+                             club.includes("5 Iron") ? "long_iron" :
+                             club.includes("7 Iron") ? "mid_iron" :
+                             club.includes("PW") ? "wedge" : "mid_iron";
             
-            // Club-specific physics
+            // Club-specific physics - REAL WORLD VALUES
             const clubPhysics = {
                 driver: { startFaceInfluence: 0.85, curveMultiplier: 6, loft: 10, gearMultiplier: 0.08 },
                 wood: { startFaceInfluence: 0.82, curveMultiplier: 5, loft: 18, gearMultiplier: 0.10 },
-                iron: { startFaceInfluence: 0.75, curveMultiplier: 4, loft: 34, gearMultiplier: 0.12 },
-                wedge: { startFaceInfluence: 0.70, curveMultiplier: 3, loft: 50, gearMultiplier: 0.15 }
+                long_iron: { startFaceInfluence: 0.78, curveMultiplier: 3.5, loft: 24, gearMultiplier: 0.11 },  // 5 Iron
+                mid_iron: { startFaceInfluence: 0.75, curveMultiplier: 3, loft: 34, gearMultiplier: 0.12 },     // 7 Iron
+                wedge: { startFaceInfluence: 0.70, curveMultiplier: 1.5, loft: 50, gearMultiplier: 0.15 }      // PW
             };
             const physics = clubPhysics[clubType];
             
@@ -870,46 +874,48 @@
                 explanationHTML += '<div class="flex items-center gap-2 mb-3"><span class="text-2xl">🌀</span><strong class="text-lg">CURVE COMPONENTS</strong></div>';
                 
                 // Face-to-path calculation
-                explanationHTML += `<div class="text-sm mb-1"><strong>Face-to-path:</strong> ${face.toFixed(1)}° - ${path.toFixed(1)}° = ${baseFaceToPath.toFixed(1)}°</div>`;
+                explanationHTML += `<div class="mb-2"><strong>Face-to-path:</strong> ${face.toFixed(1)}° - ${path.toFixed(1)}° = ${baseFaceToPath.toFixed(1)}°</div>`;
                 
-                // Vertical impact if applicable
+                // Modifiers section
+                let modifiers = [];
                 if (diffLevel >= 5 && Math.abs(verticalImpact) > 0.5) {
                     const verticalDir = verticalImpact > 0 ? "high" : "low";
-                    explanationHTML += `<div class="text-sm mb-1">Vertical: ${Math.abs(verticalImpact).toFixed(1)}mm ${verticalDir} × ${verticalGearMultiplier.toFixed(2)} ${verticalGearMultiplier > 1.0 ? 'amplifies' : 'dampens'}</div>`;
+                    modifiers.push(`Vertical: ${Math.abs(verticalImpact).toFixed(1)}mm ${verticalDir} × ${verticalGearMultiplier.toFixed(2)} ${verticalGearMultiplier > 1.0 ? 'amplifies' : 'dampens'}`);
                 }
-                
-                // Wind if present (show before curve calculation)
                 if (windEffect !== 0) {
                     const windEffectText = windMultiplier > 1.0 ? 'amplifies' : windMultiplier < 1.0 ? 'dampens' : 'minimal effect';
-                    explanationHTML += `<div class="text-sm mb-1">Wind: ${windDir} × ${windMultiplier.toFixed(2)} ${windEffectText}</div>`;
+                    modifiers.push(`Wind: ${windDir} × ${windMultiplier.toFixed(2)} ${windEffectText}`);
+                }
+                if (modifiers.length > 0) {
+                    modifiers.forEach(mod => {
+                        explanationHTML += `<div class="text-sm text-gray-700 mb-1">${mod}</div>`;
+                    });
+                    explanationHTML += '<div class="mb-2"></div>'; // spacer
                 }
                 
-                // Face-to-path curve
+                // Face-to-path curve calculation - grouped together
                 const baseFTPDir = baseFaceToPath < 0 ? "draw" : "fade";
                 const baseFTPYards = Math.abs(baseCurveContribution);
-                explanationHTML += `<div class="font-semibold mb-2">${baseFaceToPath.toFixed(1)}° ${baseFTPDir} × ${physics.curveMultiplier}${windMultiplier !== 1.0 ? ' × ' + windMultiplier.toFixed(2) : ''}${verticalGearMultiplier !== 1.0 ? ' × ' + verticalGearMultiplier.toFixed(2) : ''}</div>`;
-                explanationHTML += `<div class="font-semibold">= ${baseCurveContribution > 0 ? '+' : ''}${baseCurveContribution.toFixed(1)} yards</div>`;
-                explanationHTML += `<div class="text-sm text-gray-600 mb-3">${baseCurveContribution > 0 ? 'Right' : baseCurveContribution < 0 ? 'Left' : 'Straight'}</div>`;
+                explanationHTML += '<div class="bg-white/50 rounded p-2 mb-3">';
+                explanationHTML += `<div class="text-sm font-medium mb-1">Curve from face-to-path:</div>`;
+                explanationHTML += `<div class="font-semibold">${baseFaceToPath.toFixed(1)}° ${baseFTPDir} × ${physics.curveMultiplier}${windMultiplier !== 1.0 ? ' × ' + windMultiplier.toFixed(2) : ''}${verticalGearMultiplier !== 1.0 ? ' × ' + verticalGearMultiplier.toFixed(2) : ''}</div>`;
+                explanationHTML += `<div class="font-bold text-lg mt-1">= ${baseCurveContribution > 0 ? '+' : ''}${baseCurveContribution.toFixed(1)} yards ${baseCurveContribution > 0 ? 'right' : baseCurveContribution < 0 ? 'left' : 'straight'}</div>`;
+                explanationHTML += '</div>';
                 
-                // Gear effect if present
+                // Gear effect if present - grouped together
                 if (gearEffect !== 0) {
                     const gearDir = gearEffect > 0 ? "fade" : "draw";
                     const gearYards = Math.abs(gearContribution);
                     const gearRelation = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0) ? "additional" : "opposing";
-                    const highlightClass = gearRelation === "opposing" ? 'text-red-600 font-bold' : '';
+                    const highlightClass = gearRelation === "opposing" ? 'border-red-300 bg-red-50/50' : 'bg-white/50';
                     const warningIcon = gearRelation === "opposing" ? "⚠️ " : "";
-                    explanationHTML += `<div class="text-sm mb-1 ${highlightClass}"><strong>${warningIcon}Gear (${gearRelation}):</strong> ${impactLocationText}</div>`;
+                    const textClass = gearRelation === "opposing" ? 'text-red-700' : '';
+                    
+                    explanationHTML += `<div class="${highlightClass} rounded p-2 border-2">`;
+                    explanationHTML += `<div class="text-sm font-medium mb-1 ${textClass}"><strong>${warningIcon}Gear effect (${gearRelation}):</strong> ${impactLocationText}</div>`;
                     explanationHTML += `<div class="font-semibold">${Math.abs(gearEffect).toFixed(1)}° ${gearDir} × ${physics.curveMultiplier}${windMultiplier !== 1.0 ? ' × ' + windMultiplier.toFixed(2) : ''}${verticalGearMultiplier !== 1.0 ? ' × ' + verticalGearMultiplier.toFixed(2) : ''}</div>`;
-                    explanationHTML += `<div class="font-semibold">= ${gearContribution > 0 ? '+' : ''}${gearContribution.toFixed(1)} yards</div>`;
-                    explanationHTML += `<div class="text-sm text-gray-600 mb-3">${gearContribution > 0 ? 'Right' : 'Left'}</div>`;
-                }
-                
-                // Wind if present
-                if (windEffect !== 0) {
-                    const windSign = windEffect > 0 ? "right" : "left";
-                    explanationHTML += `<div class="text-sm mb-1"><strong>Wind:</strong> ${windDir}</div>`;
-                    explanationHTML += `<div class="font-semibold">= ${windEffect > 0 ? '+' : ''}${windEffect.toFixed(1)} yards</div>`;
-                    explanationHTML += `<div class="text-sm text-gray-600">${windSign.charAt(0).toUpperCase() + windSign.slice(1)}</div>`;
+                    explanationHTML += `<div class="font-bold text-lg mt-1">= ${gearContribution > 0 ? '+' : ''}${gearContribution.toFixed(1)} yards ${gearContribution > 0 ? 'right' : 'left'}</div>`;
+                    explanationHTML += '</div>';
                 }
                 
                 explanationHTML += '</div>';
