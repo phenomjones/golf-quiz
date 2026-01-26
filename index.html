@@ -149,7 +149,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v3.0.0 FINAL - Updated: January 26, 2026 - 1:30 AM EST";
+        const APP_VERSION = "v3.0.1 - Updated: January 26, 2026 - 1:45 AM EST";
         
         // Simple state management
         let state = {
@@ -484,6 +484,20 @@
                     // Flat (negative) = opens face (positive adjustment)
                     lieAngleAdjustment = lieAngle * -lieMultiplier;
                     face = face + lieAngleAdjustment;
+                    
+                    // Update face display to show effective face
+                    const effectiveFaceDir = face > 0 ? " (right)" : face < 0 ? " (left)" : "";
+                    if (diffLevel <= 4) {
+                        faceDisplay = originalFace.toFixed(1) + "°" + (originalFace > 0 ? " (right)" : originalFace < 0 ? " (left)" : "");
+                        faceDisplay += `<br><span style="color: var(--augusta-green); font-weight: bold;">After lie: ${face.toFixed(1)}°${effectiveFaceDir}</span>`;
+                    } else if (diffLevel <= 6) {
+                        faceDisplay = originalFace.toFixed(1) + "°" + (originalFace > 0 ? ' <span class="hint-fade">(right)</span>' : originalFace < 0 ? ' <span class="hint-fade">(left)</span>' : "");
+                        faceDisplay += `<br><span style="color: var(--augusta-green); font-weight: bold;">After lie: ${face.toFixed(1)}°</span>` + (face > 0 ? ' <span class="hint-fade">(right)</span>' : face < 0 ? ' <span class="hint-fade">(left)</span>' : "");
+                    } else {
+                        faceDisplay = originalFace.toFixed(1) + "°";
+                        faceDisplay += `<br><span style="color: var(--augusta-green); font-weight: bold;">After lie: ${face.toFixed(1)}°</span>`;
+                    }
+                    data["Club Face"].value = faceDisplay;
                 }
             }
             
@@ -585,7 +599,7 @@
             if (diffLevel <= 2) {
                 // Level 1: 2 questions - Face-to-path + Shot shape
                 // Level 2: 3 questions - Face-to-path + Curve direction + Shot shape
-                cards.push(generateFaceToPathQuestion(face, path, diffLevel));
+                cards.push(generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace));
                 
                 // Level 2: Add curve direction question
                 if (diffLevel === 2) {
@@ -623,7 +637,7 @@
                 
             } else if (diffLevel <= 4) {
                 // Level 3-4: face-to-path + start direction + shot shape
-                cards.push(generateFaceToPathQuestion(face, path, diffLevel));
+                cards.push(generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace));
                 
                 cards.push({
                     question: "Will the ball start left or right of the target?",
@@ -1091,9 +1105,15 @@
         }
 
 
-        function generateFaceToPathQuestion(face, path, diffLevel) {
+        function generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment = 0, originalFace = null) {
             const correctAnswer = face - path;
             const numOptions = diffLevel <= 3 ? 3 : diffLevel <= 6 ? 4 : diffLevel <= 9 ? 5 : 6;
+            
+            // At Level 4+, if lie angle exists, clarify we're using effective face
+            const hasLie = diffLevel >= 4 && lieAngleAdjustment !== 0;
+            const questionText = hasLie ? 
+                "What is the face-to-path angle? (Use effective face after lie adjustment)" : 
+                "What is the face-to-path angle?";
             
             // Generate wrong answers nearby the correct one
             let options = [correctAnswer];
@@ -1110,11 +1130,18 @@
             options.push(...wrongAnswers);
             options = options.sort(() => Math.random() - 0.5);
             
+            let explanation = `<div><strong>Calculation:</strong> Face-to-path = Face - Path</div>`;
+            if (hasLie && originalFace !== null) {
+                explanation += `<div>Original face: ${originalFace.toFixed(1)}°, Lie adjustment: ${lieAngleAdjustment > 0 ? '+' : ''}${lieAngleAdjustment.toFixed(1)}°</div>`;
+                explanation += `<div>Effective face: ${face.toFixed(1)}°</div>`;
+            }
+            explanation += `<div>${face.toFixed(1)}° - (${path.toFixed(1)}°) = ${correctAnswer.toFixed(1)}°</div>`;
+            
             return {
-                question: "What is the face-to-path angle?",
+                question: questionText,
                 options: options.map(o => o.toFixed(1) + "°"),
                 correct: correctAnswer.toFixed(1) + "°",
-                explanation: `<div><strong>Calculation:</strong> Face-to-path = Face - Path</div><div>${face.toFixed(1)}° - (${path.toFixed(1)}°) = ${correctAnswer.toFixed(1)}°</div>`
+                explanation: explanation
             };
         }
 
@@ -3552,7 +3579,11 @@
                 saveScore();
             }
             
-            if (state.currentCard < totalCards) {
+            // CRITICAL: Check if we're on the last card
+            const isLastCard = (state.currentCard >= totalCards);
+            
+            if (!isLastCard) {
+                // Move to next card in same scenario
                 state.currentCard++;
             } else {
                 // Scenario complete - track performance
@@ -3576,6 +3607,7 @@
                     showLevelUpPromotion(state.difficulty + 1);
                 }
                 
+                // START NEW SCENARIO
                 state.scenarioNumber++;
                 state.currentCard = 1;
                 state.currentScenarioData = generateScenario(state.difficulty);
