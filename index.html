@@ -105,6 +105,36 @@
             overflow-y: auto;
             padding: 30px;
         }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes bounceIn {
+            0% { 
+                transform: scale(0.3);
+                opacity: 0;
+            }
+            50% { 
+                transform: scale(1.05);
+            }
+            70% { 
+                transform: scale(0.9);
+            }
+            100% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .animate-bounce-in {
+            animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
     </style>
     <script>
         // Augusta 12th hole background for all screens
@@ -119,7 +149,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v2.8.0 - Updated: January 26, 2026 - 12:15 AM EST";
+        const APP_VERSION = "v3.0.0 FINAL - Updated: January 26, 2026 - 1:30 AM EST";
         
         // Simple state management
         let state = {
@@ -148,20 +178,20 @@
             tutorialsShown: [], // Track which level tutorials have been shown
             levelPerformance: {}, // Track stats per level: { 1: { scenarios: 15, correct: 42, total: 45, recent: [3,2,3,3,2] }, ... }
             showLevelUpPromotion: false,
-            promotionTargetLevel: null
+            promotionTargetLevel: null,
+            perfectScenariosLevel5: 0, // Track perfect scenarios on Level 5 for secret unlock
+            secretLevelUnlocked: false, // Has Grand Slam Winner been unlocked?
+            showSecretUnlock: false, // Show unlock animation
+            showShareModal: false // Show share to Twitter modal
         };
 
         const difficultyLevels = [
-            { level: 1, name: "Range Rookie", description: "Learn face-to-path calculation", baseReward: 10, cards: 2, details: "Learn to calculate face-to-path angle and identify basic shot shapes. Full hints provided. Data: Club, Face, Path" },
-            { level: 2, name: "Weekend Warrior", description: "Practice fundamentals", baseReward: 15, cards: 2, details: "Reinforce face-to-path calculations with shot shape recognition. 3 answer options." },
-            { level: 3, name: "Club Champion", description: "Add horizontal gear effect", baseReward: 25, cards: 3, details: "NEW DATA: Impact Location (toe/heel). Learn how horizontal gear effect creates draws from heel hits and fades from toe hits. 4 answer options." },
-            { level: 4, name: "Scratch Golfer", description: "Master the basics", baseReward: 40, cards: 3, details: "Solidify understanding of face-to-path, start direction, and horizontal gear effect. More extreme mishits." },
-            { level: 5, name: "Mini-Tour Pro", description: "Add vertical gear effect", baseReward: 60, cards: 3, details: "NEW DATA: Vertical Impact (high/low on face). Learn how vertical position affects sidespin effectiveness. High face = more curve, low face = less curve." },
-            { level: 6, name: "Korn Ferry Player", description: "Advanced concepts", baseReward: 85, cards: 3, details: "New questions: What's the PRIMARY cause? What's the NET curve direction? Hints start fading (gray text)." },
-            { level: 7, name: "PGA Tour Player", description: "Lie angle affects face", baseReward: 115, cards: 3, details: "NEW DATA: Lie Angle. Learn how upright lie closes the face (ball goes left) and flat lie opens it (ball goes right). All directional hints removed." },
-            { level: 8, name: "Tour Winner", description: "Wind conditions added", baseReward: 150, cards: 3, details: "NEW DATA: Wind. Learn how headwind amplifies spin, tailwind dampens it, and crosswind pushes laterally. Hypothetical questions appear. Trick scenarios (15% chance)." },
-            { level: 9, name: "Major Champion", description: "Expert-level analysis", baseReward: 200, cards: 3, details: "All question types in play. Reverse calculations, shot diagnosis. 95% penalty for wrong answers." },
-            { level: 10, name: "Masters Champion", description: "Ultimate challenge", baseReward: 300, cards: 3, details: "The pinnacle. All variables, trick scenarios, no hints, 6 answer options. Wrong answers cost you the full 300 tokens. Earn your green jacket!" }
+            { level: 1, name: "Range Rookie", description: "Master face-to-path basics", baseReward: 25, cards: 3, details: "Learn face angle, club path, and basic shot shapes. Full hints provided. Data: Club, Face, Path", unlockRequirement: "Start here" },
+            { level: 2, name: "Tour Player", description: "Add gear effect", baseReward: 60, cards: 3, details: "NEW DATA: Impact Location (horizontal & vertical). Learn how off-center hits create gear effect. Toe hits fade, heel hits draw. High impacts amplify curve, low dampens it.", unlockRequirement: "Complete Level 1" },
+            { level: 3, name: "Major Contender", description: "Advanced analysis", baseReward: 115, cards: 3, details: "Master gear effect concepts. New questions: PRIMARY cause, LEAST impact, NET curve direction. More extreme scenarios. Hints fade to gray.", unlockRequirement: "Complete Level 2" },
+            { level: 4, name: "Championship Level", description: "Lie angle & wind", baseReward: 200, cards: 3, details: "NEW DATA: Lie Angle & Wind. Upright lie closes face (left), flat opens (right). Headwind amplifies curve, tailwind dampens. Hypothetical questions. 15% trick scenarios.", unlockRequirement: "Complete Level 3" },
+            { level: 5, name: "Masters Champion", description: "Ultimate challenge", baseReward: 350, cards: 3, details: "All variables, complex scenarios, no hints, 6 answer options. Earn 4 perfect scenarios to unlock the secret level! Wrong answers cost 85% of base reward.", unlockRequirement: "Complete Level 4" },
+            { level: 6, name: "Grand Slam Winner", description: "🏆 SECRET BOSS LEVEL 🏆", baseReward: 1500, cards: 4, details: "LEGENDARY: Extreme conditions (25mph winds, 20mm impacts, 5° lie angles). 50% trick scenarios. 4 cards per scenario. Triple rewards. 2-yard answer tolerances. Only the true masters survive.", unlockRequirement: "Complete 4 PERFECT scenarios on Level 5", isSecret: true, isUnlocked: false }
         ];
 
         const shotShapeDescriptions = {
@@ -214,11 +244,14 @@
         function generateScenario(diffLevel) {
             let isTrickScenario = false; // Track if this is a trick scenario
             
-            const baseClubSpeed = { driver: 105, wood: 95, iron: 85, wedge: 75 };
-            const baseCarryDistance = { driver: 250, wood: 220, iron: 165, wedge: 120 };
-            const clubs = diffLevel <= 2 ? ["Driver", "7 Iron"] : 
-                         diffLevel <= 5 ? ["Driver", "5 Wood", "7 Iron"] :
-                         ["Driver", "3 Wood", "5 Iron", "7 Iron", "PW"];
+            const baseClubSpeed = { driver: 105, wood: 95, long_iron: 90, mid_iron: 85, wedge: 75 };
+            const baseCarryDistance = { driver: 250, wood: 220, long_iron: 185, mid_iron: 165, wedge: 120 };
+            
+            // Club selection by level
+            const clubs = diffLevel <= 1 ? ["Driver", "7 Iron"] :                      // Level 1: Basic
+                         diffLevel <= 2 ? ["Driver", "5 Wood", "7 Iron"] :              // Level 2: Add wood
+                         diffLevel <= 4 ? ["Driver", "3 Wood", "5 Iron", "7 Iron"] :    // Level 3-4: Add 5i
+                         ["Driver", "3 Wood", "5 Iron", "7 Iron", "PW"];                // Level 5-6: All clubs
             const club = clubs[Math.floor(Math.random() * clubs.length)];
             
             // Granular club type mapping for realistic physics
@@ -309,21 +342,32 @@
                 }
             };
             
-            if (diffLevel >= 3) {
+            if (diffLevel >= 2) {
                 // Trick scenarios: at high levels, occasionally create strong opposing forces
-                const shouldBeTrick = diffLevel >= 8 && Math.random() < 0.15; // 15% chance at levels 8-10
+                const shouldBeTrick = diffLevel >= 4 && Math.random() < (diffLevel === 6 ? 0.50 : 0.15); // 15% at L4-5, 50% at L6
                 
                 // Club-specific maximum impact distances (full clubface width)
                 const maxImpactByClub = {
                     driver: 30,   // ±30mm from center
                     wood: 27.5,   // ±27.5mm from center
-                    iron: 25,     // ±25mm from center
+                    long_iron: 26, // ±26mm from center
+                    mid_iron: 25,     // ±25mm from center
                     wedge: 22.5   // ±22.5mm from center
                 };
                 
-                let maxImpact = diffLevel === 3 ? 6 : maxImpactByClub[clubType];
+                // Level 6: Extreme impacts (15-25mm), Level 1: Easy (±6mm), Others: Full range
+                let maxImpact;
+                if (diffLevel === 6) {
+                    maxImpact = 25; // Force large impacts
+                    impact = (Math.random() * 10 + 15) * (Math.random() < 0.5 ? 1 : -1); // 15-25mm toe or heel
+                } else if (diffLevel === 1) {
+                    maxImpact = 6; // Beginner-friendly
+                    impact = Math.random() * maxImpact * 2 - maxImpact;
+                } else {
+                    maxImpact = maxImpactByClub[clubType];
+                }
                 
-                if (shouldBeTrick) {
+                if (shouldBeTrick && diffLevel !== 6) {
                     isTrickScenario = true; // Mark this as a trick scenario
                     // Force a trick scenario: strong gear effect opposing face-to-path
                     maxImpact = maxImpactByClub[clubType];
@@ -337,8 +381,13 @@
                     } else {
                         impact = Math.random() * maxImpact * 2 - maxImpact; // Random if straight
                     }
-                } else {
+                } else if (diffLevel !== 6 && diffLevel !== 1) {
                     impact = Math.random() * maxImpact * 2 - maxImpact;
+                }
+                // Level 6 and Level 1 already set impact above
+                
+                if (shouldBeTrick && diffLevel === 6) {
+                    isTrickScenario = true; // Level 6 trick scenarios
                 }
                 
                 impactSide = impact > 0 ? "toe" : impact < 0 ? "heel" : "center";
@@ -356,17 +405,21 @@
                 impactLocationText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
             }
             
-            // Vertical impact (high/low on face) added at level 5
+            // Vertical impact (high/low on face) added at level 2
             let verticalImpact = 0;
             let verticalGearMultiplier = 1.0;
             
-            if (diffLevel >= 5) {
-                // Generate vertical impact: -12mm (low) to +12mm (high)
-                verticalImpact = (Math.random() * 24) - 12;
+            if (diffLevel >= 2) {
+                // Level 6: Extreme vertical (10-15mm), Others: Normal (±12mm)
+                if (diffLevel === 6) {
+                    verticalImpact = (Math.random() * 5 + 10) * (Math.random() < 0.5 ? 1 : -1); // 10-15mm high or low
+                } else {
+                    verticalImpact = (Math.random() * 24) - 12; // -12 to +12mm
+                }
                 const verticalSide = verticalImpact > 0 ? "high" : "low";
                 
                 // Update impact location display to include vertical
-                if (diffLevel >= 3) {
+                if (diffLevel >= 2) {
                     const horizontalText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
                     const verticalText = Math.abs(verticalImpact).toFixed(1) + "mm " + verticalSide;
                     data["Impact Location"].value = horizontalText + ", " + verticalText;
@@ -390,18 +443,22 @@
                     // Low on face: less sidespin effectiveness
                     verticalGearMultiplier = 1.0 - ((1.0 - multipliers.low) * (absVertical / 12));
                 }
-            } else if (diffLevel >= 3) {
+            } else if (diffLevel >= 2) {
                 // Level 3-4: No visual needed anymore
             }
             
-            // Lie Angle added at level 7
+            // Lie Angle added at level 4
             let lieAngleAdjustment = 0;
             let originalFace = face; // Store original before lie adjustment
             let lieAngle = 0;
             
-            if (diffLevel >= 7) {
-                // Generate lie angle: -3° (flat) to +3° (upright)
-                lieAngle = (Math.random() * 6) - 3;
+            if (diffLevel >= 4) {
+                // Level 6: Extreme lie (3-5°), Others: Normal (±3°)
+                if (diffLevel === 6) {
+                    lieAngle = (Math.random() * 2 + 3) * (Math.random() < 0.5 ? 1 : -1); // 3-5° upright or flat
+                } else {
+                    lieAngle = (Math.random() * 6) - 3; // -3 to +3°
+                }
                 const lieType = lieAngle > 0.5 ? "upright" : lieAngle < -0.5 ? "flat" : "standard";
                 
                 // Display lie angle
@@ -434,13 +491,14 @@
             let windMultiplier = 1.0; // How wind affects spin/curve
             let carryAdjustment = 0; // How wind affects distance
             
-            if (diffLevel >= 8) {
+            if (diffLevel >= 4) {
                 // Bell curve distribution: mean ~7 MPH, std dev ~5, capped at 25
                 const bellCurve = () => {
                     const u1 = Math.random();
                     const u2 = Math.random();
                     const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-                    return z * 5 + 7; // std dev 5, mean 7
+                    // Level 6: Extreme winds (15-25 mph), Others: Normal (std dev 5, mean 7)
+                    return diffLevel === 6 ? z * 4 + 20 : z * 5 + 7;
                 };
                 windSpeedMPH = Math.max(0, Math.min(25, Math.round(bellCurve())));
                 
@@ -699,11 +757,11 @@
                 }
                 
                 // Advanced questions for level 7-10
-                if (diffLevel >= 7) {
+                if (diffLevel >= 4) {
                     spoilerQuestions.push(generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
                 }
                 
-                if (diffLevel >= 8) {
+                if (diffLevel >= 4) {
                     // Will add hypothetical and vertical impact questions after we calculate values below
                 }
                 
@@ -720,7 +778,7 @@
                 }
                 
                 // Add hypothetical question and vertical impact question (Level 8+)
-                if (diffLevel >= 8) {
+                if (diffLevel >= 4) {
                     // Wind amplify/dampen and worst-case questions
                     if (windSpeedMPH > 0 && Math.abs(baseFaceToPath) > 1) {
                         basicQuestions.push(generateWindAmplifyDampenQuestion(windDir, baseFaceToPath, diffLevel));
@@ -753,8 +811,13 @@
                 let opts, corr;
                 let rangeSize, numRanges;
                 
+                // Level 6: Brutal 2-yard ranges
+                if (diffLevel === 6) {
+                    rangeSize = 2;
+                    numRanges = 6;
+                }
                 // Determine range size based on result magnitude
-                if (roundedYards <= 15) {
+                else if (roundedYards <= 15) {
                     rangeSize = 3; // Small results: 3-yard ranges
                     numRanges = 6;
                 } else if (roundedYards <= 30) {
@@ -958,7 +1021,7 @@
                 };
                 
                 // Level 7+: Filter out obvious questions to increase challenge
-                if (diffLevel >= 7) {
+                if (diffLevel >= 4) {
                     basicQuestions = basicQuestions.filter(q => {
                         // Skip "start direction" if face angle is too obvious (|face| > 2°)
                         if (q.question.includes("start left or right") && Math.abs(face) > 2) {
@@ -1927,7 +1990,7 @@
                 state.isCorrect = false;
                 
                 // Auto-show tutorial if switching to a tutorial level not seen before
-                const tutorialLevels = [1, 3, 5, 7, 8];
+                const tutorialLevels = [1, 2, 3, 4, 5, 6];
                 if (tutorialLevels.includes(state.difficulty) && !state.tutorialsShown.includes(state.difficulty)) {
                     state.showTutorial = true;
                     state.tutorialLevel = state.difficulty;
@@ -1943,7 +2006,7 @@
             state.currentScenarioData = generateScenario(state.difficulty);
             
             // Auto-show tutorial for key levels if not shown before
-            const tutorialLevels = [1, 3, 5, 7, 8];
+            const tutorialLevels = [1, 2, 3, 4, 5, 6];
             if (tutorialLevels.includes(state.difficulty) && !state.tutorialsShown.includes(state.difficulty)) {
                 state.showTutorial = true;
                 state.tutorialLevel = state.difficulty;
@@ -2517,7 +2580,7 @@
             state.currentScenarioData = generateScenario(state.difficulty);
             
             // Auto-show tutorial if applicable
-            const tutorialLevels = [1, 3, 5, 7, 8];
+            const tutorialLevels = [1, 2, 3, 4, 5, 6];
             if (tutorialLevels.includes(state.difficulty) && !state.tutorialsShown.includes(state.difficulty)) {
                 state.showTutorial = true;
                 state.tutorialLevel = state.difficulty;
@@ -2530,6 +2593,153 @@
         function declinePromotion() {
             state.showLevelUpPromotion = false;
             render();
+        }
+
+        function closeSecretUnlock() {
+            state.showSecretUnlock = false;
+            render();
+        }
+
+        function acceptSecretLevel() {
+            state.difficulty = 6;
+            state.showSecretUnlock = false;
+            state.scenarioNumber = 1;
+            state.currentCard = 1;
+            state.currentScenarioData = generateScenario(6);
+            
+            // Auto-show tutorial
+            if (!state.tutorialsShown.includes(6)) {
+                state.showTutorial = true;
+                state.tutorialLevel = 6;
+                state.tutorialsShown.push(6);
+            }
+            
+            render();
+        }
+
+        function openShareModal() {
+            state.showShareModal = true;
+            render();
+        }
+
+        function closeShareModal() {
+            state.showShareModal = false;
+            render();
+        }
+
+        function generateShareCard(type = 'standard') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 600;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient (Augusta green)
+            const gradient = ctx.createLinearGradient(0, 0, 0, 600);
+            gradient.addColorStop(0, '#006747');
+            gradient.addColorStop(1, '#004d35');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 800, 600);
+            
+            // White content box
+            ctx.fillStyle = 'white';
+            ctx.roundRect(40, 40, 720, 520, 20);
+            ctx.fill();
+            
+            // Title
+            ctx.fillStyle = '#006747';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('⛳ BALL FLIGHT MASTER ⛳', 400, 120);
+            
+            const accuracy = state.user.questionsAnswered > 0 ? 
+                Math.round((state.user.correctAnswers / state.user.questionsAnswered) * 100) : 0;
+            
+            if (type === 'secret_unlock') {
+                // Secret Level Unlock Card
+                ctx.fillStyle = '#9333ea';
+                ctx.font = 'bold 36px Arial';
+                ctx.fillText('🏆 LEGENDARY ACHIEVEMENT! 🏆', 400, 200);
+                
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 32px Arial';
+                ctx.fillText('Grand Slam Winner Unlocked!', 400, 260);
+                
+                ctx.font = '24px Arial';
+                ctx.fillText(`4 Perfect Scenarios on Level 5`, 400, 320);
+                ctx.fillText(`Total Tokens: ${state.user.tokens} 🪙`, 400, 360);
+                ctx.fillText(`Accuracy: ${accuracy}%`, 400, 400);
+                
+                ctx.font = 'italic 20px Arial';
+                ctx.fillStyle = '#666';
+                ctx.fillText('"I unlocked the secret level!"', 400, 460);
+                
+            } else if (type === 'completion') {
+                // Grand Slam Winner Completion Card
+                ctx.fillStyle = '#9333ea';
+                ctx.font = 'bold 40px Arial';
+                ctx.fillText('👑 GRAND SLAM WINNER 👑', 400, 200);
+                ctx.fillText('CONQUERED!', 400, 250);
+                
+                ctx.fillStyle = '#333';
+                ctx.font = '24px Arial';
+                ctx.fillText(`Final Accuracy: ${accuracy}%`, 400, 320);
+                ctx.fillText(`Total Tokens: ${state.user.tokens} 🪙`, 400, 360);
+                ctx.fillText(`Perfect Scenarios: ${state.perfectScenariosLevel5}`, 400, 400);
+                
+                ctx.font = 'italic 20px Arial';
+                ctx.fillStyle = '#666';
+                ctx.fillText('"I mastered the impossible!"', 400, 460);
+                
+            } else {
+                // Standard Share Card
+                const levelName = difficultyLevels[state.difficulty - 1].name;
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 32px Arial';
+                ctx.fillText(`Level ${state.difficulty}: ${levelName}`, 400, 200);
+                
+                ctx.font = '24px Arial';
+                ctx.fillText(`Accuracy: ${accuracy}%`, 400, 270);
+                ctx.fillText(`Total Tokens: ${state.user.tokens} 🪙`, 400, 320);
+                ctx.fillText(`Best Streak: ${state.user.bestStreak} correct`, 400, 370);
+                
+                ctx.font = 'italic 20px Arial';
+                ctx.fillStyle = '#666';
+                ctx.fillText('"I\'ve mastered golf physics!"', 400, 440);
+            }
+            
+            // Footer
+            ctx.fillStyle = '#999';
+            ctx.font = '18px Arial';
+            ctx.fillText('Play: ballflightmaster.com', 400, 520);
+            
+            return canvas.toDataURL('image/png');
+        }
+
+        function shareToTwitter(type = 'standard') {
+            const imageData = generateShareCard(type);
+            
+            // Create a download link
+            const link = document.createElement('a');
+            link.download = `ball-flight-master-${type}.png`;
+            link.href = imageData;
+            link.click();
+            
+            // Open Twitter with pre-filled text
+            let tweetText = '';
+            if (type === 'secret_unlock') {
+                tweetText = '🏆 I just unlocked the SECRET LEVEL in Ball Flight Master! Grand Slam Winner awaits... Can you master golf physics? ⛳';
+            } else if (type === 'completion') {
+                tweetText = '👑 I conquered the Grand Slam Winner level in Ball Flight Master! The ultimate golf physics challenge. Think you can beat it? ⛳';
+            } else {
+                const accuracy = state.user.questionsAnswered > 0 ? 
+                    Math.round((state.user.correctAnswers / state.user.questionsAnswered) * 100) : 0;
+                tweetText = `⛳ I'm mastering golf physics in Ball Flight Master! Level ${state.difficulty}, ${accuracy}% accuracy, ${state.user.tokens} tokens earned. Can you do better?`;
+            }
+            
+            const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=ballflightmaster.com`;
+            window.open(twitterUrl, '_blank');
+            
+            closeShareModal();
         }
 
 
@@ -2603,16 +2813,20 @@
                                 </div>
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    ${difficultyLevels.map(level => `
-                                        <div class="border-2 rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all ${state.difficulty === level.level ? 'border-green-600 bg-green-50' : 'border-gray-300'}"
-                                            style="${state.difficulty === level.level ? 'border-color: var(--augusta-green);' : ''}"
+                                    ${difficultyLevels.filter(level => !level.isSecret || state.secretLevelUnlocked).map(level => {
+                                        const isSecret = level.isSecret;
+                                        const secretClass = isSecret ? 'border-purple-600 bg-gradient-to-br from-purple-50 to-red-50' : 'border-gray-300';
+                                        const secretIcon = isSecret ? '🏆' : '🏌️';
+                                        return `
+                                        <div class="border-2 rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all ${state.difficulty === level.level ? 'border-green-600 bg-green-50' : secretClass}"
+                                            style="${state.difficulty === level.level ? 'border-color: var(--augusta-green);' : isSecret ? 'border-color: #9333ea; box-shadow: 0 0 20px rgba(147, 51, 234, 0.3);' : ''}"
                                             onclick="selectLevel(${level.level})">
                                             <div class="flex items-start justify-between mb-3">
                                                 <div>
-                                                    <h3 class="text-xl font-bold text-gray-900">🏌️ Level ${level.level}: ${level.name}</h3>
-                                                    <p class="text-sm text-gray-600 mt-1">${level.description}</p>
+                                                    <h3 class="text-xl font-bold ${isSecret ? 'text-purple-900' : 'text-gray-900'}">${secretIcon} Level ${level.level}: ${level.name}</h3>
+                                                    <p class="text-sm ${isSecret ? 'text-purple-700' : 'text-gray-600'} mt-1">${level.description}</p>
                                                 </div>
-                                                <span class="px-3 py-1 rounded-full text-sm font-semibold" style="background: var(--masters-gold); color: #000;">
+                                                <span class="px-3 py-1 rounded-full text-sm font-semibold" style="background: ${isSecret ? '#9333ea' : 'var(--masters-gold)'}; color: ${isSecret ? '#fff' : '#000'};">
                                                     +${level.baseReward}
                                                 </span>
                                             </div>
@@ -2632,7 +2846,8 @@
                                                 </div>
                                             </div>
                                         </div>
-                                    `).join('')}
+                                        `;
+                                    }).join('')}
                                 </div>
                                 
                                 <div class="flex gap-3 mt-6">
@@ -2733,6 +2948,23 @@
                             </div>
                         </div>
 
+                        ${state.difficulty === 5 && !state.secretLevelUnlocked ? `
+                            <div class="mb-6 p-5 rounded-xl shadow-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white">
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold mb-2">
+                                        🏆 SECRET LEVEL PROGRESS
+                                    </div>
+                                    <p class="text-sm mb-3 opacity-90">Complete 4 perfect scenarios to unlock Grand Slam Winner!</p>
+                                    <div class="flex justify-center items-center gap-2 mb-2">
+                                        ${Array.from({length: 4}, (_, i) => {
+                                            return i < state.perfectScenariosLevel5 ? '<span class="text-4xl">✓</span>' : '<span class="text-4xl text-white/30">○</span>';
+                                        }).join('')}
+                                    </div>
+                                    <p class="text-lg font-bold">${state.perfectScenariosLevel5}/4 Perfect Scenarios</p>
+                                </div>
+                            </div>
+                        ` : ''}
+
                         ${state.hasUsedBoost ? `
                             <div class="mb-6 p-4 rounded-xl shadow-lg ${state.boostLost ? 'bg-gray-300 opacity-75' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}">
                                 <div class="text-center">
@@ -2772,6 +3004,9 @@
                                 ` : ''}
                                 <button onclick="toggleDifficulty()" class="px-4 py-2 bg-blue-600 text-white rounded-lg mr-2">
                                     Change Level
+                                </button>
+                                <button onclick="openShareModal()" class="px-4 py-2 bg-blue-400 text-white rounded-lg mr-2 hover:bg-blue-500">
+                                    🐦 Share
                                 </button>
                                 <button onclick="openLeaderboard()" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">
                                     🏆
@@ -2949,6 +3184,79 @@
                 </div>
             `;
             
+            // Share Modal
+            if (state.showShareModal) {
+                const canUnlockSecret = state.difficulty === 5 && !state.secretLevelUnlocked;
+                const hasSecretLevel = state.secretLevelUnlocked || state.difficulty === 6;
+                
+                app.innerHTML += `
+                    <div class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4" onclick="closeShareModal()">
+                        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8" onclick="event.stopPropagation()">
+                            <div class="flex justify-between items-center mb-6">
+                                <h2 class="text-3xl font-bold" style="color: var(--augusta-green);">
+                                    📸 Share Your Progress
+                                </h2>
+                                <button onclick="closeShareModal()" class="text-gray-500 hover:text-gray-700 text-3xl font-bold">×</button>
+                            </div>
+                            
+                            <p class="text-gray-600 mb-6">Generate a shareable image and tweet your golf physics mastery!</p>
+                            
+                            <div class="grid grid-cols-1 gap-4">
+                                <button onclick="shareToTwitter('standard')" 
+                                    class="p-6 border-2 border-blue-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                                    <div class="flex items-center gap-4 mb-2">
+                                        <span class="text-4xl">📊</span>
+                                        <div>
+                                            <h3 class="text-xl font-bold text-gray-900">Standard Progress</h3>
+                                            <p class="text-sm text-gray-600">Share your current stats and level</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-sm text-gray-500 mt-2">
+                                        Includes: Level, Accuracy, Tokens, Best Streak
+                                    </div>
+                                </button>
+                                
+                                ${hasSecretLevel ? `
+                                    <button onclick="shareToTwitter('secret_unlock')" 
+                                        class="p-6 border-2 border-purple-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all text-left">
+                                        <div class="flex items-center gap-4 mb-2">
+                                            <span class="text-4xl">🏆</span>
+                                            <div>
+                                                <h3 class="text-xl font-bold text-purple-900">Secret Level Unlocked!</h3>
+                                                <p class="text-sm text-purple-600">Show off your legendary achievement</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-sm text-gray-500 mt-2">
+                                            Celebrate unlocking Grand Slam Winner
+                                        </div>
+                                    </button>
+                                ` : ''}
+                                
+                                ${state.difficulty === 6 ? `
+                                    <button onclick="shareToTwitter('completion')" 
+                                        class="p-6 border-2 border-yellow-200 rounded-xl hover:border-yellow-500 hover:bg-yellow-50 transition-all text-left">
+                                        <div class="flex items-center gap-4 mb-2">
+                                            <span class="text-4xl">👑</span>
+                                            <div>
+                                                <h3 class="text-xl font-bold text-yellow-900">Grand Slam Champion</h3>
+                                                <p class="text-sm text-yellow-600">Prove you conquered the ultimate challenge</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-sm text-gray-500 mt-2">
+                                            Show your Grand Slam Winner completion
+                                        </div>
+                                    </button>
+                                ` : ''}
+                            </div>
+                            
+                            <p class="text-xs text-gray-500 mt-6 text-center">
+                                Image will download automatically. Upload it to your tweet!
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+            
             // Add level modal overlay if open
             if (state.showLevelModal) {
                 app.innerHTML += `
@@ -3025,6 +3333,76 @@
                         </div>
                     </div>
                 `;
+            }
+            
+            // Secret Level Unlock Modal
+            if (state.showSecretUnlock) {
+                app.innerHTML += `
+                    <div class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4 animate-fade-in">
+                        <div class="bg-gradient-to-br from-yellow-100 via-orange-100 to-red-100 rounded-2xl shadow-2xl max-w-2xl w-full p-8 border-4 border-yellow-500 animate-bounce-in">
+                            <div class="text-center mb-6">
+                                <div class="text-8xl mb-4 animate-pulse">🏆</div>
+                                <h2 class="text-5xl font-bold mb-4" style="color: var(--augusta-green); text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+                                    LEGENDARY ACHIEVEMENT!
+                                </h2>
+                                <p class="text-2xl font-bold text-gray-800 mb-2">
+                                    You've mastered the Masters Champion level!
+                                </p>
+                                <p class="text-lg text-gray-600">
+                                    4 Perfect Scenarios Completed ✨
+                                </p>
+                            </div>
+                            
+                            <div class="bg-black/10 rounded-xl p-6 mb-6 border-2 border-yellow-600">
+                                <div class="text-center mb-4">
+                                    <p class="text-2xl font-bold text-gray-800 mb-3">
+                                        A secret challenge awaits...
+                                    </p>
+                                </div>
+                                
+                                <div class="bg-gradient-to-r from-purple-900 to-red-900 text-white rounded-lg p-6 shadow-2xl">
+                                    <div class="text-4xl font-bold text-center mb-2">
+                                        🏆 GRAND SLAM WINNER 🏆
+                                    </div>
+                                    <p class="text-center text-lg mb-4">
+                                        The Ultimate Test of Golf Physics Mastery
+                                    </p>
+                                    <div class="grid grid-cols-2 gap-3 text-sm">
+                                        <div class="bg-white/10 rounded p-2">
+                                            <div class="font-bold">⚡ 4 Cards</div>
+                                            <div class="text-xs opacity-80">per scenario</div>
+                                        </div>
+                                        <div class="bg-white/10 rounded p-2">
+                                            <div class="font-bold">🌪️ Extreme</div>
+                                            <div class="text-xs opacity-80">25mph winds</div>
+                                        </div>
+                                        <div class="bg-white/10 rounded p-2">
+                                            <div class="font-bold">💰 Triple</div>
+                                            <div class="text-xs opacity-80">1500 tokens</div>
+                                        </div>
+                                        <div class="bg-white/10 rounded p-2">
+                                            <div class="font-bold">🎯 Brutal</div>
+                                            <div class="text-xs opacity-80">2-yard ranges</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-4">
+                                <button onclick="closeSecretUnlock()" 
+                                    class="flex-1 py-4 bg-gray-500 text-white rounded-lg font-bold text-lg hover:bg-gray-600 transition">
+                                    Not Yet
+                                </button>
+                                <button onclick="acceptSecretLevel()" 
+                                    class="flex-1 py-4 text-white rounded-lg font-bold text-lg hover:opacity-90 transition shadow-lg"
+                                    style="background: linear-gradient(135deg, var(--augusta-green), var(--augusta-dark));">
+                                    🏆 Face the Challenge!
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
             }
             
             // Level-Up Promotion Modal
@@ -3181,6 +3559,17 @@
                 const scenarioCorrect = state.boostCardResults.filter(r => r).length;
                 const scenarioTotal = state.boostCardResults.length;
                 trackLevelPerformance(state.difficulty, scenarioCorrect, scenarioTotal);
+                
+                // Track perfect scenarios on Level 5 for secret unlock
+                if (state.difficulty === 5 && scenarioCorrect === scenarioTotal && scenarioTotal > 0) {
+                    state.perfectScenariosLevel5++;
+                    
+                    // Check for secret level unlock (4 perfect scenarios)
+                    if (state.perfectScenariosLevel5 >= 4 && !state.secretLevelUnlocked) {
+                        state.secretLevelUnlocked = true;
+                        state.showSecretUnlock = true;
+                    }
+                }
                 
                 // Check for level-up promotion
                 if (checkLevelPromotion(state.difficulty)) {
