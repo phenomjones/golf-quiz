@@ -119,7 +119,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "Updated: January 25, 2026 - 1:00 PM EST";
+        const APP_VERSION = "Updated: January 25, 2026 - 1:45 PM EST";
         
         // Simple state management
         let state = {
@@ -538,8 +538,8 @@
                 
                 let explanationParts = [];
                 explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
-                explanationParts.push(`<strong>Face:</strong> ${face}°`);
-                explanationParts.push(`<strong>Path:</strong> ${path}°`);
+                explanationParts.push(`<strong>Face:</strong> ${face.toFixed(1)}°`);
+                explanationParts.push(`<strong>Path:</strong> ${path.toFixed(1)}°`);
                 explanationParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°`);
                 if (gearEffect !== 0) {
                     const gearDir = gearEffect > 0 ? "fade" : "draw";
@@ -580,8 +580,8 @@
                 
                 let explanationParts = [];
                 explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
-                explanationParts.push(`<strong>Face:</strong> ${face}°`);
-                explanationParts.push(`<strong>Path:</strong> ${path}°`);
+                explanationParts.push(`<strong>Face:</strong> ${face.toFixed(1)}°`);
+                explanationParts.push(`<strong>Path:</strong> ${path.toFixed(1)}°`);
                 explanationParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°`);
                 if (gearEffect !== 0) {
                     const gearDir = gearEffect > 0 ? "fade" : "draw";
@@ -625,8 +625,19 @@
                 
                 let explanationParts = [];
                 explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
-                explanationParts.push(`<strong>Face:</strong> ${face}°`);
-                explanationParts.push(`<strong>Path:</strong> ${path}°`);
+                
+                // Show lie angle calculation if applicable (Level 7+)
+                if (lieAngleAdjustment !== 0) {
+                    const lieMultipliers = { driver: 0.3, wood: 0.4, iron: 0.5, wedge: 0.7 };
+                    const lieMultiplier = lieMultipliers[clubType];
+                    explanationParts.push(`<strong>Original face:</strong> ${originalFace.toFixed(1)}°`);
+                    explanationParts.push(`<strong>Lie adjustment:</strong> ${Math.abs(lieAngle).toFixed(1)}° ${lieAngle > 0 ? 'upright' : 'flat'} × ${lieMultiplier} = ${lieAngleAdjustment.toFixed(1)}°`);
+                    explanationParts.push(`<strong>Effective face:</strong> ${originalFace.toFixed(1)}° + (${lieAngleAdjustment.toFixed(1)}°) = ${face.toFixed(1)}°`);
+                } else {
+                    explanationParts.push(`<strong>Face:</strong> ${face.toFixed(1)}°`);
+                }
+                
+                explanationParts.push(`<strong>Path:</strong> ${path.toFixed(1)}°`);
                 explanationParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°`);
                 if (gearEffect !== 0) {
                     const gearDir = gearEffect > 0 ? "fade" : "draw";
@@ -701,7 +712,7 @@
                 
                 // Level 7: Add standard lie hypothetical (after curveContribution is calculated)
                 if (diffLevel >= 7 && Math.abs(lieAngle) > 0.5) {
-                    spoilerQuestions.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, faceContribution, curveContribution, windEffect, diffLevel));
+                    hypotheticalQuestions.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, windEffect, diffLevel, physics.curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect));
                 }
                 
                 // Add hypothetical question and vertical impact question (Level 8+)
@@ -796,11 +807,18 @@
                 
                 calcParts.push(`<strong>Start direction (face):</strong> ${face.toFixed(1)}° × 3 = ${faceYards.toFixed(1)} yards ${faceDir}`);
                 
+                // Show vertical impact multiplier if applicable (Level 5+)
+                if (diffLevel >= 5 && Math.abs(verticalImpact) > 0.5) {
+                    const verticalDir = verticalImpact > 0 ? "high" : "low";
+                    const effect = verticalGearMultiplier > 1.0 ? "amplifies" : "dampens";
+                    calcParts.push(`<strong>Vertical impact:</strong> ${Math.abs(verticalImpact).toFixed(1)}mm ${verticalDir} × ${verticalGearMultiplier.toFixed(2)} multiplier ${effect} curve`);
+                }
+                
                 // Show base curve from face-to-path (keep precision)
                 const baseFTPDir = baseFaceToPath < 0 ? "draw" : "fade";
                 const baseFTPYards = Math.abs(baseCurveContribution);
                 const baseFTPSign = baseFaceToPath < 0 ? "left" : "right";
-                calcParts.push(`<strong>Face-to-path curve:</strong> ${baseFaceToPath.toFixed(1)}° ${baseFTPDir} = ${baseFTPYards.toFixed(1)} yards ${baseFTPSign}`);
+                calcParts.push(`<strong>Face-to-path curve:</strong> ${baseFaceToPath.toFixed(1)}° ${baseFTPDir} × ${physics.curveMultiplier}${windMultiplier !== 1.0 ? ' × ' + windMultiplier.toFixed(2) + ' (wind)' : ''}${verticalGearMultiplier !== 1.0 ? ' × ' + verticalGearMultiplier.toFixed(2) + ' (vertical)' : ''} = ${baseFTPYards.toFixed(1)} yards ${baseFTPSign}`);
                 
                 // Show gear effect if present (keep precision)
                 if (gearEffect !== 0) {
@@ -1017,18 +1035,44 @@
 
         function generateNetCurveQuestion(baseFaceToPath, gearEffect, windEffect, diffLevel) {
             const totalCurve = baseFaceToPath + gearEffect + (windEffect / 5); // Wind has less effect on curve
-            const netDirection = totalCurve < -0.5 ? "Draw (left)" : totalCurve > 0.5 ? "Fade (right)" : "Straight";
+            
+            // Thresholds: Straight ±0.5°, Draw/Fade ±0.5-3°, Hook/Slice >3°
+            let netDirection;
+            if (Math.abs(totalCurve) <= 0.5) {
+                netDirection = "Straight";
+            } else if (totalCurve < -3) {
+                netDirection = "Hook (left)";
+            } else if (totalCurve < -0.5) {
+                netDirection = "Draw (left)";
+            } else if (totalCurve > 3) {
+                netDirection = "Slice (right)";
+            } else {
+                netDirection = "Fade (right)";
+            }
             
             const numOptions = diffLevel <= 9 ? 5 : 6;
             const allOptions = ["Draw (left)", "Fade (right)", "Straight", "Hook (left)", "Slice (right)"];
             const wrongOptions = allOptions.filter(o => o !== netDirection).sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
             const options = [netDirection, ...wrongOptions].sort(() => Math.random() - 0.5);
             
+            // Build explanation
+            let explanationHTML = '<div class="space-y-2">';
+            explanationHTML += `<div><strong>Base face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°</div>`;
+            if (gearEffect !== 0) {
+                explanationHTML += `<div><strong>Gear effect:</strong> ${gearEffect > 0 ? '+' : ''}${gearEffect.toFixed(1)}°</div>`;
+            }
+            if (windEffect !== 0) {
+                explanationHTML += `<div><strong>Wind influence:</strong> ${(windEffect / 5).toFixed(1)}°</div>`;
+            }
+            explanationHTML += `<div class="mt-2 pt-2 border-t"><strong>Net curve:</strong> ${totalCurve.toFixed(1)}° = ${netDirection}</div>`;
+            explanationHTML += `<div class="text-sm text-gray-600 mt-2">Thresholds: Straight (±0.5°), Draw/Fade (0.5-3°), Hook/Slice (>3°)</div>`;
+            explanationHTML += '</div>';
+            
             return {
                 question: "After accounting for ALL factors, will the ball curve left or right?",
                 options: options,
                 correct: netDirection,
-                explanation: `<div><strong>Base face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°</div><div><strong>Gear effect:</strong> ${gearEffect > 0 ? '+' : ''}${gearEffect.toFixed(1)}°</div><div><strong>Wind influence:</strong> ${(windEffect / 5).toFixed(1)}°</div><div class="mt-2"><strong>Net curve:</strong> ${totalCurve.toFixed(1)}° = ${netDirection}</div>`
+                explanation: explanationHTML
             };
         }
 
@@ -1099,23 +1143,30 @@
             const gearContribution = Math.abs(gearEffect * 5);
             const windContribution = Math.abs(windEffect);
             
-            // Find LEAST impact
+            // Only include variables that actually exist in the scenario
             const causes = [
                 { name: "Face angle", value: faceContribution },
-                { name: "Face-to-path", value: pathContribution },
-                { name: "Gear effect", value: gearContribution },
-                { name: "Wind", value: windContribution }
+                { name: "Face-to-path", value: pathContribution }
             ];
+            
+            if (gearEffect !== 0) {
+                causes.push({ name: "Gear effect", value: gearContribution });
+            }
+            
+            if (windEffect !== 0) {
+                causes.push({ name: "Wind", value: windContribution });
+            }
+            
             causes.sort((a, b) => a.value - b.value); // Sort ascending - least first
             
-            const numOptions = diffLevel <= 9 ? 5 : 6;
+            const numOptions = Math.min(diffLevel <= 9 ? 5 : 6, causes.length);
             const options = causes.slice(0, numOptions).map(c => c.name).sort(() => Math.random() - 0.5);
             
             return {
                 question: "Which variable has the LEAST impact on the ball's final position?",
                 options: options,
                 correct: causes[0].name,
-                explanation: `<div><strong>${causes[0].name}</strong> has the smallest impact with only ~${Math.round(causes[0].value)} yards of influence</div><div class="text-sm text-gray-600 mt-2">Others: ${causes.slice(1).map(c => c.name + ' ~' + Math.round(c.value) + 'yds').join(', ')}</div>`
+                explanation: `<div><strong>${causes[0].name}</strong> has the smallest impact with only ~${causes[0].value.toFixed(1)} yards of influence</div><div class="text-sm text-gray-600 mt-2">Others: ${causes.slice(1).map(c => c.name + ' ~' + c.value.toFixed(1) + 'yds').join(', ')}</div>`
             };
         }
 
@@ -1225,11 +1276,18 @@
         }
 
         // Level 7: Standard lie hypothetical
-        function generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, faceContribution, curveContribution, windEffect, diffLevel) {
-            // Calculate what would happen with standard lie (no adjustment)
-            const standardFace = originalFace; // No lie adjustment
+        function generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, windEffect, diffLevel, curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect) {
+            // Calculate what would happen with standard lie (no lie adjustment)
+            const standardFace = originalFace; // Original face without lie adjustment
             const standardFaceContribution = standardFace * 3;
-            const standardNetOffline = standardFaceContribution + curveContribution + windEffect;
+            
+            // CRITICAL: Recalculate curve with original face (path stays the same)
+            const standardBaseFaceToPath = standardFace - path;
+            const standardBaseCurve = standardBaseFaceToPath * curveMultiplier * windMultiplier * verticalGearMultiplier;
+            const standardGearCurve = (gearEffect || 0) * curveMultiplier * windMultiplier * verticalGearMultiplier;
+            const standardCurveContribution = standardBaseCurve + standardGearCurve;
+            
+            const standardNetOffline = standardFaceContribution + standardCurveContribution + windEffect;
             const standardRoundedYards = Math.round(Math.abs(standardNetOffline));
             const standardDir = standardNetOffline > 0 ? "right" : "left";
             
@@ -1248,11 +1306,30 @@
             const wrongOptions = allOptions.filter(o => o !== correctRange).sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
             const options = [correctRange, ...wrongOptions].sort(() => Math.random() - 0.5);
             
+            // Build detailed explanation
+            let explanationHTML = '<div class="space-y-2">';
+            explanationHTML += '<div class="font-bold text-lg mb-3">Standard Lie Calculation:</div>';
+            explanationHTML += `<div><strong>Current effective face:</strong> ${face.toFixed(1)}° (with ${lieAngleAdjustment.toFixed(1)}° lie adjustment)</div>`;
+            explanationHTML += `<div><strong>Original face (no lie adjustment):</strong> ${originalFace.toFixed(1)}°</div>`;
+            explanationHTML += `<div><strong>Path (unchanged):</strong> ${path.toFixed(1)}°</div>`;
+            explanationHTML += '<div class="mt-3 pt-3 border-t border-gray-300">';
+            explanationHTML += `<div><strong>Standard lie start:</strong> ${standardFace.toFixed(1)}° × 3 = ${standardFaceContribution.toFixed(1)} yards ${standardFaceContribution > 0 ? 'right' : standardFaceContribution < 0 ? 'left' : 'straight'}</div>`;
+            explanationHTML += `<div><strong>Standard lie face-to-path:</strong> ${standardBaseFaceToPath.toFixed(1)}°</div>`;
+            explanationHTML += `<div><strong>Standard lie curve:</strong> ${standardBaseFaceToPath.toFixed(1)}° × ${curveMultiplier.toFixed(1)} = ${standardCurveContribution.toFixed(1)} yards ${standardCurveContribution > 0 ? 'right' : standardCurveContribution < 0 ? 'left' : 'straight'}</div>`;
+            if (windEffect !== 0) {
+                explanationHTML += `<div><strong>Wind (unchanged):</strong> ${windEffect.toFixed(1)} yards ${windEffect > 0 ? 'right' : 'left'}</div>`;
+            }
+            explanationHTML += '</div>';
+            explanationHTML += '<div class="mt-3 pt-3 border-t border-gray-300 font-bold">';
+            explanationHTML += `<div><strong>Total:</strong> ${standardFaceContribution.toFixed(1)} + ${standardCurveContribution.toFixed(1)}${windEffect !== 0 ? ' + ' + windEffect.toFixed(1) : ''} = ${standardNetOffline.toFixed(1)} yards</div>`;
+            explanationHTML += `<div class="text-lg" style="color: var(--augusta-green);"><strong>Final result with standard lie:</strong> ${standardRoundedYards} yards ${standardDir}</div>`;
+            explanationHTML += '</div></div>';
+            
             return {
                 question: "If this shot was hit with STANDARD lie angle instead, where would the ball finish?",
                 options: options,
                 correct: correctRange,
-                explanation: `<div><strong>Current face (with lie):</strong> ${face.toFixed(1)}°</div><div><strong>Standard lie face:</strong> ${standardFace.toFixed(1)}°</div><div><strong>Difference:</strong> ${Math.abs(lieAngleAdjustment).toFixed(1)}° ${lieAngleAdjustment > 0 ? 'more open' : 'more closed'}</div><div><strong>Result with standard lie:</strong> ${standardRoundedYards} yards ${standardDir}</div>`
+                explanation: explanationHTML
             };
         }
 
