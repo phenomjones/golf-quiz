@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -149,7 +148,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v3.0.1 - Updated: January 26, 2026 - 1:45 AM EST";
+        const APP_VERSION = "v3.2.0 - January 27, 2026 - 12:22 AM EST (5:22 AM UTC)";
         
         // Simple state management
         let state = {
@@ -182,15 +181,18 @@
             perfectScenariosLevel5: 0, // Track perfect scenarios on Level 5 for secret unlock
             secretLevelUnlocked: false, // Has Grand Slam Winner been unlocked?
             showSecretUnlock: false, // Show unlock animation
-            showShareModal: false // Show share to Twitter modal
+            showShareModal: false, // Show share to Twitter modal
+            showOnboarding: false, // Show first-time user onboarding
+            isFirstTime: true, // First time playing
+            effectiveFaceShown: false // Has effective face been shown in this scenario
         };
 
         const difficultyLevels = [
-            { level: 1, name: "Range Rookie", description: "Master face-to-path basics", baseReward: 25, cards: 3, details: "Learn face angle, club path, and basic shot shapes. Full hints provided. Data: Club, Face, Path", unlockRequirement: "Start here" },
-            { level: 2, name: "Tour Player", description: "Add gear effect", baseReward: 60, cards: 3, details: "NEW DATA: Impact Location (horizontal & vertical). Learn how off-center hits create gear effect. Toe hits fade, heel hits draw. High impacts amplify curve, low dampens it.", unlockRequirement: "Complete Level 1" },
-            { level: 3, name: "Major Contender", description: "Advanced analysis", baseReward: 115, cards: 3, details: "Master gear effect concepts. New questions: PRIMARY cause, LEAST impact, NET curve direction. More extreme scenarios. Hints fade to gray.", unlockRequirement: "Complete Level 2" },
-            { level: 4, name: "Championship Level", description: "Lie angle & wind", baseReward: 200, cards: 3, details: "NEW DATA: Lie Angle & Wind. Upright lie closes face (left), flat opens (right). Headwind amplifies curve, tailwind dampens. Hypothetical questions. 15% trick scenarios.", unlockRequirement: "Complete Level 3" },
-            { level: 5, name: "Masters Champion", description: "Ultimate challenge", baseReward: 350, cards: 3, details: "All variables, complex scenarios, no hints, 6 answer options. Earn 4 perfect scenarios to unlock the secret level! Wrong answers cost 85% of base reward.", unlockRequirement: "Complete Level 4" },
+            { level: 1, name: "Range Rookie", description: "Master face-to-path basics", baseReward: 25, cards: 3, details: "Learn the fundamentals. NEW DATA: Face angle, Club path. Questions: Curve direction, Face-to-path angle. Full hints provided.", unlockRequirement: "Start here" },
+            { level: 2, name: "Tour Player", description: "Add gear effect", baseReward: 60, cards: 3, details: "Off-center hits matter! NEW DATA: Horizontal impact location (heel/toe only). Toe hits create draw spin, heel hits create fade spin. Questions: Start direction added.", unlockRequirement: "Complete Level 1" },
+            { level: 3, name: "Major Contender", description: "Vertical impact & distance", baseReward: 115, cards: 3, details: "Master all gear effects. NEW DATA: Vertical impact location (high/low on face). High amplifies curve, low dampens. Questions: Offline distance (wider ranges).", unlockRequirement: "Complete Level 2" },
+            { level: 4, name: "Championship Level", description: "Lie angle & wind", baseReward: 200, cards: 3, details: "Environmental factors! NEW DATA: Lie angle & Wind conditions. Upright closes face, flat opens. Headwind amplifies curve, tailwind dampens. Questions: Gear help/hurt, Lie effect direction, Offline distance, Hypotheticals. No hints!", unlockRequirement: "Complete Level 3" },
+            { level: 5, name: "Masters Champion", description: "Ultimate challenge", baseReward: 350, cards: 3, details: "All variables, complex scenarios. Questions: Opposing forces, Best variable to change, Rank by impact, Advanced hypotheticals. Perfect scenarios may unlock something special... Wrong answers cost 100% of base reward!", unlockRequirement: "Complete Level 4" },
             { level: 6, name: "Grand Slam Winner", description: "🏆 SECRET BOSS LEVEL 🏆", baseReward: 1500, cards: 4, details: "LEGENDARY: Extreme conditions (25mph winds, 20mm impacts, 5° lie angles). 50% trick scenarios. 4 cards per scenario. Triple rewards. 2-yard answer tolerances. Only the true masters survive.", unlockRequirement: "Complete 4 PERFECT scenarios on Level 5", isSecret: true, isUnlocked: false }
         ];
 
@@ -271,6 +273,20 @@
             };
             const physics = clubPhysics[clubType];
             
+            // Safety checks
+            if (!physics) {
+                console.error('CRITICAL ERROR: Invalid clubType:', clubType, 'for club:', club);
+                throw new Error(`Invalid clubType: ${clubType} for club: ${club}`);
+            }
+            if (!baseClubSpeed[clubType]) {
+                console.error('CRITICAL ERROR: No speed for clubType:', clubType);
+                throw new Error(`No speed for clubType: ${clubType}`);
+            }
+            if (!baseCarryDistance[clubType]) {
+                console.error('CRITICAL ERROR: No carry for clubType:', clubType);
+                throw new Error(`No carry for clubType: ${clubType}`);
+            }
+            
             const speedVariance = diffLevel % 2 === 0 ? 15 : 10;
             
             let speed = baseClubSpeed[clubType] + (Math.random() * speedVariance - speedVariance/2);
@@ -305,18 +321,12 @@
             
             let faceDisplay, pathDisplay;
             
-            // Progressive hint removal: levels 1-4 full hints, 5-6 faded, 7+ none
-            if (diffLevel <= 4) {
+            // Progressive hint removal: levels 1-3 full hints, 4+ no hints
+            if (diffLevel <= 3) {
                 faceDisplay = face + "°" + (face > 0 ? " (right)" : face < 0 ? " (left)" : "");
                 pathDisplay = path + "°" + (path > 0 ? " (right)" : path < 0 ? " (left)" : "");
-            } else if (diffLevel <= 6) {
-                // Faded hints with CSS class
-                const faceHint = face > 0 ? ' <span class="hint-fade">(right)</span>' : face < 0 ? ' <span class="hint-fade">(left)</span>' : "";
-                const pathHint = path > 0 ? ' <span class="hint-fade">(right)</span>' : path < 0 ? ' <span class="hint-fade">(left)</span>' : "";
-                faceDisplay = face + "°" + faceHint;
-                pathDisplay = path + "°" + pathHint;
             } else {
-                // Levels 7-10: no hints at all
+                // Levels 4+: no hints at all
                 faceDisplay = face + "°";
                 pathDisplay = path + "°";
             }
@@ -405,11 +415,11 @@
                 impactLocationText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
             }
             
-            // Vertical impact (high/low on face) added at level 2
+            // Vertical impact (high/low on face) added at level 3
             let verticalImpact = 0;
             let verticalGearMultiplier = 1.0;
             
-            if (diffLevel >= 2) {
+            if (diffLevel >= 3) {
                 // Level 6: Extreme vertical (10-15mm), Others: Normal (±12mm)
                 if (diffLevel === 6) {
                     verticalImpact = (Math.random() * 5 + 10) * (Math.random() < 0.5 ? 1 : -1); // 10-15mm high or low
@@ -418,33 +428,46 @@
                 }
                 const verticalSide = verticalImpact > 0 ? "high" : "low";
                 
-                // Update impact location display to include vertical
-                if (diffLevel >= 2) {
+                // Update impact location display to include vertical (Level 3+)
+                if (diffLevel >= 3) {
                     const horizontalText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
                     const verticalText = Math.abs(verticalImpact).toFixed(1) + "mm " + verticalSide;
                     data["Impact Location"].value = horizontalText + ", " + verticalText;
+                    impactLocationText = horizontalText + ", " + verticalText;
+                }
+                // Level 2: Only horizontal
+                else if (diffLevel === 2) {
+                    impactLocationText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
                 }
                 
                 // Calculate vertical gear effect (club-specific)
                 const verticalMultipliers = {
                     driver: { high: 1.20, low: 0.80 },
                     wood: { high: 1.15, low: 0.85 },
-                    iron: { high: 1.10, low: 0.90 },
+                    long_iron: { high: 1.12, low: 0.88 },
+                    mid_iron: { high: 1.10, low: 0.90 },
                     wedge: { high: 1.05, low: 0.95 }
                 };
                 
                 const multipliers = verticalMultipliers[clubType];
-                const absVertical = Math.abs(verticalImpact);
                 
-                if (verticalImpact > 0) {
-                    // High on face: more sidespin effectiveness
-                    verticalGearMultiplier = 1.0 + ((multipliers.high - 1.0) * (absVertical / 12));
+                // Safety check
+                if (!multipliers) {
+                    console.error('Invalid clubType:', clubType, 'for club:', club);
+                    verticalGearMultiplier = 1.0; // Default to no effect
                 } else {
-                    // Low on face: less sidespin effectiveness
-                    verticalGearMultiplier = 1.0 - ((1.0 - multipliers.low) * (absVertical / 12));
+                    const absVertical = Math.abs(verticalImpact);
+                    
+                    if (verticalImpact > 0) {
+                        // High on face: more sidespin effectiveness
+                        verticalGearMultiplier = 1.0 + ((multipliers.high - 1.0) * (absVertical / 12));
+                    } else {
+                        // Low on face: less sidespin effectiveness
+                        verticalGearMultiplier = 1.0 - ((1.0 - multipliers.low) * (absVertical / 12));
+                    }
                 }
-            } else if (diffLevel >= 2) {
-                // Level 3-4: No visual needed anymore
+            } else if (diffLevel >= 3) {
+                // Level 3-4: Vertical impact but no visual needed
             }
             
             // Lie Angle added at level 4
@@ -475,8 +498,9 @@
                     const lieMultipliers = {
                         driver: 0.3,  // Long clubs less affected
                         wood: 0.4,
-                        iron: 0.5,
-                        wedge: 0.7    // Short clubs more affected
+                        long_iron: 0.45,  // 5 iron
+                        mid_iron: 0.5,    // 7 iron
+                        wedge: 0.7        // Short clubs more affected
                     };
                     const lieMultiplier = lieMultipliers[clubType];
                     
@@ -485,19 +509,9 @@
                     lieAngleAdjustment = lieAngle * -lieMultiplier;
                     face = face + lieAngleAdjustment;
                     
-                    // Update face display to show effective face
-                    const effectiveFaceDir = face > 0 ? " (right)" : face < 0 ? " (left)" : "";
-                    if (diffLevel <= 4) {
-                        faceDisplay = originalFace.toFixed(1) + "°" + (originalFace > 0 ? " (right)" : originalFace < 0 ? " (left)" : "");
-                        faceDisplay += `<br><span style="color: var(--augusta-green); font-weight: bold;">After lie: ${face.toFixed(1)}°${effectiveFaceDir}</span>`;
-                    } else if (diffLevel <= 6) {
-                        faceDisplay = originalFace.toFixed(1) + "°" + (originalFace > 0 ? ' <span class="hint-fade">(right)</span>' : originalFace < 0 ? ' <span class="hint-fade">(left)</span>' : "");
-                        faceDisplay += `<br><span style="color: var(--augusta-green); font-weight: bold;">After lie: ${face.toFixed(1)}°</span>` + (face > 0 ? ' <span class="hint-fade">(right)</span>' : face < 0 ? ' <span class="hint-fade">(left)</span>' : "");
-                    } else {
-                        faceDisplay = originalFace.toFixed(1) + "°";
-                        faceDisplay += `<br><span style="color: var(--augusta-green); font-weight: bold;">After lie: ${face.toFixed(1)}°</span>`;
-                    }
-                    data["Club Face"].value = faceDisplay;
+                    // Face card stays clean - no "After lie" display normally
+                    // But we need to store this info for later card updates
+                    // This will be handled in the render function based on state.effectiveFaceShown
                 }
             }
             
@@ -597,46 +611,56 @@
             
             // LEVEL-BASED CARD GENERATION
             if (diffLevel <= 2) {
-                // Level 1: 2 questions - Face-to-path + Shot shape
-                // Level 2: 3 questions - Face-to-path + Curve direction + Shot shape
+                // Level 1: Face-to-path + Curve direction
+                // Level 2: Face-to-path + Curve direction + Start direction
+                
                 cards.push(generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace));
                 
-                // Level 2: Add curve direction question
+                // Both levels: Curve direction question
+                cards.push(generateCurveDirectionQuestion(baseFaceToPath, diffLevel));
+                
+                // Level 2: Add start direction
                 if (diffLevel === 2) {
-                    cards.push(generateCurveDirectionQuestion(baseFaceToPath, diffLevel));
+                    cards.push({
+                        question: "Will the ball start left or right of the target?",
+                        options: ["Left of target", "Right of target", "Straight at target"],
+                        correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
+                        explanation: `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
+                    });
                 }
-                
-                // Then shot shape question
-                const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
-                const numWrongOptions = 2; // 3 total
-                const wrongShapes = allShapes.filter(s => s !== shape).sort(() => Math.random() - 0.5).slice(0, numWrongOptions);
-                const options = [shape, ...wrongShapes].sort(() => Math.random() - 0.5);
-                
-                let explanationParts = [];
-                explanationParts.push(`<strong>Club:</strong> ${club} (${physics.loft}° loft)`);
-                explanationParts.push(`<strong>Face:</strong> ${face.toFixed(1)}°`);
-                explanationParts.push(`<strong>Path:</strong> ${path.toFixed(1)}°`);
-                explanationParts.push(`<strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°`);
-                if (gearEffect !== 0) {
-                    const gearDir = gearEffect > 0 ? "fade" : "draw";
-                    const gearRelation = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0) ? "additional" : "opposing";
-                    const highlightClass = gearRelation === "opposing" ? ' style="color: #dc2626; font-weight: bold;"' : '';
-                    const warningIcon = gearRelation === "opposing" ? "⚠️ " : "";
-                    explanationParts.push(`<strong${highlightClass}>${warningIcon}Gear effect (${gearRelation}):</strong> ${impactLocationText} = ${Math.abs(gearEffect).toFixed(1)}° ${gearDir} spin`);
-                    explanationParts.push(`<strong>Total face-to-path:</strong> ${faceToPath.toFixed(1)}° (with gear effect)`);
-                }
-                explanationParts.push(`<strong>Result:</strong> ${shape} - ${shapeDesc}`);
-                
-                cards.push({
-                    question: "What will be the shot shape?",
-                    options: options,
-                    correct: shape,
-                    correctBase: shape,
-                    explanation: '<div class="space-y-1">' + explanationParts.map(p => '<div>' + p + '</div>').join('') + '</div>'
-                });
                 
             } else if (diffLevel <= 4) {
-                // Level 3-4: face-to-path + start direction + shot shape
+                // Level 3-4: Progressive questions with offline distance
+                // Level 4: Add effective face, gear help/hurt, lie questions
+                
+                // Calculate offline distance for questions (use data available at this level)
+                const startMultipliers = {
+                    driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5
+                };
+                const startMultiplier = startMultipliers[clubType] || 2.5;
+                const faceContribution = face * startMultiplier;
+                
+                // Curve calculation (only use gear effect at L3-4, no wind yet)
+                const baseCurveContribution = baseFaceToPath * physics.curveMultiplier * verticalGearMultiplier;
+                const gearContribution = gearEffect * physics.curveMultiplier * verticalGearMultiplier;
+                const curveContribution = baseCurveContribution + gearContribution;
+                
+                // Level 4 adds wind effect
+                let windContribution = 0;
+                if (diffLevel === 4 && windSpeedMPH > 0) {
+                    windContribution = windEffect;
+                }
+                
+                const netOffline = faceContribution + curveContribution + windContribution;
+                const offlineYards = Math.abs(netOffline);
+                const roundedYards = Math.round(offlineYards);
+                const offlineDir = netOffline > 0 ? "right" : "left";
+                
+                // Level 4: Effective face question if lie exists
+                if (diffLevel === 4 && lieAngleAdjustment !== 0) {
+                    cards.push(generateEffectiveFaceQuestion(originalFace, lieAngleAdjustment, face, diffLevel));
+                }
+                
                 cards.push(generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace));
                 
                 cards.push({
@@ -647,6 +671,70 @@
                         ? `<div><strong>Original face:</strong> ${originalFace.toFixed(1)}°</div><div><strong>Lie adjustment:</strong> ${lieAngleAdjustment.toFixed(1)}°</div><div><strong>Effective face:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
                         : `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
                 });
+                
+                // Level 3-4: Offline distance question (wider ranges than L5)
+                const rangeSize = roundedYards <= 15 ? 5 : roundedYards <= 30 ? 8 : 12; // Wider ranges
+                const numRanges = 4; // Fewer options
+                let offlineOptions = [];
+                const correctRangeIndex = Math.floor(numRanges / 2);
+                const startValue = Math.max(0, roundedYards - (correctRangeIndex * rangeSize));
+                
+                for (let i = 0; i < numRanges; i++) {
+                    const min = startValue + (i * rangeSize);
+                    const max = min + rangeSize - 1;
+                    if (i === numRanges - 1) {
+                        offlineOptions.push(`${min}+ yards ${offlineDir}`);
+                    } else {
+                        offlineOptions.push(`${min}-${max} yards ${offlineDir}`);
+                    }
+                }
+                
+                let correctOfflineRange = "";
+                for (let i = 0; i < offlineOptions.length; i++) {
+                    const match = offlineOptions[i].match(/^(\d+)-(\d+)/);
+                    if (match) {
+                        const min = parseInt(match[1]);
+                        const max = parseInt(match[2]);
+                        if (roundedYards >= min && roundedYards <= max) {
+                            correctOfflineRange = offlineOptions[i];
+                            break;
+                        }
+                    } else if (offlineOptions[i].includes('+')) {
+                        const min = parseInt(offlineOptions[i].match(/^(\d+)/)[1]);
+                        if (roundedYards >= min) {
+                            correctOfflineRange = offlineOptions[i];
+                        }
+                    }
+                }
+                
+                cards.push({
+                    question: "How far offline will the ball finish?",
+                    options: offlineOptions,
+                    correct: correctOfflineRange,
+                    explanation: `<div><strong>Start:</strong> ${Math.abs(faceContribution).toFixed(1)} yards ${faceContribution > 0 ? 'right' : 'left'}</div><div><strong>Curve:</strong> ${Math.abs(curveContribution).toFixed(1)} yards</div>${diffLevel === 4 && windContribution !== 0 ? `<div><strong>Wind:</strong> ${Math.abs(windContribution).toFixed(1)} yards</div>` : ''}<div><strong>Total:</strong> ${offlineYards.toFixed(1)} yards ${offlineDir}</div>`
+                });
+                
+                // Level 4: Add gear help/hurt if gear exists
+                if (diffLevel === 4 && gearEffect !== 0 && Math.abs(baseFaceToPath) > 1) {
+                    cards.push(generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel));
+                }
+                
+                // Level 4: Add lie effect direction if lie exists
+                if (diffLevel === 4 && Math.abs(lieAngle) > 0.5) {
+                    cards.push(generateLieEffectDirectionQuestion(lieAngle, diffLevel));
+                }
+                
+                // Level 4: Hypothetical question (what if lie/wind changed)
+                if (diffLevel === 4) {
+                    // If lie exists, ask about standard lie
+                    if (Math.abs(lieAngle) > 0.5) {
+                        cards.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, windContribution, diffLevel, physics.curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect));
+                    }
+                    // If wind exists, ask about no wind
+                    else if (windSpeedMPH > 0) {
+                        cards.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windContribution, diffLevel, physics.curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect));
+                    }
+                }
                 
                 // Shot shape
                 const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
@@ -704,7 +792,7 @@
                 
                 // Show lie angle calculation if applicable (Level 7+)
                 if (lieAngleAdjustment !== 0) {
-                    const lieMultipliers = { driver: 0.3, wood: 0.4, iron: 0.5, wedge: 0.7 };
+                    const lieMultipliers = { driver: 0.3, wood: 0.4, long_iron: 0.45, mid_iron: 0.5, wedge: 0.7 };
                     const lieMultiplier = lieMultipliers[clubType];
                     explanationParts.push(`<strong>Original face:</strong> ${originalFace.toFixed(1)}°`);
                     explanationParts.push(`<strong>Lie adjustment:</strong> ${Math.abs(lieAngle).toFixed(1)}° ${lieAngle > 0 ? 'upright' : 'flat'} × ${lieMultiplier} = ${lieAngleAdjustment.toFixed(1)}°`);
@@ -744,7 +832,7 @@
                 });
                 
                 // Start position in yards (SPOILER - reveals direction) - Level 5+
-                spoilerQuestions.push(generateStartPositionQuestion(face, physics, diffLevel));
+                spoilerQuestions.push(generateStartPositionQuestion(face, physics, diffLevel, clubType));
                 
                 // Advanced questions for level 6+
                 if (diffLevel >= 6) {
@@ -781,7 +869,18 @@
                 
                 // Offline distance (Level 5+) - always include
                 // Calculate components with club-specific physics
-                const faceContribution = face * 3; // Keep sign - positive = right, negative = left
+                
+                // Club-specific start distance multipliers (realistic TrackMan values)
+                const startMultipliers = {
+                    driver: 2.5,      // Driver: ~2.5 yards per degree face angle
+                    wood: 2.3,        // Wood: ~2.3 yards per degree
+                    long_iron: 2.0,   // Long iron: ~2.0 yards per degree
+                    mid_iron: 1.8,    // Mid iron: ~1.8 yards per degree
+                    wedge: 1.5        // Wedge: ~1.5 yards per degree
+                };
+                const startMultiplier = startMultipliers[clubType] || 2.5;
+                
+                const faceContribution = face * startMultiplier; // Keep sign - positive = right, negative = left
                 const baseCurveContribution = baseFaceToPath * physics.curveMultiplier * windMultiplier * verticalGearMultiplier; // Wind and vertical impact affect spin/curve
                 const gearContribution = gearEffect * physics.curveMultiplier * windMultiplier * verticalGearMultiplier; // Gear effect also affected by wind and vertical impact
                 const curveContribution = baseCurveContribution + gearContribution; // Total curve
@@ -808,8 +907,8 @@
                     }
                 }
                 
-                // Level 9-10: Advanced strategic questions
-                if (diffLevel >= 9) {
+                // Level 9-10: Advanced strategic questions (now at Level 5)
+                if (diffLevel >= 5) {
                     spoilerQuestions.push(generateOpposingForcesQuestion(face, path, gearEffect, windEffect, baseFaceToPath, diffLevel));
                     spoilerQuestions.push(generateBestVariableQuestion(face, path, gearEffect, windEffect, diffLevel));
                     spoilerQuestions.push(generateRankByImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
@@ -900,7 +999,8 @@
                     const lieMultipliers = {
                         driver: 0.3,
                         wood: 0.4,
-                        iron: 0.5,
+                        long_iron: 0.45,
+                        mid_iron: 0.5,
                         wedge: 0.7
                     };
                     const lieMultiplier = lieMultipliers[clubType];
@@ -936,7 +1036,7 @@
                 
                 // Lie angle if applicable
                 if (lieAngleAdjustment !== 0) {
-                    const lieMultipliers = { driver: 0.3, wood: 0.4, iron: 0.5, wedge: 0.7 };
+                    const lieMultipliers = { driver: 0.3, wood: 0.4, long_iron: 0.45, mid_iron: 0.5, wedge: 0.7 };
                     const lieMultiplier = lieMultipliers[clubType];
                     explanationHTML += `<div class="text-sm mb-1">Lie: ${Math.abs(lieAngle).toFixed(1)}° ${lieAngle > 0 ? 'upright' : 'flat'} × ${lieMultiplier} = ${lieAngleAdjustment > 0 ? '+' : ''}${lieAngleAdjustment.toFixed(1)}°</div>`;
                     explanationHTML += `<div class="text-sm mb-2">Effective face: ${originalFace.toFixed(1)}° ${lieAngleAdjustment > 0 ? '+' : ''}${lieAngleAdjustment.toFixed(1)}° = ${face.toFixed(1)}°</div>`;
@@ -1080,7 +1180,7 @@
                 }
             }
             
-            return { data, cards, isTrickScenario };
+            return { data, cards, isTrickScenario, originalFace, effectiveFace: face, lieAngleAdjustment };
         }
 
         function getShapeDesc(name) {
@@ -1145,9 +1245,43 @@
             };
         }
 
-        function generateStartPositionQuestion(face, physics, diffLevel) {
-            // Ball starts approximately 3 yards per degree of face angle
-            const startYards = face * 3;
+        function generateEffectiveFaceQuestion(originalFace, lieAngleAdjustment, effectiveFace, diffLevel) {
+            const correctAnswer = effectiveFace;
+            const numOptions = diffLevel <= 4 ? 4 : diffLevel <= 5 ? 5 : 6;
+            
+            // Generate wrong answers
+            let options = [correctAnswer];
+            const possibleWrong = [
+                correctAnswer + 0.5, correctAnswer - 0.5,
+                correctAnswer + 1.0, correctAnswer - 1.0,
+                correctAnswer + 1.5, correctAnswer - 1.5,
+                originalFace, // Common mistake: forgetting lie adjustment
+                originalFace - lieAngleAdjustment // Wrong sign
+            ].filter(val => Math.abs(val - correctAnswer) > 0.1);
+            
+            const wrongAnswers = possibleWrong.sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
+            options.push(...wrongAnswers);
+            options = options.sort(() => Math.random() - 0.5);
+            
+            return {
+                question: "What is the effective face angle after applying the lie adjustment?",
+                options: options.map(o => o.toFixed(1) + "°"),
+                correct: correctAnswer.toFixed(1) + "°",
+                explanation: `<div><strong>Calculation:</strong> Effective face = Original face + Lie adjustment</div><div>${originalFace.toFixed(1)}° + (${lieAngleAdjustment > 0 ? '+' : ''}${lieAngleAdjustment.toFixed(1)}°) = ${effectiveFace.toFixed(1)}°</div><div class="text-sm text-gray-600 mt-2">Remember: Upright lie closes face (negative), flat lie opens face (positive)</div>`
+            };
+        }
+
+        function generateStartPositionQuestion(face, physics, diffLevel, clubType) {
+            // Club-specific start distance multipliers (realistic TrackMan values)
+            const startMultipliers = {
+                driver: 2.5,
+                wood: 2.3,
+                long_iron: 2.0,
+                mid_iron: 1.8,
+                wedge: 1.5
+            };
+            const startMultiplier = startMultipliers[clubType] || 2.5;
+            const startYards = face * startMultiplier;
             const numOptions = diffLevel <= 3 ? 3 : diffLevel <= 6 ? 4 : diffLevel <= 9 ? 5 : 6;
             
             // Create ranges
@@ -1180,7 +1314,7 @@
                 question: "Where will the ball start?",
                 options: options,
                 correct: correctRange,
-                explanation: `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Start distance:</strong> ${Math.abs(startYards).toFixed(1)} yards ${startYards > 0 ? 'right' : 'left'}</div><div>Face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of start direction (~3 yards per degree)</div>`
+                explanation: `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Start distance:</strong> ${Math.abs(startYards).toFixed(1)} yards ${startYards > 0 ? 'right' : 'left'}</div><div>Face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of start direction (~${startMultiplier} yards per degree for this club)</div>`
             };
         }
 
@@ -1881,7 +2015,7 @@
             <select id="levelFilter" onchange="filterScores()" class="px-4 py-2 border-2 border-gray-300 rounded-lg">
                 <option value="all">All Levels</option>`;
                 
-                for (let i = 1; i <= 10; i++) {
+                for (let i = 1; i <= 6; i++) {
                     html += `<option value="${i}">Level ${i}: ${difficultyLevels[i-1].name}</option>`;
                 }
                 
@@ -2127,16 +2261,78 @@
                         <p class="text-sm italic text-gray-600">💡 Pro Tip: At Level 1, focus on calculating face-to-path. The hints will guide you through each step!</p>
                     `
                 },
-                3: {
-                    title: "Level 3: Horizontal Gear Effect",
+                2: {
+                    title: "Level 2: Horizontal Gear Effect & Start Direction",
                     content: `
-                        <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Variable: Impact Location (Toe/Heel)</h3>
-                        <p class="mb-4">You've mastered face and path! Now we add a <strong>crucial real-world factor</strong>: where on the clubface you strike the ball.</p>
+                        <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Data: Horizontal Impact Location (Toe/Heel)</h3>
+                        <p class="mb-4">You've mastered face-to-path! Now learn how <strong>off-center hits</strong> create gear effect that changes your shot.</p>
                         
                         <div class="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4">
                             <h4 class="font-bold mb-2">⚙️ What is Gear Effect?</h4>
-                            <p class="mb-2">When you hit the ball off-center horizontally, the clubface <strong>twists</strong> at impact. This twisting creates extra sidespin that affects the curve.</p>
-                            <p class="text-sm italic">Think of it like hitting a ping-pong ball with sidespin - the face rotation imparts spin.</p>
+                            <p class="mb-2">When you hit the ball off-center horizontally, the clubface <strong>twists</strong> at impact. This twisting creates extra sidespin.</p>
+                            <ul class="list-disc ml-6 space-y-1">
+                                <li><strong>TOE hit</strong> (positive mm) → Face twists CLOSED → Creates DRAW spin (curves LEFT)</li>
+                                <li><strong>HEEL hit</strong> (negative mm) → Face twists OPEN → Creates FADE spin (curves RIGHT)</li>
+                                <li><strong>Center hit</strong> (0mm) → No gear effect</li>
+                            </ul>
+                            <p class="text-sm italic mt-2">The farther off-center, the more gear effect!</p>
+                        </div>
+                        
+                        <div class="bg-amber-50 border-l-4 border-amber-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">⚠️ Gear Effect Can Help OR Hurt!</h4>
+                            <p class="mb-2"><strong>Opposing Forces:</strong></p>
+                            <ul class="list-disc ml-6 space-y-1 text-sm">
+                                <li>Trying to fade it? Heel hit HELPS (more fade spin)</li>
+                                <li>Trying to fade it? Toe hit FIGHTS (adds draw spin, reduces fade)</li>
+                                <li>Trying to draw it? Toe hit HELPS (more draw spin)</li>
+                                <li>Trying to draw it? Heel hit FIGHTS (adds fade spin, reduces draw)</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">🎯 Start Direction</h4>
+                            <p class="mb-2">You'll now predict where the ball <strong>starts</strong> (before it curves):</p>
+                            <p class="text-sm">Face angle controls 75-85% of start direction. Path has small influence.</p>
+                        </div>
+                        
+                        <div class="bg-gray-100 rounded-lg p-4">
+                            <h4 class="font-bold mb-2">📊 Example:</h4>
+                            <div class="bg-white p-3 rounded">
+                                <p class="font-semibold mb-1">Face: +3° | Path: -2° | Impact: 8mm toe</p>
+                                <p class="text-sm"><strong>Face-to-path:</strong> 5° (fade tendency)</p>
+                                <p class="text-sm"><strong>Gear effect:</strong> Toe hit creates ~1° draw spin</p>
+                                <p class="text-sm"><strong>Result:</strong> Starts right, fades less than expected (gear reduces fade)</p>
+                            </div>
+                        </div>
+                        
+                        <p class="text-sm italic text-gray-600 mt-4">💡 Pro Tip: TrackMan shows horizontal impact - now you know why it matters!</p>
+                    `
+                },
+                3: {
+                    title: "Level 3: Vertical Impact & Offline Distance",
+                    content: `
+                        <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Data: Vertical Impact Location (High/Low on Face)</h3>
+                        <p class="mb-4">Horizontal gear effect mastered! Now add the <strong>vertical dimension</strong>: hitting high or low on the clubface.</p>
+                        
+                        <div class="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">⚙️ Vertical Gear Effect: The Amplifier/Dampener</h4>
+                            <p class="mb-2">Vertical impact position doesn't create new spin - it <strong>amplifies or dampens</strong> the existing sidespin!</p>
+                            <ul class="list-disc ml-6 space-y-1">
+                                <li><strong>HIGH on face</strong> (positive mm) → AMPLIFIES curve (draws hook more, fades slice more)</li>
+                                <li><strong>LOW on face</strong> (negative mm) → DAMPENS curve (hooks become draws, slices become fades)</li>
+                                <li><strong>Center strike</strong> (0mm vertical) → Normal curve, no amplification</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-red-50 border-l-4 border-red-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">🎯 Offline Distance: The Complete Picture</h4>
+                            <p class="mb-2">Now you'll predict the <strong>total</strong> offline distance. This combines:</p>
+                            <ol class="list-decimal ml-6 space-y-1 text-sm">
+                                <li><strong>Start direction:</strong> Face angle × club-specific multiplier (~2 yards/degree)</li>
+                                <li><strong>Curve:</strong> Face-to-path × curve multiplier × vertical gear multiplier</li>
+                                <li><strong>Horizontal gear:</strong> Toe/heel effect on curve</li>
+                            </ol>
+                            <p class="text-sm italic mt-2">Total offline = Start + Curve (with all gear effects)</p>
                         </div>
                         
                         <div class="bg-orange-50 border-l-4 border-orange-600 p-4 mb-4">
@@ -2200,6 +2396,56 @@
                                 </div>
                             </div>
                         </div>
+                    `
+                },
+                4: {
+                    title: "Level 4: Lie Angle & Wind Effects",
+                    content: `
+                        <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Variables: Lie Angle & Wind</h3>
+                        <p class="mb-4">Welcome to <strong>Championship Level</strong>! Two powerful new factors enter the equation that professionals must master.</p>
+                        
+                        <div class="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">📐 Lie Angle: The Silent Face Adjuster</h4>
+                            <p class="mb-2">Lie angle is how upright or flat the club sits at impact. It directly adjusts the face angle!</p>
+                            <ul class="list-disc ml-6 space-y-1">
+                                <li><strong>Upright Lie</strong> (positive °) → CLOSES the face → Ball goes LEFT</li>
+                                <li><strong>Flat Lie</strong> (negative °) → OPENS the face → Ball goes RIGHT</li>
+                                <li><strong>Effect varies by club:</strong> Wedges feel it most (0.7x), Drivers least (0.3x)</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4 mb-4">
+                            <h4 class="font-bold mb-2 text-amber-900">⚠️ CRITICAL CALCULATION ORDER</h4>
+                            <div class="space-y-2 text-sm">
+                                <p><strong>Step 1:</strong> Calculate lie adjustment: Lie angle × multiplier</p>
+                                <p><strong>Step 2:</strong> Apply to face: Effective face = Original face + Lie adjustment</p>
+                                <p><strong>Step 3:</strong> Calculate face-to-path using EFFECTIVE face</p>
+                                <p class="text-xs mt-2 italic">Example: Face 2.4° + (1.5° upright × -0.4) = Effective face 1.8°</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-sky-50 border-l-4 border-sky-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">💨 Wind: Nature's Wildcard</h4>
+                            <p class="mb-2">Wind doesn't just affect distance - it dramatically changes ball flight!</p>
+                            <ul class="list-disc ml-6 space-y-1">
+                                <li><strong>Headwind:</strong> AMPLIFIES curve (more spin effect) + reduces distance</li>
+                                <li><strong>Tailwind:</strong> DAMPENS curve (less spin effect) + increases distance</li>
+                                <li><strong>Crosswind:</strong> Pushes ball laterally (Left-to-Right pushes right)</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-green-50 border-l-4 border-green-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">🎯 Real-World Impact</h4>
+                            <p class="mb-2 text-sm">This is where golf gets tactical:</p>
+                            <ul class="list-disc ml-6 space-y-1 text-sm">
+                                <li>A 15mph headwind can turn a fade into a slice</li>
+                                <li>Upright lie explains why tall players fight hooks</li>
+                                <li>Professionals adjust club selection for wind, not just distance</li>
+                                <li>Getting fit for proper lie angle is crucial for accuracy</li>
+                            </ul>
+                        </div>
+                        
+                        <p class="text-sm italic text-gray-600">💡 Pro Tip: At Level 4, hints are removed. You must know the physics cold!</p>
                     `
                 },
                 5: {
@@ -2627,6 +2873,11 @@
             render();
         }
 
+        function closeOnboarding() {
+            state.showOnboarding = false;
+            render();
+        }
+
         function acceptSecretLevel() {
             state.difficulty = 6;
             state.showSecretUnlock = false;
@@ -2875,10 +3126,25 @@
                                         </div>
                                         `;
                                     }).join('')}
+                                    
+                                    ${!state.secretLevelUnlocked ? `
+                                        <div class="border-4 border-dashed border-purple-400 rounded-xl p-6 bg-gradient-to-br from-purple-900/10 to-black/20 relative overflow-hidden">
+                                            <div class="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 animate-pulse"></div>
+                                            <div class="relative text-center py-8">
+                                                <div class="text-6xl mb-4 animate-bounce">🔒</div>
+                                                <h3 class="text-2xl font-bold text-purple-900 mb-2">SECRET BOSS LEVEL</h3>
+                                                <p class="text-lg text-purple-700 mb-3">🏆 Grand Slam Winner 🏆</p>
+                                                <p class="text-sm text-gray-600 italic">Will you discover how to unlock it?</p>
+                                                <div class="mt-4 text-xs text-gray-500">
+                                                    <p>Hint: Master Level 5...</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ` : ''}
                                 </div>
                                 
                                 <div class="flex gap-3 mt-6">
-                                    ${[1, 3, 5, 7, 8].includes(state.difficulty) ? `
+                                    ${[1, 2, 3, 4, 5, 6].includes(state.difficulty) ? `
                                         <button onclick="showTutorial(${state.difficulty})" 
                                             class="flex-1 py-4 rounded-lg font-semibold text-lg hover:shadow-lg transition-all"
                                             style="background: rgba(212, 175, 55, 0.15); color: var(--masters-gold); border: 2px solid var(--masters-gold);">
@@ -2886,7 +3152,7 @@
                                         </button>
                                     ` : ''}
                                     <button onclick="startGame()" 
-                                        class="${[1, 3, 5, 7, 8].includes(state.difficulty) ? 'flex-1' : 'w-full'} py-4 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all hover:opacity-90"
+                                        class="${[1, 2, 3, 4, 5, 6].includes(state.difficulty) ? 'flex-1' : 'w-full'} py-4 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all hover:opacity-90"
                                         style="background: var(--augusta-green);">
                                         ⛳ Start Level ${state.difficulty}: ${difficultyLevels[state.difficulty - 1].name}
                                     </button>
@@ -2905,12 +3171,38 @@
 
             const totalCards = difficultyLevels[state.difficulty - 1].cards;
             const card = state.currentScenarioData.cards[state.currentCard - 1];
+            
+            // Safety check for undefined card
+            if (!card) {
+                console.error('CRITICAL: Card is undefined!', {
+                    currentCard: state.currentCard,
+                    totalCards: totalCards,
+                    availableCards: state.currentScenarioData.cards.length
+                });
+                // Regenerate scenario and reset
+                state.currentCard = 1;
+                state.currentScenarioData = generateScenario(state.difficulty);
+                render();
+                return;
+            }
+            
             const accuracy = state.user.questionsAnswered > 0 ? Math.round((state.user.correctAnswers / state.user.questionsAnswered) * 100) : 0;
 
             let dataHTML = '';
             const tooltips = getDataTooltips(state.difficulty);
             for (let [key, item] of Object.entries(state.currentScenarioData.data)) {
                 const tooltipText = tooltips[item.label] || "Hover for more information";
+                
+                // Special handling for face card when effective face has been shown
+                let displayValue = item.value;
+                if (item.label === "Club Face" && state.effectiveFaceShown && state.currentScenarioData.lieAngleAdjustment && state.currentScenarioData.lieAngleAdjustment !== 0) {
+                    const orig = state.currentScenarioData.originalFace;
+                    const eff = state.currentScenarioData.effectiveFace;
+                    const origDir = orig > 0 ? " (right)" : orig < 0 ? " (left)" : "";
+                    const effDir = eff > 0 ? " (right)" : eff < 0 ? " (left)" : "";
+                    displayValue = `${orig.toFixed(1)}°${origDir}<br><span style="color: var(--augusta-green); font-weight: bold; font-size: 0.9em;">→ ${eff.toFixed(1)}°${effDir} (effective)</span>`;
+                }
+                
                 dataHTML += `
                     <div class="data-card">
                         <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md hover:shadow-lg transition-all">
@@ -2918,7 +3210,7 @@
                                 <span class="text-3xl">${item.icon}</span>
                                 <span class="font-bold text-gray-700 text-sm">${item.label}</span>
                             </div>
-                            <div class="text-xl font-bold text-gray-900 mt-2">${item.value}</div>
+                            <div class="text-xl font-bold text-gray-900 mt-2">${displayValue}</div>
                         </div>
                         <div class="tooltip">${tooltipText}</div>
                     </div>
@@ -2957,9 +3249,12 @@
                             ${APP_VERSION}
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div class="text-white shadow-lg rounded-lg p-4 text-center" style="background: linear-gradient(135deg, var(--masters-gold), #B8860B);">
-                                <p class="text-sm opacity-90">Tokens</p>
+                            <div class="text-white shadow-lg rounded-lg p-4 text-center relative group" style="background: linear-gradient(135deg, var(--masters-gold), #B8860B);">
+                                <p class="text-sm opacity-90">Tokens 💡</p>
                                 <p class="text-2xl font-bold text-black">${state.user.tokens}</p>
+                                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                                    Earn by answering correctly. Lose for wrong answers. Climb the leaderboard!
+                                </div>
                             </div>
                             <div class="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg rounded-lg p-4 text-center">
                                 <p class="text-sm opacity-90">Accuracy</p>
@@ -3024,7 +3319,7 @@
                                     <h3 class="font-bold text-lg">Level ${state.difficulty} - ${difficultyLevels[state.difficulty - 1].name}</h3>
                                     <p class="text-sm text-gray-600">${difficultyLevels[state.difficulty - 1].description}</p>
                                 </div>
-                                ${[1, 3, 5, 7, 8].includes(state.difficulty) ? `
+                                ${[1, 2, 3, 4, 5, 6].includes(state.difficulty) ? `
                                     <button onclick="showTutorial(${state.difficulty})" class="px-4 py-2 text-white rounded-lg mr-2" style="background: var(--masters-gold); color: var(--augusta-dark); font-weight: 600;">
                                         📚 Tutorial
                                     </button>
@@ -3167,8 +3462,8 @@
                                                     return `<p class="font-bold text-lg">✓ Correct! +${baseReward} tokens</p>`;
                                                 }
                                             } else {
-                                                // Wrong answer - show penalty
-                                                const penaltyPercent = 0.25 + (state.difficulty - 1) * (0.75 / 9);
+                                                // Wrong answer - show penalty (25% L1 → 100% L5)
+                                                const penaltyPercent = 0.25 + (state.difficulty - 1) * (0.75 / 4);
                                                 const penalty = Math.round(baseReward * penaltyPercent);
                                                 
                                                 if (state.hasUsedBoost && state.confidenceMultiplier > 1) {
@@ -3349,17 +3644,89 @@
                                 </h2>
                                 <button onclick="closeTutorial()" class="text-gray-500 hover:text-gray-700 text-4xl font-bold leading-none">×</button>
                             </div>
+                            
+                            <!-- Top Got It button -->
+                            <div class="mb-4 pb-4 border-b border-gray-200">
+                                <button onclick="closeTutorial()" class="w-full px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition" style="background: var(--augusta-green);">
+                                    Got it! 👍
+                                </button>
+                            </div>
+                            
                             <div class="text-gray-700 space-y-4">
                                 ${tutorialContent.content}
                             </div>
-                            <div class="mt-6 pt-6 border-t border-gray-200 flex justify-end">
-                                <button onclick="closeTutorial()" class="px-6 py-3 rounded-lg font-semibold text-white" style="background: var(--augusta-green);">
+                            
+                            <!-- Bottom Got It button -->
+                            <div class="mt-6 pt-6 border-t border-gray-200">
+                                <button onclick="closeTutorial()" class="w-full px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition" style="background: var(--augusta-green);">
                                     Got it! 👍
                                 </button>
                             </div>
                         </div>
                     </div>
                 `;
+            }
+            
+            // Onboarding Modal (First-Time Users)
+            if (state.showOnboarding) {
+                app.innerHTML += `
+                    <div class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+                        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
+                            <div class="text-center mb-6">
+                                <div class="text-6xl mb-4">⛳🏌️‍♂️</div>
+                                <h2 class="text-4xl font-bold mb-3" style="color: var(--augusta-green);">
+                                    Welcome to Ball Flight Master!
+                                </h2>
+                                <p class="text-xl text-gray-700">
+                                    Master the science behind every golf shot
+                                </p>
+                            </div>
+                            
+                            <div class="space-y-4 mb-6">
+                                <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 p-4 rounded">
+                                    <h3 class="font-bold text-lg mb-2">🪙 Token System</h3>
+                                    <p class="text-sm text-gray-700">
+                                        <strong>Earn tokens</strong> by answering correctly. <strong>Lose tokens</strong> for wrong answers (penalties increase with difficulty). 
+                                        Start with <span class="font-bold text-yellow-600">100 tokens</span>. Use them to climb the leaderboard!
+                                    </p>
+                                </div>
+                                
+                                <div class="bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-purple-500 p-4 rounded">
+                                    <h3 class="font-bold text-lg mb-2">🎯 Confidence Boost</h3>
+                                    <p class="text-sm text-gray-700">
+                                        Before some scenarios, you can bet on yourself with a <strong>2x or 3x multiplier</strong>. 
+                                        Get all cards correct = <span class="font-bold text-purple-600">massive rewards</span>! 
+                                        Get one wrong = <span class="font-bold text-red-600">boost lost</span> + penalty.
+                                    </p>
+                                </div>
+                                
+                                <div class="bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500 p-4 rounded">
+                                    <h3 class="font-bold text-lg mb-2">📊 5 Levels + Secret Boss</h3>
+                                    <p class="text-sm text-gray-700">
+                                        Progress from <strong>Range Rookie</strong> to <strong>Masters Champion</strong>. 
+                                        Each level introduces new physics data. 
+                                        Master Level 5 to unlock... <span class="font-bold text-purple-600">something special</span> 👀
+                                    </p>
+                                </div>
+                                
+                                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-4 rounded">
+                                    <h3 class="font-bold text-lg mb-2">🎓 Learn Real Physics</h3>
+                                    <p class="text-sm text-gray-700">
+                                        Every question teaches <strong>TrackMan-level ball flight laws</strong>. 
+                                        Tutorials explain each concept. Explanations show full calculations.
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <button onclick="closeOnboarding()" 
+                                class="w-full py-4 text-white rounded-lg font-bold text-xl hover:opacity-90 transition"
+                                style="background: linear-gradient(135deg, var(--augusta-green), var(--augusta-dark));">
+                                Let's Play! ⛳
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return;
             }
             
             // Secret Level Unlock Modal
@@ -3509,6 +3876,13 @@
                 };
                 state.showAuth = false;
                 state.showLevelSelect = true;
+                
+                // Show onboarding for first-time users
+                if (state.isFirstTime) {
+                    state.showOnboarding = true;
+                    state.isFirstTime = false;
+                }
+                
                 render();
             }
         }
@@ -3527,6 +3901,11 @@
             const card = state.currentScenarioData.cards[state.currentCard - 1];
             state.isCorrect = answer === card.correct;
             state.showExplanation = true;
+            
+            // If this is the effective face question, set flag to show effective face in subsequent cards
+            if (card.question && card.question.includes("effective face angle after applying the lie adjustment")) {
+                state.effectiveFaceShown = true;
+            }
             
             // Track boost progress if active
             if (state.hasUsedBoost && !state.boostLost) {
@@ -3560,8 +3939,8 @@
             if (state.isCorrect) {
                 reward = baseReward * multiplier;
             } else {
-                // Progressive penalty: 25% at level 1, scaling to 100% at level 10
-                const penaltyPercent = 0.25 + (state.difficulty - 1) * (0.75 / 9);
+                // Progressive penalty: 25% at level 1, scaling to 100% at level 5
+                const penaltyPercent = 0.25 + (state.difficulty - 1) * (0.75 / 4);
                 reward = -Math.round(baseReward * penaltyPercent);
             }
             
@@ -3616,6 +3995,7 @@
                 state.hasUsedBoost = false;
                 state.boostCardResults = [];
                 state.boostLost = false;
+                state.effectiveFaceShown = false; // Reset for new scenario
                 // Potentially show confidence boost for next scenario
                 maybeShowConfidenceBoost();
             }
