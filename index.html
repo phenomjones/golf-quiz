@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -148,7 +149,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v3.2.0 - January 27, 2026 - 12:22 AM EST (5:22 AM UTC)";
+        const APP_VERSION = "v3.3.0 - January 27, 2026 - 10:35 AM EST (3:35 PM UTC)";
         
         // Simple state management
         let state = {
@@ -191,8 +192,8 @@
             { level: 1, name: "Range Rookie", description: "Master face-to-path basics", baseReward: 25, cards: 3, details: "Learn the fundamentals. NEW DATA: Face angle, Club path. Questions: Curve direction, Face-to-path angle. Full hints provided.", unlockRequirement: "Start here" },
             { level: 2, name: "Tour Player", description: "Add gear effect", baseReward: 60, cards: 3, details: "Off-center hits matter! NEW DATA: Horizontal impact location (heel/toe only). Toe hits create draw spin, heel hits create fade spin. Questions: Start direction added.", unlockRequirement: "Complete Level 1" },
             { level: 3, name: "Major Contender", description: "Vertical impact & distance", baseReward: 115, cards: 3, details: "Master all gear effects. NEW DATA: Vertical impact location (high/low on face). High amplifies curve, low dampens. Questions: Offline distance (wider ranges).", unlockRequirement: "Complete Level 2" },
-            { level: 4, name: "Championship Level", description: "Lie angle & wind", baseReward: 200, cards: 3, details: "Environmental factors! NEW DATA: Lie angle & Wind conditions. Upright closes face, flat opens. Headwind amplifies curve, tailwind dampens. Questions: Gear help/hurt, Lie effect direction, Offline distance, Hypotheticals. No hints!", unlockRequirement: "Complete Level 3" },
-            { level: 5, name: "Masters Champion", description: "Ultimate challenge", baseReward: 350, cards: 3, details: "All variables, complex scenarios. Questions: Opposing forces, Best variable to change, Rank by impact, Advanced hypotheticals. Perfect scenarios may unlock something special... Wrong answers cost 100% of base reward!", unlockRequirement: "Complete Level 4" },
+            { level: 4, name: "Championship Level", description: "Lie angle effects", baseReward: 200, cards: 3, details: "Environmental factors! NEW DATA: Lie angle. Upright closes face, flat opens. Questions: Gear help/hurt, Lie effect direction, Net face-to-path, Offline distance, Hypotheticals. No hints!", unlockRequirement: "Complete Level 3" },
+            { level: 5, name: "Masters Champion", description: "Wind & ultimate challenge", baseReward: 350, cards: 3, details: "NEW DATA: Wind conditions. Headwind amplifies curve, tailwind dampens. Questions: Opposing forces, Best variable to change, Rank by impact, Advanced hypotheticals. Perfect scenarios may unlock something special... Wrong answers cost 100% of base reward!", unlockRequirement: "Complete Level 4" },
             { level: 6, name: "Grand Slam Winner", description: "🏆 SECRET BOSS LEVEL 🏆", baseReward: 1500, cards: 4, details: "LEGENDARY: Extreme conditions (25mph winds, 20mm impacts, 5° lie angles). 50% trick scenarios. 4 cards per scenario. Triple rewards. 2-yard answer tolerances. Only the true masters survive.", unlockRequirement: "Complete 4 PERFECT scenarios on Level 5", isSecret: true, isUnlocked: false }
         ];
 
@@ -519,7 +520,7 @@
             let windMultiplier = 1.0; // How wind affects spin/curve
             let carryAdjustment = 0; // How wind affects distance
             
-            if (diffLevel >= 4) {
+            if (diffLevel >= 5) { // WIND ONLY AT LEVEL 5+
                 // Bell curve distribution: mean ~7 MPH, std dev ~5, capped at 25
                 const bellCurve = () => {
                     const u1 = Math.random();
@@ -611,7 +612,7 @@
             
             // LEVEL-BASED CARD GENERATION
             if (diffLevel <= 2) {
-                // Level 1: Face-to-path + Curve direction
+                // Level 1: Face-to-path + Curve direction + What-if
                 // Level 2: Face-to-path + Curve direction + Start direction
                 
                 cards.push(generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace));
@@ -619,14 +620,26 @@
                 // Both levels: Curve direction question
                 cards.push(generateCurveDirectionQuestion(baseFaceToPath, diffLevel));
                 
-                // Level 2: Add start direction
+                // Level 1: Add what-if path=0 question (50% chance)
+                if (diffLevel === 1 && Math.random() < 0.5) {
+                    cards.push(generateWhatIfPathZeroQuestion(face, path, diffLevel));
+                }
+                
+                // Level 2: Add start direction OR what-if questions
                 if (diffLevel === 2) {
-                    cards.push({
-                        question: "Will the ball start left or right of the target?",
-                        options: ["Left of target", "Right of target", "Straight at target"],
-                        correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
-                        explanation: `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
-                    });
+                    const rand = Math.random();
+                    if (rand < 0.4) {
+                        cards.push({
+                            question: "Will the ball start left or right of the target?",
+                            options: ["Left of target", "Right of target", "Straight at target"],
+                            correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
+                            explanation: `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
+                        });
+                    } else if (rand < 0.7) {
+                        cards.push(generateWhatIfCenterImpactQuestion(face, path, gearEffect, impactLocationText, diffLevel, physics.curveMultiplier));
+                    } else {
+                        cards.push(generateWhatIfFaceSquareQuestion(face, physics, diffLevel));
+                    }
                 }
                 
             } else if (diffLevel <= 4) {
@@ -645,20 +658,15 @@
                 const gearContribution = gearEffect * physics.curveMultiplier * verticalGearMultiplier;
                 const curveContribution = baseCurveContribution + gearContribution;
                 
-                // Level 4 adds wind effect
-                let windContribution = 0;
-                if (diffLevel === 4 && windSpeedMPH > 0) {
-                    windContribution = windEffect;
-                }
-                
-                const netOffline = faceContribution + curveContribution + windContribution;
+                // NO WIND at Level 3-4 (wind starts at Level 5)
+                const netOffline = faceContribution + curveContribution;
                 const offlineYards = Math.abs(netOffline);
                 const roundedYards = Math.round(offlineYards);
                 const offlineDir = netOffline > 0 ? "right" : "left";
                 
                 // Level 4: Effective face question if lie exists
                 if (diffLevel === 4 && lieAngleAdjustment !== 0) {
-                    cards.push(generateEffectiveFaceQuestion(originalFace, lieAngleAdjustment, face, diffLevel));
+                    cards.push(generateEffectiveFaceQuestion(originalFace, lieAngleAdjustment, face, diffLevel, lieAngle, clubType));
                 }
                 
                 cards.push(generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace));
@@ -711,8 +719,13 @@
                     question: "How far offline will the ball finish?",
                     options: offlineOptions,
                     correct: correctOfflineRange,
-                    explanation: `<div><strong>Start:</strong> ${Math.abs(faceContribution).toFixed(1)} yards ${faceContribution > 0 ? 'right' : 'left'}</div><div><strong>Curve:</strong> ${Math.abs(curveContribution).toFixed(1)} yards</div>${diffLevel === 4 && windContribution !== 0 ? `<div><strong>Wind:</strong> ${Math.abs(windContribution).toFixed(1)} yards</div>` : ''}<div><strong>Total:</strong> ${offlineYards.toFixed(1)} yards ${offlineDir}</div>`
+                    explanation: `<div><strong>Start:</strong> ${Math.abs(faceContribution).toFixed(1)} yards ${faceContribution > 0 ? 'right' : 'left'}</div><div><strong>Curve:</strong> ${Math.abs(curveContribution).toFixed(1)} yards</div><div><strong>Total:</strong> ${offlineYards.toFixed(1)} yards ${offlineDir}</div>`
                 });
+                
+                // Level 3: Add what-if vertical center question (30% chance)
+                if (diffLevel === 3 && Math.abs(verticalImpact) > 2 && Math.random() < 0.3) {
+                    cards.push(generateWhatIfVerticalCenterQuestion(verticalImpact, baseFaceToPath, verticalGearMultiplier, diffLevel));
+                }
                 
                 // Level 4: Add gear help/hurt if gear exists
                 if (diffLevel === 4 && gearEffect !== 0 && Math.abs(baseFaceToPath) > 1) {
@@ -724,16 +737,9 @@
                     cards.push(generateLieEffectDirectionQuestion(lieAngle, diffLevel));
                 }
                 
-                // Level 4: Hypothetical question (what if lie/wind changed)
-                if (diffLevel === 4) {
-                    // If lie exists, ask about standard lie
-                    if (Math.abs(lieAngle) > 0.5) {
-                        cards.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, windContribution, diffLevel, physics.curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect));
-                    }
-                    // If wind exists, ask about no wind
-                    else if (windSpeedMPH > 0) {
-                        cards.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windContribution, diffLevel, physics.curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect));
-                    }
+                // Level 4: Hypothetical question (only lie-based, no wind yet)
+                if (diffLevel === 4 && Math.abs(lieAngle) > 0.5) {
+                    cards.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, 0, diffLevel, physics.curveMultiplier, windMultiplier, verticalGearMultiplier, gearEffect));
                 }
                 
                 // Shot shape
@@ -892,8 +898,8 @@
                 
                 // Add hypothetical question and vertical impact question (Level 8+)
                 if (diffLevel >= 4) {
-                    // Wind amplify/dampen and worst-case questions
-                    if (windSpeedMPH > 0 && Math.abs(baseFaceToPath) > 1) {
+                    // Wind questions only at Level 5+ (wind doesn't exist at Level 4)
+                    if (diffLevel >= 5 && windSpeedMPH > 0 && Math.abs(baseFaceToPath) > 1) {
                         basicQuestions.push(generateWindAmplifyDampenQuestion(windDir, baseFaceToPath, diffLevel));
                         basicQuestions.push(generateWorstWindScenarioQuestion(baseFaceToPath, diffLevel));
                     }
@@ -1245,9 +1251,14 @@
             };
         }
 
-        function generateEffectiveFaceQuestion(originalFace, lieAngleAdjustment, effectiveFace, diffLevel) {
+        function generateEffectiveFaceQuestion(originalFace, lieAngleAdjustment, effectiveFace, diffLevel, lieAngle, clubType) {
             const correctAnswer = effectiveFace;
             const numOptions = diffLevel <= 4 ? 4 : diffLevel <= 5 ? 5 : 6;
+            
+            // Get multiplier
+            const lieMultipliers = { driver: 0.3, wood: 0.4, long_iron: 0.45, mid_iron: 0.5, wedge: 0.7 };
+            const lieMultiplier = lieMultipliers[clubType];
+            const lieDirection = lieAngle > 0 ? "upright" : "flat";
             
             // Generate wrong answers
             let options = [correctAnswer];
@@ -1267,7 +1278,7 @@
                 question: "What is the effective face angle after applying the lie adjustment?",
                 options: options.map(o => o.toFixed(1) + "°"),
                 correct: correctAnswer.toFixed(1) + "°",
-                explanation: `<div><strong>Calculation:</strong> Effective face = Original face + Lie adjustment</div><div>${originalFace.toFixed(1)}° + (${lieAngleAdjustment > 0 ? '+' : ''}${lieAngleAdjustment.toFixed(1)}°) = ${effectiveFace.toFixed(1)}°</div><div class="text-sm text-gray-600 mt-2">Remember: Upright lie closes face (negative), flat lie opens face (positive)</div>`
+                explanation: `<div class="space-y-2"><div><strong>Step 1: Calculate lie adjustment</strong></div><div>${Math.abs(lieAngle).toFixed(1)}° ${lieDirection} × ${lieMultiplier} (${clubType} multiplier) × -1 = ${lieAngleAdjustment.toFixed(1)}°</div><div class="text-sm text-gray-600">(Upright = negative adjustment, Flat = positive adjustment)</div><div class="mt-3"><strong>Step 2: Apply to original face</strong></div><div>Effective face = ${originalFace.toFixed(1)}° + (${lieAngleAdjustment > 0 ? '+' : ''}${lieAngleAdjustment.toFixed(1)}°) = <strong>${effectiveFace.toFixed(1)}°</strong></div></div>`
             };
         }
 
@@ -1875,6 +1886,70 @@
             };
         }
 
+        // WHAT-IF QUESTION GENERATORS FOR ALL LEVELS
+        
+        function generateWhatIfPathZeroQuestion(face, path, diffLevel) {
+            // Level 1+: What if path was neutral
+            const originalFaceToPath = face - path;
+            const newFaceToPath = face - 0; // path = 0
+            
+            return {
+                question: "If the club path was neutral (0°), what would the face-to-path angle be?",
+                options: [
+                    `${newFaceToPath.toFixed(1)}°`,
+                    `${originalFaceToPath.toFixed(1)}°`,
+                    `${(face * 0.5).toFixed(1)}°`,
+                    `${(-face).toFixed(1)}°`
+                ].sort(() => Math.random() - 0.5),
+                correct: `${newFaceToPath.toFixed(1)}°`,
+                explanation: `<div><strong>Face:</strong> ${face.toFixed(1)}°</div><div><strong>Hypothetical path:</strong> 0° (neutral)</div><div><strong>Face-to-path:</strong> ${face.toFixed(1)}° - 0° = ${newFaceToPath.toFixed(1)}°</div>`
+            };
+        }
+        
+        function generateWhatIfCenterImpactQuestion(face, path, gearEffect, impactLocationText, diffLevel, curveMultiplier) {
+            // Level 2+: What if impact was center
+            const faceToPath = face - path;
+            const currentGearDegrees = Math.abs(gearEffect).toFixed(1);
+            
+            return {
+                question: "If this shot was struck on the CENTER of the face, how much gear effect would there be?",
+                options: ["0°", currentGearDegrees + "°", (Math.abs(gearEffect) * 2).toFixed(1) + "°", (Math.abs(gearEffect) * 0.5).toFixed(1) + "°"].sort(() => Math.random() - 0.5),
+                correct: "0°",
+                explanation: `<div><strong>Current impact:</strong> ${impactLocationText} = ${currentGearDegrees}° gear effect</div><div><strong>Center impact:</strong> No off-center contact = <strong>0° gear effect</strong></div><div class="mt-2 text-sm text-gray-600">Gear effect only occurs from off-center hits</div>`
+            };
+        }
+        
+        function generateWhatIfFaceSquareQuestion(face, physics, diffLevel) {
+            // Level 2+: What if face was square
+            const startMultipliers = { driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5 };
+            
+            return {
+                question: "If the face angle was square (0°), where would the ball start?",
+                options: ["Straight at target", "Right of target", "Left of target", "Cannot determine"],
+                correct: "Straight at target",
+                explanation: `<div><strong>Current face:</strong> ${face.toFixed(1)}°</div><div><strong>Hypothetical face:</strong> 0° (square)</div><div><strong>Result:</strong> Ball starts straight at target</div><div class="mt-2 text-sm text-gray-600">Face angle controls ~${Math.round(physics.startFaceInfluence * 100)}% of start direction</div>`
+            };
+        }
+        
+        function generateWhatIfVerticalCenterQuestion(verticalImpact, baseFaceToPath, verticalGearMultiplier, diffLevel) {
+            // Level 3+: What if vertical was center
+            const currentMultiplier = verticalGearMultiplier;
+            const centerMultiplier = 1.0;
+            const changePercent = Math.round((1 - currentMultiplier) * 100);
+            
+            return {
+                question: "If this shot was struck CENTER vertically on the face, how would the curve change?",
+                options: [
+                    "Same curve (no change)",
+                    changePercent > 0 ? `${Math.abs(changePercent)}% more curve` : `${Math.abs(changePercent)}% less curve`,
+                    "No curve at all",
+                    "Opposite curve direction"
+                ].sort(() => Math.random() - 0.5),
+                correct: "Same curve (no change)",
+                explanation: `<div><strong>Current vertical:</strong> ${Math.abs(verticalImpact).toFixed(1)}mm ${verticalImpact > 0 ? 'high' : 'low'} (${currentMultiplier.toFixed(2)}x)</div><div><strong>Center vertical:</strong> 0mm = 1.00x (baseline curve)</div><div class="mt-2">Vertical impact amplifies or dampens existing curve but doesn't create it. Center strike = normal curve amount.</div>`
+            };
+        }
+
 
         async function saveScore() {
             if (!state.user) return;
@@ -2399,10 +2474,10 @@
                     `
                 },
                 4: {
-                    title: "Level 4: Lie Angle & Wind Effects",
+                    title: "Level 4: Lie Angle Effects",
                     content: `
-                        <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Variables: Lie Angle & Wind</h3>
-                        <p class="mb-4">Welcome to <strong>Championship Level</strong>! Two powerful new factors enter the equation that professionals must master.</p>
+                        <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Variable: Lie Angle</h3>
+                        <p class="mb-4">Welcome to <strong>Championship Level</strong>! Master lie angle - the factor that silently adjusts your face angle.</p>
                         
                         <div class="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4">
                             <h4 class="font-bold mb-2">📐 Lie Angle: The Silent Face Adjuster</h4>
@@ -2410,51 +2485,79 @@
                             <ul class="list-disc ml-6 space-y-1">
                                 <li><strong>Upright Lie</strong> (positive °) → CLOSES the face → Ball goes LEFT</li>
                                 <li><strong>Flat Lie</strong> (negative °) → OPENS the face → Ball goes RIGHT</li>
-                                <li><strong>Effect varies by club:</strong> Wedges feel it most (0.7x), Drivers least (0.3x)</li>
+                                <li><strong>Effect varies by club:</strong> Wedges 0.7x, Mid-iron 0.5x, Long-iron 0.45x, Wood 0.4x, Driver 0.3x</li>
                             </ul>
                         </div>
 
-                        <div class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4 mb-4">
-                            <h4 class="font-bold mb-2 text-amber-900">⚠️ CRITICAL CALCULATION ORDER</h4>
-                            <div class="space-y-2 text-sm">
-                                <p><strong>Step 1:</strong> Calculate lie adjustment: Lie angle × multiplier</p>
-                                <p><strong>Step 2:</strong> Apply to face: Effective face = Original face + Lie adjustment</p>
-                                <p><strong>Step 3:</strong> Calculate face-to-path using EFFECTIVE face</p>
-                                <p class="text-xs mt-2 italic">Example: Face 2.4° + (1.5° upright × -0.4) = Effective face 1.8°</p>
+                        <div class="bg-gray-100 rounded-lg p-4 mb-4">
+                            <h4 class="font-bold mb-3">📊 Calculation Examples:</h4>
+                            
+                            <div class="bg-white p-3 rounded mb-3">
+                                <p class="font-semibold mb-2">Example 1: 7-Iron (mid-iron, 0.5x multiplier)</p>
+                                <p class="text-sm"><strong>Scenario:</strong> 2.5° upright lie, Original face 2.1° right</p>
+                                <p class="text-sm mt-1"><strong>Step 1:</strong> 2.5° upright × 0.5 (multiplier) × -1 = <strong>-1.25°</strong></p>
+                                <p class="text-sm text-gray-600">(Upright = negative, Flat = positive)</p>
+                                <p class="text-sm mt-1"><strong>Step 2:</strong> 2.1° + (-1.25°) = <strong>0.85° effective face</strong></p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded mb-3">
+                                <p class="font-semibold mb-2">Example 2: Pitching Wedge (0.7x multiplier)</p>
+                                <p class="text-sm"><strong>Scenario:</strong> 3° flat lie, Original face 1.5° left</p>
+                                <p class="text-sm mt-1"><strong>Step 1:</strong> -3° flat × 0.7 × -1 = <strong>+2.1°</strong></p>
+                                <p class="text-sm mt-1"><strong>Step 2:</strong> -1.5° + (+2.1°) = <strong>+0.6° effective face</strong></p>
+                                <p class="text-sm text-gray-600 mt-1">Face goes from left to right!</p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded">
+                                <p class="font-semibold mb-2">Example 3: Driver (0.3x multiplier)</p>
+                                <p class="text-sm"><strong>Scenario:</strong> 2° upright lie, Original face 3° right</p>
+                                <p class="text-sm mt-1"><strong>Step 1:</strong> 2° upright × 0.3 × -1 = <strong>-0.6°</strong></p>
+                                <p class="text-sm mt-1"><strong>Step 2:</strong> 3° + (-0.6°) = <strong>2.4° effective face</strong></p>
+                                <p class="text-sm text-gray-600 mt-1">Driver feels lie changes less</p>
                             </div>
                         </div>
-                        
-                        <div class="bg-sky-50 border-l-4 border-sky-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">💨 Wind: Nature's Wildcard</h4>
-                            <p class="mb-2">Wind doesn't just affect distance - it dramatically changes ball flight!</p>
-                            <ul class="list-disc ml-6 space-y-1">
-                                <li><strong>Headwind:</strong> AMPLIFIES curve (more spin effect) + reduces distance</li>
-                                <li><strong>Tailwind:</strong> DAMPENS curve (less spin effect) + increases distance</li>
-                                <li><strong>Crosswind:</strong> Pushes ball laterally (Left-to-Right pushes right)</li>
-                            </ul>
+
+                        <div class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4 mb-4">
+                            <h4 class="font-bold mb-2 text-amber-900">⚠️ CRITICAL: Always Use Effective Face</h4>
+                            <p class="text-sm">After calculating effective face, use it for ALL subsequent calculations (face-to-path, start direction, offline distance)</p>
                         </div>
 
                         <div class="bg-green-50 border-l-4 border-green-600 p-4 mb-4">
                             <h4 class="font-bold mb-2">🎯 Real-World Impact</h4>
-                            <p class="mb-2 text-sm">This is where golf gets tactical:</p>
-                            <ul class="list-disc ml-6 space-y-1 text-sm">
-                                <li>A 15mph headwind can turn a fade into a slice</li>
-                                <li>Upright lie explains why tall players fight hooks</li>
-                                <li>Professionals adjust club selection for wind, not just distance</li>
-                                <li>Getting fit for proper lie angle is crucial for accuracy</li>
-                            </ul>
+                            <p class="text-sm">Upright lie explains why tall players fight hooks. Getting fit for proper lie angle is crucial for accuracy!</p>
                         </div>
                         
-                        <p class="text-sm italic text-gray-600">💡 Pro Tip: At Level 4, hints are removed. You must know the physics cold!</p>
+                        <p class="text-sm italic text-gray-600">💡 Pro Tip: Wind is introduced at Level 5. For now, master lie angle calculations!</p>
                     `
                 },
                 5: {
-                    title: "Level 5: Vertical Gear Effect",
+                    title: "Level 5: Wind Effects & Ultimate Challenge",
                     content: `
-                        <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Variable: Vertical Impact (High/Low on Face)</h3>
-                        <p class="mb-4">You understand horizontal gear effect. Now learn how <strong>vertical impact position</strong> affects sidespin effectiveness!</p>
+                        <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Variable: Wind Conditions</h3>
+                        <p class="mb-4">The final piece! Wind dramatically affects ball flight.</p>
                         
-                        <div class="bg-indigo-50 border-l-4 border-indigo-600 p-4 mb-4">
+                        <div class="bg-sky-50 border-l-4 border-sky-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">💨 Wind: Nature's Wildcard</h4>
+                            <ul class="list-disc ml-6 space-y-1">
+                                <li><strong>Headwind:</strong> AMPLIFIES curve (more spin effect) + reduces distance</li>
+                                <li><strong>Tailwind:</strong> DAMPENS curve (less spin effect) + increases distance</li>
+                                <li><strong>Crosswind:</strong> Pushes ball laterally</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-gray-100 rounded-lg p-4">
+                            <h4 class="font-bold mb-2">📊 Wind Effect Example:</h4>
+                            <div class="bg-white p-3 rounded text-sm">
+                                <p><strong>Calm conditions:</strong> 5° fade = 15 yards curve</p>
+                                <p class="mt-1"><strong>15mph headwind:</strong> Same 5° fade = 22+ yards curve!</p>
+                                <p class="mt-2 text-gray-600">Pro tip: In wind, club selection matters as much as swing</p>
+                            </div>
+                        </div>
+                        
+                        <p class="text-sm italic text-gray-600 mt-4">💡 Level 5: All variables, strategic questions, perfect scenarios unlock secret level!</p>
+                    `
+                },
+                6: {                        <div class="bg-indigo-50 border-l-4 border-indigo-600 p-4 mb-4">
                             <h4 class="font-bold mb-2">📈 High vs Low Face Contact</h4>
                             <p class="mb-2">Where you hit the ball vertically doesn't just affect distance - it <strong>amplifies or dampens sidespin</strong>.</p>
                             <ul class="list-disc ml-6 space-y-2">
@@ -3200,7 +3303,7 @@
                     const eff = state.currentScenarioData.effectiveFace;
                     const origDir = orig > 0 ? " (right)" : orig < 0 ? " (left)" : "";
                     const effDir = eff > 0 ? " (right)" : eff < 0 ? " (left)" : "";
-                    displayValue = `${orig.toFixed(1)}°${origDir}<br><span style="color: var(--augusta-green); font-weight: bold; font-size: 0.9em;">→ ${eff.toFixed(1)}°${effDir} (effective)</span>`;
+                    displayValue = `${orig.toFixed(1)}°${origDir}<br><span style="color: var(--augusta-green); font-weight: bold; font-size: 0.9em;">➜ ${eff.toFixed(1)}°${effDir} (effective)</span>`;
                 }
                 
                 dataHTML += `
@@ -3383,7 +3486,7 @@
                                         
                                         <div class="grid grid-cols-3 gap-4">
                                             <button onclick="selectConfidence(1)" class="bg-white text-gray-900 p-4 rounded-lg font-bold text-xl hover:bg-gray-100 transition-all">
-                                                1x<br><span class="text-sm">Play it safe</span>
+                                                Decline<br><span class="text-sm">No boost</span>
                                             </button>
                                             <button onclick="selectConfidence(2)" class="bg-white text-orange-600 p-4 rounded-lg font-bold text-xl hover:bg-orange-50 transition-all">
                                                 2x<br><span class="text-sm">Feeling good!</span>
@@ -3417,7 +3520,7 @@
                                         
                                         <div class="grid grid-cols-3 gap-4">
                                             <button onclick="selectConfidence(1)" class="bg-white text-gray-900 p-4 rounded-lg font-bold text-xl hover:bg-gray-100 transition-all">
-                                                1x<br><span class="text-sm">Not sure</span>
+                                                Decline<br><span class="text-sm">No boost</span>
                                             </button>
                                             <button onclick="selectConfidence(2)" class="bg-white text-orange-600 p-4 rounded-lg font-bold text-xl hover:bg-orange-50 transition-all">
                                                 2x<br><span class="text-sm">Pretty sure!</span>
