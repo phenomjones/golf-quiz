@@ -149,7 +149,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v3.4.0 - January 28, 2026 - 8:23 AM EST (1:23 PM UTC)";
+        const APP_VERSION = "v3.5.0 - January 28, 2026 - 12:06 PM EST (5:06 PM UTC)";
         
         // Simple state management
         let state = {
@@ -636,25 +636,33 @@
                 // Both levels: Curve direction question
                 cards.push(generateCurveDirectionQuestion(baseFaceToPath, diffLevel));
                 
-                // Level 1: Add what-if path=0 question (50% chance)
-                if (diffLevel === 1 && Math.random() < 0.5) {
-                    cards.push(generateWhatIfPathZeroQuestion(face, path, diffLevel));
+                // Level 1: ALWAYS add what-if question (randomly path or face)
+                if (diffLevel === 1) {
+                    if (Math.random() < 0.5) {
+                        cards.push(generateWhatIfPathQuestion(face, path, diffLevel));
+                    } else {
+                        cards.push(generateWhatIfFaceQuestion(face, path, diffLevel));
+                    }
                 }
                 
-                // Level 2: Add start direction OR what-if questions
+                // Level 2: Add start direction OR what-if questions (including dynamic path/face)
                 if (diffLevel === 2) {
                     const rand = Math.random();
-                    if (rand < 0.4) {
+                    if (rand < 0.25) {
                         cards.push({
                             question: "Will the ball start left or right of the target?",
                             options: ["Left of target", "Right of target", "Straight at target"],
                             correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
                             explanation: `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
                         });
-                    } else if (rand < 0.7) {
+                    } else if (rand < 0.45) {
                         cards.push(generateWhatIfCenterImpactQuestion(face, path, gearEffect, impactLocationText, diffLevel, physics.curveMultiplier));
-                    } else {
+                    } else if (rand < 0.65) {
                         cards.push(generateWhatIfFaceSquareQuestion(face, physics, diffLevel));
+                    } else if (rand < 0.825) {
+                        cards.push(generateWhatIfPathQuestion(face, path, diffLevel));
+                    } else {
+                        cards.push(generateWhatIfFaceQuestion(face, path, diffLevel));
                     }
                 }
                 
@@ -1567,7 +1575,7 @@
         // Level 2: Which direction will it curve?
         function generateCurveDirectionQuestion(baseFaceToPath, diffLevel) {
             let correct;
-            if (Math.abs(baseFaceToPath) <= 1) {
+            if (Math.abs(baseFaceToPath) <= 0.5) { // Changed from 1 to 0.5
                 correct = "No curve (straight)";
             } else if (baseFaceToPath < 0) {
                 correct = "Left";
@@ -1933,21 +1941,41 @@
 
         // WHAT-IF QUESTION GENERATORS FOR ALL LEVELS
         
-        function generateWhatIfPathZeroQuestion(face, path, diffLevel) {
-            // Level 1+: What if path was neutral
+        function generateWhatIfPathQuestion(face, path, diffLevel) {
+            // Level 1+: What if path was different (random -5 to +5)
+            const hypotheticalPath = Math.floor(Math.random() * 11) - 5; // -5 to +5
             const originalFaceToPath = face - path;
-            const newFaceToPath = face - 0; // path = 0
+            const newFaceToPath = face - hypotheticalPath;
             
             return {
-                question: "If the club path was neutral (0°), what would the face-to-path angle be?",
+                question: `If the club path was ${hypotheticalPath > 0 ? '+' : ''}${hypotheticalPath}°, what would the face-to-path angle be?`,
                 options: [
                     `${newFaceToPath.toFixed(1)}°`,
                     `${originalFaceToPath.toFixed(1)}°`,
-                    `${(face * 0.5).toFixed(1)}°`,
-                    `${(-face).toFixed(1)}°`
+                    `${(face + hypotheticalPath).toFixed(1)}°`, // Wrong: adding instead of subtracting
+                    `${(hypotheticalPath - face).toFixed(1)}°`  // Wrong: reversed
                 ].sort(() => Math.random() - 0.5),
                 correct: `${newFaceToPath.toFixed(1)}°`,
-                explanation: `<div><strong>Face:</strong> ${face.toFixed(1)}°</div><div><strong>Hypothetical path:</strong> 0° (neutral)</div><div><strong>Face-to-path:</strong> ${face.toFixed(1)}° - 0° = ${newFaceToPath.toFixed(1)}°</div>`
+                explanation: `<div><strong>Current face:</strong> ${face.toFixed(1)}°</div><div><strong>Hypothetical path:</strong> ${hypotheticalPath > 0 ? '+' : ''}${hypotheticalPath}°</div><div><strong>Face-to-path:</strong> ${face.toFixed(1)}° - (${hypotheticalPath > 0 ? '+' : ''}${hypotheticalPath}°) = ${newFaceToPath.toFixed(1)}°</div>`
+            };
+        }
+        
+        function generateWhatIfFaceQuestion(face, path, diffLevel) {
+            // Level 1+: What if face was different (random -5 to +5)
+            const hypotheticalFace = Math.floor(Math.random() * 11) - 5; // -5 to +5
+            const originalFaceToPath = face - path;
+            const newFaceToPath = hypotheticalFace - path;
+            
+            return {
+                question: `If the club face was ${hypotheticalFace > 0 ? '+' : ''}${hypotheticalFace}°, what would the face-to-path angle be?`,
+                options: [
+                    `${newFaceToPath.toFixed(1)}°`,
+                    `${originalFaceToPath.toFixed(1)}°`, // Current actual (common mistake)
+                    `${(hypotheticalFace + path).toFixed(1)}°`, // Wrong: adding
+                    `${(path - hypotheticalFace).toFixed(1)}°`  // Wrong: reversed
+                ].sort(() => Math.random() - 0.5),
+                correct: `${newFaceToPath.toFixed(1)}°`,
+                explanation: `<div><strong>Hypothetical face:</strong> ${hypotheticalFace > 0 ? '+' : ''}${hypotheticalFace}°</div><div><strong>Current path:</strong> ${path.toFixed(1)}°</div><div><strong>Face-to-path:</strong> ${hypotheticalFace > 0 ? '+' : ''}${hypotheticalFace}° - (${path.toFixed(1)}°) = ${newFaceToPath.toFixed(1)}°</div>`
             };
         }
         
@@ -2344,14 +2372,22 @@
                             <h4 class="font-bold mb-2">↗️ Club Path</h4>
                             <p class="mb-2">The direction the clubhead is traveling through impact. This creates the curve.</p>
                             <ul class="list-disc ml-6 space-y-1">
-                                <li><strong>Negative numbers</strong> = Swinging LEFT (in-to-out for right-hander)</li>
-                                <li><strong>Positive numbers</strong> = Swinging RIGHT (out-to-in for right-hander)</li>
+                                <li><strong>Negative numbers</strong> = Swinging LEFT (out-to-in for right-hander)</li>
+                                <li><strong>Positive numbers</strong> = Swinging RIGHT (in-to-out for right-hander)</li>
                                 <li><strong>Zero</strong> = Swinging at target</li>
                             </ul>
                         </div>
                         
                         <div class="bg-yellow-50 border-l-4 border-yellow-600 p-4 mb-4">
                             <h4 class="font-bold mb-2">🎯 The Golden Rule: Face-to-Path</h4>
+                            
+                            <div class="bg-red-50 border-l-2 border-red-500 p-3 mb-3">
+                                <p class="font-semibold text-red-800">⚠️ COMMON MISTAKE:</p>
+                                <p class="text-sm">Many golfers think "in-to-out swing = draw" and "out-to-in swing = slice." This is WRONG!</p>
+                            </div>
+                            
+                            <p class="mb-2 font-semibold text-green-700">✅ THE TRUTH: Curve direction is determined by FACE-TO-PATH, not path alone!</p>
+                            
                             <p class="mb-2">The ball curves based on the <strong>difference</strong> between face and path:</p>
                             <ul class="list-disc ml-6 space-y-1">
                                 <li><strong>Face LEFT of path</strong> → Ball curves LEFT (draw/hook)</li>
@@ -2361,7 +2397,30 @@
                         </div>
                         
                         <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                            <h4 class="font-bold mb-2">📊 Example Scenarios:</h4>
+                            <h4 class="font-bold mb-2">📊 Examples That Prove It:</h4>
+                            <div class="space-y-3">
+                                <div class="bg-white p-3 rounded">
+                                    <p class="font-semibold">Path: +5° in-to-out | Face: +8°</p>
+                                    <p class="text-sm">Face is 3° RIGHT of path = <span class="text-orange-600 font-bold">FADE</span> (not draw!)</p>
+                                </div>
+                                <div class="bg-white p-3 rounded">
+                                    <p class="font-semibold">Path: -3° out-to-in | Face: -5°</p>
+                                    <p class="text-sm">Face is 2° LEFT of path = <span class="text-blue-600 font-bold">DRAW</span> (not slice!)</p>
+                                </div>
+                                <div class="bg-white p-3 rounded">
+                                    <p class="font-semibold">Path: +4° in-to-out | Face: +4°</p>
+                                    <p class="text-sm">Face equals path = <span class="text-green-600 font-bold">PUSH</span> (straight right, no curve)</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 border-l-2 border-blue-500 p-3 mb-4">
+                            <p class="font-semibold text-blue-800">💡 Pro Insight:</p>
+                            <p class="text-sm">This is why amateur golfers who "swing from the inside" to fix their slice often make it WORSE - they're opening the face even more relative to their new path! Fix the face-to-path relationship, not just the path.</p>
+                        </div>
+                        
+                        <div class="bg-gray-100 rounded-lg p-4 mb-4">
+                            <h4 class="font-bold mb-2">📊 More Example Scenarios:</h4>
                             <div class="space-y-3">
                                 <div class="bg-white p-3 rounded">
                                     <p class="font-semibold">Face: -2° | Path: +3°</p>
@@ -2510,7 +2569,7 @@
                                 <h5 class="font-bold mb-2 text-green-700">✅ Level 1-2: Ball Flight Fundamentals</h5>
                                 <div class="space-y-2 text-sm">
                                     <p><strong>Club Face Angle:</strong> Direction the clubface points at impact. Controls 75-85% of start direction. Negative = left, positive = right, zero = square.</p>
-                                    <p><strong>Club Path:</strong> Direction the clubhead is traveling. Negative = swinging left (in-to-out), positive = swinging right (out-to-in).</p>
+                                    <p><strong>Club Path:</strong> Direction the clubhead is traveling. Negative = swinging left (out-to-in), positive = swinging right (in-to-out).</p>
                                     <p><strong>Face-to-Path (The Golden Rule):</strong> Ball curves based on the DIFFERENCE between face and path. Face LEFT of path = draw/hook (curves left). Face RIGHT of path = fade/slice (curves right). Face equals path = straight.</p>
                                     <p><strong>Curve Direction:</strong> If face-to-path is negative (face left of path) → curves left. If positive (face right of path) → curves right. If near zero → flies straight.</p>
                                 </div>
@@ -3440,6 +3499,32 @@
                                 </div>
                             </div>
                         ` : ''}
+                        
+                        ${state.difficulty < 6 ? `
+                            <div class="mb-6 p-4 rounded-xl shadow-lg bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-300">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="font-bold text-gray-800">Progress to Level ${state.difficulty + 1}</span>
+                                    <span class="text-sm font-semibold text-gray-700">${state.levelProgress.progressPercent}%</span>
+                                </div>
+                                
+                                <div class="w-full bg-gray-300 rounded-full h-6 overflow-hidden mb-3">
+                                    <div class="bg-gradient-to-r from-green-400 to-green-600 h-full transition-all duration-500" 
+                                         style="width: ${state.levelProgress.progressPercent}%">
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-sm">Momentum:</span>
+                                        <span class="text-2xl">${'🔥'.repeat(state.levelProgress.momentum)}</span>
+                                        <span class="text-xs text-gray-600">(${state.levelProgress.currentStreak}-streak)</span>
+                                    </div>
+                                    <span class="text-xs text-gray-600">
+                                        ${state.levelProgress.questionsCorrect}/${state.levelProgress.questionsAnswered} correct
+                                    </span>
+                                </div>
+                            </div>
+                        ` : ''}
 
                         ${state.hasUsedBoost ? `
                             <div class="mb-6 p-4 rounded-xl shadow-lg ${state.boostLost ? 'bg-gray-300 opacity-75' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}">
@@ -4067,6 +4152,42 @@
                 if (!state.isCorrect) {
                     state.boostLost = true;
                 }
+            }
+            
+            // UPDATE MOMENTUM SYSTEM
+            state.levelProgress.questionsAnswered++;
+            
+            if (state.isCorrect) {
+                state.levelProgress.questionsCorrect++;
+                state.levelProgress.currentStreak++;
+                
+                // Update longest streak
+                if (state.levelProgress.currentStreak > state.levelProgress.longestStreak) {
+                    state.levelProgress.longestStreak = state.levelProgress.currentStreak;
+                }
+                
+                // Update momentum (1-5 flames based on streak)
+                state.levelProgress.momentum = Math.min(5, state.levelProgress.currentStreak);
+                
+                // Calculate progress gain
+                const baseGain = 4; // 4% base per correct answer
+                const momentumBonus = state.levelProgress.momentum - 1; // 0-4% bonus
+                const totalGain = baseGain + momentumBonus;
+                
+                // Add to progress (cap at 100)
+                state.levelProgress.progressPercent = Math.min(100, 
+                    state.levelProgress.progressPercent + totalGain);
+                
+                // Check if ready to level up
+                if (state.levelProgress.progressPercent >= 100 && !state.levelProgress.readyForNextLevel) {
+                    state.levelProgress.readyForNextLevel = true;
+                    // Level-up modal will show after this scenario completes
+                }
+                
+            } else {
+                // Wrong answer: reset streak but momentum stays at 1 (never 0)
+                state.levelProgress.currentStreak = 0;
+                state.levelProgress.momentum = 1;
             }
             
             render();
