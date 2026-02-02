@@ -128,6 +128,53 @@
             }
         }
         
+        /* 🏀✨ NEON BASKETBALL: Momentum celebration animations */
+        @keyframes momentumCelebrate {
+            0% { 
+                transform: scale(1);
+            }
+            25% { 
+                transform: scale(1.2) rotate(-5deg);
+            }
+            50% { 
+                transform: scale(1.3) rotate(5deg);
+            }
+            75% { 
+                transform: scale(1.2) rotate(-5deg);
+            }
+            100% { 
+                transform: scale(1);
+            }
+        }
+        
+        @keyframes sparkle {
+            0%, 100% { 
+                opacity: 0;
+                transform: scale(0) rotate(0deg);
+            }
+            50% { 
+                opacity: 1;
+                transform: scale(1) rotate(180deg);
+            }
+        }
+        
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(255, 215, 0, 1), 0 0 30px rgba(255, 215, 0, 0.8);
+            }
+        }
+        
+        .momentum-celebrate {
+            animation: momentumCelebrate 0.6s ease-in-out, glow 1s ease-in-out 3;
+        }
+        
+        .momentum-sparkle {
+            animation: sparkle 0.8s ease-out;
+        }
+        
         .animate-fade-in {
             animation: fadeIn 0.3s ease-out;
         }
@@ -149,7 +196,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v3.5.0 - January 28, 2026 - 12:06 PM EST (5:06 PM UTC)";
+        const APP_VERSION = "v3.15.1 - January 31, 2026 - 2:50 PM EST (7:50 PM UTC) - Syntax Fix";
         
         // Simple state management
         let state = {
@@ -180,9 +227,11 @@
             showLevelUpPromotion: false,
             promotionTargetLevel: null,
             perfectScenariosLevel5: 0, // Track perfect scenarios on Level 5 for secret unlock
+            totalPerfectScenarios: 0, // 🥜 PEANUT BUTTER: Track all perfect scenarios across all levels for sharing
             secretLevelUnlocked: false, // Has Grand Slam Winner been unlocked?
             showSecretUnlock: false, // Show unlock animation
             showShareModal: false, // Show share to Twitter modal
+            showLevel6CompleteModal: false, // 🥜 PEANUT BUTTER: Show Level 6 completion share modal
             showOnboarding: false, // Show first-time user onboarding
             isFirstTime: true, // First time playing
             effectiveFaceShown: false, // Has effective face been shown in this scenario
@@ -282,12 +331,15 @@
             
             // Club-specific physics - REAL WORLD VALUES
             const clubPhysics = {
-                driver: { startFaceInfluence: 0.85, curveMultiplier: 6, loft: 10, gearMultiplier: 0.08 },
-                wood: { startFaceInfluence: 0.82, curveMultiplier: 5, loft: 18, gearMultiplier: 0.10 },
-                long_iron: { startFaceInfluence: 0.78, curveMultiplier: 3.5, loft: 24, gearMultiplier: 0.11 },  // 5 Iron
-                mid_iron: { startFaceInfluence: 0.75, curveMultiplier: 3, loft: 34, gearMultiplier: 0.12 },     // 7 Iron
-                wedge: { startFaceInfluence: 0.70, curveMultiplier: 1.5, loft: 50, gearMultiplier: 0.15 }      // PW
+                driver: { startFaceInfluence: 0.85, curveMultiplier: 3.3, loft: 10, gearMultiplier: 0.15 },
+                wood: { startFaceInfluence: 0.82, curveMultiplier: 2.8, loft: 18, gearMultiplier: 0.12 },
+                long_iron: { startFaceInfluence: 0.78, curveMultiplier: 2.2, loft: 24, gearMultiplier: 0.09 },  // 5-6 Iron
+                mid_iron: { startFaceInfluence: 0.75, curveMultiplier: 2.0, loft: 34, gearMultiplier: 0.07 },     // 7-8 Iron
+                wedge: { startFaceInfluence: 0.70, curveMultiplier: 1.2, loft: 50, gearMultiplier: 0.05 }      // PW
             };
+            // SOURCE: TrackMan PGA Tour data
+            // Driver (275yd): 5° face-to-path = 44 yards → 3.2x multiplier
+            // 6-Iron (183yd): 2° face-to-path = 8 yards → 2.2x multiplier
             const physics = clubPhysics[clubType];
             
             // Safety checks
@@ -448,7 +500,10 @@
                 // Update impact location display to include vertical (Level 3+)
                 if (diffLevel >= 3) {
                     const horizontalText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
-                    const verticalText = Math.abs(verticalImpact).toFixed(1) + "mm " + verticalSide;
+                    // 🥈🐙 SILVER OCTOPUS: Add context to vertical display
+                    const verticalContext = Math.abs(verticalImpact) < 2 ? "" : 
+                                          verticalImpact > 0 ? " (AMPLIFIES)" : " (DAMPENS)";
+                    const verticalText = Math.abs(verticalImpact).toFixed(1) + "mm " + verticalSide + verticalContext;
                     data["Impact Location"].value = horizontalText + ", " + verticalText;
                     impactLocationText = horizontalText + ", " + verticalText;
                 }
@@ -562,18 +617,24 @@
                 // Wind physics
                 if (windSpeedMPH > 0) {
                     if (windDir === "Headwind") {
-                        carryAdjustment = -windSpeedMPH * 2; // Headwind hurts more
-                        windMultiplier = 1.0 + (windSpeedMPH / 100); // Amplifies spin/curve by ~20-30% at strong wind
+                        // 🚀🥪 ROCKET SANDWICH: TrackMan-validated 1% per mph
+                        // Source: TrackMan University, Golf Digest/Foresight, Andrew Rice Golf
+                        carryAdjustment = -carry * windSpeedMPH * 0.01; // 10mph = 10% loss
+                        windMultiplier = 1.0 + (windSpeedMPH / 100); // Amplifies curve (ball in air longer)
                     } else if (windDir === "Tailwind") {
-                        carryAdjustment = windSpeedMPH * 1; // Tailwind helps less
-                        windMultiplier = 1.0 - (windSpeedMPH / 150); // Dampens spin/curve by ~15-20% at strong wind
+                        // 🚀🥪 ROCKET SANDWICH: TrackMan-validated 0.6% per mph
+                        // Source: TrackMan University, Golf Digest/Foresight
+                        // Tailwind helps HALF as much as headwind hurts (asymmetric!)
+                        carryAdjustment = carry * windSpeedMPH * 0.006; // 10mph = 6% gain
+                        windMultiplier = 1.0 - (windSpeedMPH / 150); // Dampens curve (ball falls faster)
                     } else {
-                        // Crosswind: lateral push based on speed tier
+                        // Crosswind: lateral push based on speed tier (VALIDATED - already correct!)
+                        // Source: Philippe Bonfanti Golf/TrackMan, Andrew Rice Golf
                         const carryInTens = carry / 10;
                         let yardsPerTen;
-                        if (windSpeedMPH <= 10) yardsPerTen = 0.5; // Light
+                        if (windSpeedMPH <= 10) yardsPerTen = 0.5; // Light: 0.5 yards per 10 yards carry
                         else if (windSpeedMPH <= 15) yardsPerTen = 0.75; // Moderate
-                        else yardsPerTen = 1.0; // Strong
+                        else yardsPerTen = 1.0; // Strong: 20mph crosswind = ~27 yards on 150yd shot
                         
                         windEffect = (windDir === "Left-to-Right" ? 1 : -1) * yardsPerTen * carryInTens;
                         carryAdjustment = -windSpeedMPH * 0.1; // Slight drag from crosswind
@@ -634,36 +695,80 @@
                 cards.push(generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace));
                 
                 // Both levels: Curve direction question
-                cards.push(generateCurveDirectionQuestion(baseFaceToPath, diffLevel));
+                cards.push(generateCurveDirectionQuestion(baseFaceToPath, diffLevel, clubType));
                 
                 // Level 1: ALWAYS add what-if question (randomly path or face)
                 if (diffLevel === 1) {
-                    if (Math.random() < 0.5) {
-                        cards.push(generateWhatIfPathQuestion(face, path, diffLevel));
+                    // 🟡🔺 MUSTARD PYRAMID: Add Start vs Curve question (20% frequency)
+                    if (Math.random() < 0.20) {
+                        cards.push(generateStartVsCurveQuestion(face, baseFaceToPath, diffLevel));
+                    } else if (Math.random() < 0.5) {
+                        cards.push(generateWhatIfPathQuestion(face, path, diffLevel, clubType));
                     } else {
-                        cards.push(generateWhatIfFaceQuestion(face, path, diffLevel));
+                        cards.push(generateWhatIfFaceQuestion(face, path, diffLevel, clubType));
                     }
                 }
                 
-                // Level 2: Add start direction OR what-if questions (including dynamic path/face)
+                // Level 2: IMPACT LOCATION FOCUS - Always 3 cards
                 if (diffLevel === 2) {
-                    const rand = Math.random();
-                    if (rand < 0.25) {
-                        cards.push({
-                            question: "Will the ball start left or right of the target?",
-                            options: ["Left of target", "Right of target", "Straight at target"],
-                            correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
-                            explanation: `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
-                        });
-                    } else if (rand < 0.45) {
-                        cards.push(generateWhatIfCenterImpactQuestion(face, path, gearEffect, impactLocationText, diffLevel, physics.curveMultiplier));
-                    } else if (rand < 0.65) {
-                        cards.push(generateWhatIfFaceSquareQuestion(face, physics, diffLevel));
-                    } else if (rand < 0.825) {
-                        cards.push(generateWhatIfPathQuestion(face, path, diffLevel));
-                    } else {
-                        cards.push(generateWhatIfFaceQuestion(face, path, diffLevel));
+                    // Build pool of available impact questions
+                    const impactQuestions = [];
+                    
+                    // Educational questions (high frequency early, then rare)
+                    if (state.scenarioNumber <= 4 && Math.random() < 0.50) {
+                        impactQuestions.push({type: 'gear_direction', fn: () => generateGearDirectionThisShotQuestion(impact, gearEffect, diffLevel)});
+                    } else if (state.scenarioNumber > 4 && Math.random() < 0.10) {
+                        impactQuestions.push({type: 'gear_direction', fn: () => generateGearDirectionThisShotQuestion(impact, gearEffect, diffLevel)});
                     }
+                    
+                    if (state.scenarioNumber <= 6 && Math.random() < 0.33) {
+                        const q = generateGearPercentageQuestion(gearEffect, baseFaceToPath, diffLevel);
+                        if (q) impactQuestions.push({type: 'gear_percentage', fn: () => q});
+                    } else if (state.scenarioNumber > 6 && Math.random() < 0.10) {
+                        const q = generateGearPercentageQuestion(gearEffect, baseFaceToPath, diffLevel);
+                        if (q) impactQuestions.push({type: 'gear_percentage', fn: () => q});
+                    }
+                    
+                    if (state.scenarioNumber <= 10 && Math.random() < 0.20) {
+                        impactQuestions.push({type: 'club_sensitivity', fn: () => generateClubSensitivityQuestion(diffLevel)});
+                    } else if (state.scenarioNumber > 10 && Math.random() < 0.07) {
+                        impactQuestions.push({type: 'club_sensitivity', fn: () => generateClubSensitivityQuestion(diffLevel)});
+                    }
+                    
+                    // Core questions pool (always available)
+                    const corePool = [
+                        {type: 'spin_type', weight: 25, fn: () => generateImpactSpinTypeQuestion(gearEffect, impact, impactLocationText, diffLevel)},
+                        {type: 'gear_help', weight: 20, fn: () => generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel)},
+                        {type: 'magnitude', weight: 15, fn: () => generateImpactMagnitudeQuestion(gearEffect, impact, clubType, diffLevel)},
+                        {type: 'opposing', weight: 15, fn: () => generateOpposingForcesLevel2Question(gearEffect, baseFaceToPath, diffLevel)},
+                        {type: 'center_target', weight: 15, fn: () => generateCenterStrikeTargetQuestion(gearEffect, baseFaceToPath, diffLevel)},
+                        {type: 'ranking', weight: 10, fn: () => generateImpactRankingTargetQuestion(impact, diffLevel)}
+                    ];
+                    
+                    // Select questions: prioritize educational if triggered, otherwise use weighted core
+                    let selectedTypes = [];
+                    
+                    // If no educational questions triggered, select 2 from core pool
+                    while (impactQuestions.length < 2) {
+                        const rand = Math.random() * 100;
+                        let cumulative = 0;
+                        for (const item of corePool) {
+                            cumulative += item.weight;
+                            if (rand < cumulative && !selectedTypes.includes(item.type)) {
+                                impactQuestions.push(item);
+                                selectedTypes.push(item.type);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Ensure we have exactly 2 unique impact questions
+                    const uniqueImpact = impactQuestions.filter((q, i, arr) => 
+                        arr.findIndex(x => x.type === q.type) === i
+                    ).slice(0, 2);
+                    
+                    // Add the questions
+                    uniqueImpact.forEach(q => cards.push(q.fn()));
                 }
                 
             } else if (diffLevel <= 4) {
@@ -776,6 +881,11 @@
                 // Level 3: Add what-if vertical center question (30% chance)
                 if (diffLevel === 3 && Math.abs(verticalImpact) > 2 && Math.random() < 0.3) {
                     cards.push(generateWhatIfVerticalCenterQuestion(verticalImpact, baseFaceToPath, verticalGearMultiplier, diffLevel));
+                }
+                
+                // Level 3: Add vertical amplify/dampen question (25% chance) - 💚🎷 EMERALD SAXOPHONE
+                if (diffLevel === 3 && Math.abs(verticalImpact) > 2 && Math.random() < 0.25) {
+                    cards.push(generateVerticalAmplifyDampenQuestion(verticalImpact, diffLevel));
                 }
                 
                 // Level 4: Add gear help/hurt if gear exists
@@ -892,7 +1002,8 @@
                 spoilerQuestions.push(generateStartPositionQuestion(face, physics, diffLevel, clubType));
                 
                 // Advanced questions for level 6+
-                if (diffLevel >= 6) {
+                // 🥈🪗 SILVER ACCORDION V2: Gate at scenario 10+ (50% of players)
+                if (diffLevel >= 6 && state.scenarioNumber >= 10) {
                     spoilerQuestions.push(generatePrimaryCauseQuestion(face, path, gearEffect, windEffect, diffLevel));
                     spoilerQuestions.push(generateNetCurveQuestion(baseFaceToPath, gearEffect, windEffect, diffLevel));
                 }
@@ -904,7 +1015,7 @@
                 
                 // Level 5-6: Add face percentage and curve comparison questions
                 if (diffLevel >= 5 && diffLevel <= 6) {
-                    basicQuestions.push(generateFacePercentageQuestion(club, physics, diffLevel));
+                    basicQuestions.push(generateFaceSquareStartQuestion(face, path, physics, diffLevel));
                     if (gearEffect !== 0 && Math.abs(baseFaceToPath) > 1) {
                         basicQuestions.push(generateCurveComparisonQuestion(baseFaceToPath, gearEffect, clubType, diffLevel));
                     }
@@ -965,10 +1076,19 @@
                 }
                 
                 // Level 9-10: Advanced strategic questions (now at Level 5)
+                // 🥈🪗 SILVER ACCORDION V2: Scenario gates for complexity
                 if (diffLevel >= 5) {
                     spoilerQuestions.push(generateOpposingForcesQuestion(face, path, gearEffect, windEffect, baseFaceToPath, diffLevel));
-                    spoilerQuestions.push(generateBestVariableQuestion(face, path, gearEffect, windEffect, diffLevel));
-                    spoilerQuestions.push(generateRankByImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
+                    
+                    // BestVariable: Intermediate difficulty - scenario 6+ (80% of players)
+                    if (state.scenarioNumber >= 6) {
+                        spoilerQuestions.push(generateBestVariableQuestion(face, path, gearEffect, windEffect, diffLevel));
+                    }
+                    
+                    // RankByImpact: Expert only - Level 6 only
+                    if (diffLevel === 6) {
+                        spoilerQuestions.push(generateRankByImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
+                    }
                 }
                 
                 // Net offline is: where it starts (face) + how much it curves (total)
@@ -976,6 +1096,11 @@
                 const offlineYards = Math.abs(netOffline);
                 const roundedYards = Math.round(offlineYards);
                 const offlineDir = netOffline > 0 ? "right" : "left";
+                
+                // 🎹🧊 GLACIER PIANO: Course management questions (Level 5-6, 12% frequency)
+                if (diffLevel >= 5 && Math.random() < 0.12) {
+                    spoilerQuestions.push(generateCourseManagementQuestion(offlineYards, offlineDir, baseFaceToPath, windEffect, diffLevel));
+                }
                 
                 // DYNAMIC RANGES based on result magnitude
                 let opts, corr;
@@ -1573,9 +1698,20 @@
         }
 
         // Level 2: Which direction will it curve?
-        function generateCurveDirectionQuestion(baseFaceToPath, diffLevel) {
+        function generateCurveDirectionQuestion(baseFaceToPath, diffLevel, clubType) {
+            // Club-specific "straight" thresholds - represents ~2-3 yards offline
+            const straightThresholds = {
+                driver: 0.25,      // ~3 yards offline = acceptable straight
+                wood: 0.35,        // ~2.6 yards
+                long_iron: 0.45,   // ~2.4 yards
+                mid_iron: 0.55,    // ~2.5 yards
+                wedge: 0.80        // ~1.0 yards
+            };
+            
+            const threshold = straightThresholds[clubType] || 0.5;
+            
             let correct;
-            if (Math.abs(baseFaceToPath) <= 0.5) { // Changed from 1 to 0.5
+            if (Math.abs(baseFaceToPath) <= threshold) {
                 correct = "No curve (straight)";
             } else if (baseFaceToPath < 0) {
                 correct = "Left";
@@ -1589,30 +1725,23 @@
                 question: "Which direction will the ball curve?",
                 options: options,
                 correct: correct,
-                explanation: `<div><strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°</div><div>${baseFaceToPath < -1 ? 'Face is LEFT of path → draw spin → curves LEFT' : baseFaceToPath > 1 ? 'Face is RIGHT of path → fade spin → curves RIGHT' : 'Face and path nearly aligned → flies relatively STRAIGHT'}</div>`
+                explanation: `<div><strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°</div><div>${Math.abs(baseFaceToPath) <= threshold ? `Face and path nearly aligned (within ${threshold}°) → flies relatively STRAIGHT` : baseFaceToPath < 0 ? 'Face is LEFT of path → draw spin → curves LEFT' : 'Face is RIGHT of path → fade spin → curves RIGHT'}</div>`
             };
         }
 
 
         // Level 5-6: Face percentage control question
-        function generateFacePercentageQuestion(club, physics, diffLevel) {
-            const percentage = Math.round(physics.startFaceInfluence * 100);
-            const correct = `${percentage}%`;
+        function generateFaceSquareStartQuestion(face, path, physics, diffLevel) {
+            // Practical question: If face was square, where would ball start?
+            // Tests understanding that face controls start direction
             
-            // Generate nearby wrong answers
-            const wrongPercentages = [percentage - 10, percentage - 5, percentage + 5, percentage + 10]
-                .filter(p => p > 0 && p <= 100 && p !== percentage)
-                .map(p => `${p}%`);
-            
-            const numOptions = diffLevel <= 9 ? 5 : 6;
-            const selectedWrong = wrongPercentages.sort(() => Math.random() - 0.5).slice(0, numOptions - 1);
-            const options = [correct, ...selectedWrong].sort(() => Math.random() - 0.5);
+            const currentStart = face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target";
             
             return {
-                question: "What percentage of the start direction is controlled by face angle?",
-                options: options,
-                correct: correct,
-                explanation: `<div><strong>Club:</strong> ${club}</div><div>Face angle controls <strong>${percentage}%</strong> of initial direction for this club. Longer clubs (driver) have higher face influence (~85%), shorter clubs (wedges) have lower face influence (~70%).</div>`
+                question: "If you squared your clubface to 0° (keeping the same path), where would the ball start?",
+                options: ["Left of target", "Right of target", "Straight at target", "Cannot determine"],
+                correct: "Straight at target",
+                explanation: `<div><strong>Current face:</strong> ${face.toFixed(1)}° → starts ${currentStart}</div><div><strong>If face was 0° (square):</strong> Ball would start straight at target</div><div class="mt-2"><strong>Key principle:</strong> Face angle controls ~${Math.round(physics.startFaceInfluence * 100)}% of start direction. Square face (0°) = straight start, regardless of path.</div><div class="mt-2 text-sm text-gray-600">This is why "aim at your target" means square face, not path!</div>`
             };
         }
 
@@ -1938,44 +2067,262 @@
                 explanation: `<div><strong>Vertical impact:</strong> ${Math.abs(verticalImpact).toFixed(1)}mm ${impactType}</div><div><strong>Multiplier:</strong> ${verticalGearMultiplier.toFixed(2)}x</div><div class="mt-2">${isHigh ? 'High on the face creates more effective sidespin, amplifying the curve.' : 'Low on the face reduces sidespin effectiveness, dampening the curve.'}</div>`
             };
         }
-
-        // WHAT-IF QUESTION GENERATORS FOR ALL LEVELS
         
-        function generateWhatIfPathQuestion(face, path, diffLevel) {
-            // Level 1+: What if path was different (random -5 to +5)
-            const hypotheticalPath = Math.floor(Math.random() * 11) - 5; // -5 to +5
-            const originalFaceToPath = face - path;
-            const newFaceToPath = face - hypotheticalPath;
+        function generateVerticalAmplifyDampenQuestion(verticalImpact, diffLevel) {
+            // 💚🎷 EMERALD SAXOPHONE - Simple amplify/dampen question
+            const isHigh = verticalImpact > 0;
+            const isCenter = Math.abs(verticalImpact) < 2;
+            
+            if (isCenter) {
+                return {
+                    question: "Does this vertical impact location amplify or dampen the curve?",
+                    options: ["Amplifies (increases curve)", "Dampens (decreases curve)", "No effect (center strike)"],
+                    correct: "No effect (center strike)",
+                    explanation: `<div><strong>Vertical impact:</strong> ${Math.abs(verticalImpact).toFixed(1)}mm (nearly center)</div><div class="mt-2">Center strikes have <strong>no vertical gear effect</strong> - the curve is unmodified (volume knob at normal level)</div>`
+                };
+            }
             
             return {
-                question: `If the club path was ${hypotheticalPath > 0 ? '+' : ''}${hypotheticalPath}°, what would the face-to-path angle be?`,
-                options: [
-                    `${newFaceToPath.toFixed(1)}°`,
-                    `${originalFaceToPath.toFixed(1)}°`,
-                    `${(face + hypotheticalPath).toFixed(1)}°`, // Wrong: adding instead of subtracting
-                    `${(hypotheticalPath - face).toFixed(1)}°`  // Wrong: reversed
-                ].sort(() => Math.random() - 0.5),
-                correct: `${newFaceToPath.toFixed(1)}°`,
-                explanation: `<div><strong>Current face:</strong> ${face.toFixed(1)}°</div><div><strong>Hypothetical path:</strong> ${hypotheticalPath > 0 ? '+' : ''}${hypotheticalPath}°</div><div><strong>Face-to-path:</strong> ${face.toFixed(1)}° - (${hypotheticalPath > 0 ? '+' : ''}${hypotheticalPath}°) = ${newFaceToPath.toFixed(1)}°</div>`
+                question: "Does this vertical impact location amplify or dampen the curve?",
+                options: ["Amplifies (increases curve)", "Dampens (decreases curve)", "No effect"],
+                correct: isHigh ? "Amplifies (increases curve)" : "Dampens (decreases curve)",
+                explanation: `<div><strong>Vertical impact:</strong> ${Math.abs(verticalImpact).toFixed(1)}mm ${isHigh ? 'HIGH' : 'LOW'} on face</div><div class="mt-2">${isHigh ? '<strong>HIGH</strong> on face → <strong>Amplifies</strong> curve (volume turned UP)' : '<strong>LOW</strong> on face → <strong>Dampens</strong> curve (volume turned DOWN)'}</div><div class="mt-2">Think of it like a volume knob - doesn't create NEW spin, just turns up or down what's already there!</div>`
             };
         }
         
-        function generateWhatIfFaceQuestion(face, path, diffLevel) {
-            // Level 1+: What if face was different (random -5 to +5)
-            const hypotheticalFace = Math.floor(Math.random() * 11) - 5; // -5 to +5
-            const originalFaceToPath = face - path;
-            const newFaceToPath = hypotheticalFace - path;
+        function generateStartVsCurveQuestion(face, baseFaceToPath, diffLevel) {
+            // 🟡🔺 MUSTARD PYRAMID - Start vs Curve distinction (Level 1, 20% frequency)
+            return {
+                question: "The ball STARTS based on ___ and CURVES based on ___.",
+                options: [
+                    "Face angle ... Face-to-path",
+                    "Face-to-path ... Face angle",
+                    "Path ... Face-to-path",
+                    "Face angle ... Path"
+                ],
+                correct: "Face angle ... Face-to-path",
+                explanation: `<div class="mb-3"><strong>This is the golden rule of ball flight!</strong></div><div class="mb-2"><strong>START direction:</strong> Controlled by <strong>face angle</strong> (~85% influence)</div><div class="ml-3 text-sm">Current face: ${face.toFixed(1)}° → ball starts ${face > 0.5 ? 'right' : face < -0.5 ? 'left' : 'straight'}</div><div class="mt-3 mb-2"><strong>CURVE amount & direction:</strong> Controlled by <strong>face-to-path</strong></div><div class="ml-3 text-sm">Current face-to-path: ${baseFaceToPath.toFixed(1)}° → ${Math.abs(baseFaceToPath) < 0.5 ? 'straight (no curve)' : baseFaceToPath < 0 ? 'curves left (draw/hook)' : 'curves right (fade/slice)'}</div><div class="mt-3 p-2 bg-yellow-50 rounded text-sm"><strong>Remember:</strong> Face points where it starts, face-to-path determines how it curves!</div>`
+            };
+        }
+        
+        function generateCourseManagementQuestion(offlineYards, offlineDir, baseFaceToPath, windEffect, diffLevel) {
+            // 🎹🧊 GLACIER PIANO - Course management strategic questions (Level 5-6, 10-15%)
+            const scenarios = [
+                {
+                    condition: () => Math.abs(offlineYards) > 20 && Math.abs(baseFaceToPath) > 3,
+                    question: "Your shot pattern shows a large curve. What's the BEST course management strategy?",
+                    options: [
+                        "Aim at the edge of the fairway and let it curve back",
+                        "Try to fix your swing mid-round",
+                        "Aim at the center and hope for the best",
+                        "Play for the short grass regardless of direction"
+                    ],
+                    correct: "Aim at the edge of the fairway and let it curve back",
+                    explanation: `<div><strong>Your shot:</strong> ${Math.abs(offlineYards).toFixed(0)} yards ${offlineDir}</div><div class="mt-2">With a consistent curve pattern, the smartest play is to <strong>aim away from trouble and use your curve</strong>. Trying to fix your swing during a round rarely works - play the shot you have!</div>`
+                },
+                {
+                    condition: () => windEffect !== 0 && Math.abs(windEffect) > 10,
+                    question: "Strong wind is pushing your ball significantly. What should you prioritize?",
+                    options: [
+                        "Club selection and aim adjustment",
+                        "Swinging harder to fight the wind",
+                        "Perfect contact above all else",
+                        "Keeping your normal routine unchanged"
+                    ],
+                    correct: "Club selection and aim adjustment",
+                    explanation: `<div><strong>Wind effect:</strong> ${Math.abs(windEffect).toFixed(0)} yards ${windEffect > 0 ? 'right' : 'left'}</div><div class="mt-2">In strong wind, smart golfers adjust strategy BEFORE swinging. Take more/less club, aim into the wind, and accept that conditions change the game. Fighting wind with swing speed usually adds spin and makes it worse!</div>`
+                },
+                {
+                    condition: () => Math.abs(baseFaceToPath) < 1.5 && Math.abs(offlineYards) < 8,
+                    question: "You're hitting relatively straight shots. What's your best strategy?",
+                    options: [
+                        "Play aggressive - attack pins and aim for birdies",
+                        "Still play conservative to every center",
+                        "Try to work the ball more for better angles",
+                        "Focus only on distance, not direction"
+                    ],
+                    correct: "Play aggressive - attack pins and aim for birdies",
+                    explanation: `<div><strong>Your accuracy:</strong> ${Math.abs(offlineYards).toFixed(0)} yards offline</div><div class="mt-2">When you're striping it, take advantage! This is when you attack pins, go for par 5s in two, and press for birdies. Good golf is about recognizing when you're "on" and capitalizing.</div>`
+                },
+                {
+                    condition: () => Math.abs(baseFaceToPath) > 4 && offlineDir === "right",
+                    question: "You're fighting a persistent fade/slice. Best strategy this round?",
+                    options: [
+                        "Aim left and play for the fade",
+                        "Close your stance and try to draw it",
+                        "Grip it and rip it down the middle",
+                        "Use less club to reduce the curve"
+                    ],
+                    correct: "Aim left and play for the fade",
+                    explanation: `<div><strong>Your pattern:</strong> Consistent fade ${Math.abs(offlineYards).toFixed(0)} yards right</div><div class="mt-2">Fighting your natural shot shape mid-round leads to disaster. Embrace it! Aim left of your target by your curve amount and let your fade bring it back. Tour pros play their misses - you should too.</div>`
+                },
+                {
+                    condition: () => Math.abs(baseFaceToPath) > 4 && offlineDir === "left",
+                    question: "You're fighting a persistent draw/hook. Best strategy?",
+                    options: [
+                        "Aim right and let it draw back to target",
+                        "Open the face and try to fade it",
+                        "Swing easier to reduce curve",
+                        "Tee it higher to launch it straighter"
+                    ],
+                    correct: "Aim right and let it draw back to target",
+                    explanation: `<div><strong>Your pattern:</strong> Consistent draw ${Math.abs(offlineYards).toFixed(0)} yards left</div><div class="mt-2">Go with what you've got! Aim right and trust your draw to work the ball back. The best rounds come from playing YOUR shot, not fighting to hit someone else's.</div>`
+                },
+                {
+                    condition: () => true, // Default fallback
+                    question: "With this shot pattern, what's the key to a good score?",
+                    options: [
+                        "Accept your pattern and manage around it",
+                        "Try different techniques each shot",
+                        "Always aim at the flag regardless",
+                        "Focus on fixing mechanics mid-round"
+                    ],
+                    correct: "Accept your pattern and manage around it",
+                    explanation: `<div><strong>Golf wisdom:</strong> "You have to play the ball where it lies... and you have to play yourself where you are."</div><div class="mt-2">Tour pros know their tendencies and plan accordingly. If you're curving it ${Math.abs(offlineYards).toFixed(0)} yards ${offlineDir}, aim away from trouble by that amount. Course management beats perfect ball-striking.</div>`
+                }
+            ];
+            
+            // Find first matching scenario
+            for (let scenario of scenarios) {
+                if (scenario.condition()) {
+                    return {
+                        question: scenario.question,
+                        options: scenario.options,
+                        correct: scenario.correct,
+                        explanation: scenario.explanation
+                    };
+                }
+            }
+            
+            // Fallback (should never hit this)
+            return scenarios[scenarios.length - 1];
+        }
+
+        // WHAT-IF QUESTION GENERATORS FOR ALL LEVELS
+        
+        function generateWhatIfPathQuestion(face, path, diffLevel, clubType) {
+            // 🔴🔭 CRIMSON TELESCOPE: Comparative what-if questions
+            const hypotheticalPath = Math.floor(Math.random() * 11) - 5;
+            
+            const currentFaceToPath = face - path;
+            const newFaceToPath = face - hypotheticalPath;
+            
+            const straightThresholds = {
+                driver: 0.25, wood: 0.35, long_iron: 0.45, mid_iron: 0.55, wedge: 0.80
+            };
+            const threshold = straightThresholds[clubType] || 0.5;
+            
+            // Determine current curve
+            const currentCurve = Math.abs(currentFaceToPath) <= threshold ? "straight" :
+                                currentFaceToPath < 0 ? "left" : "right";
+            
+            // Determine new curve
+            const newCurve = Math.abs(newFaceToPath) <= threshold ? "straight" :
+                            newFaceToPath < 0 ? "left" : "right";
+            
+            // Build comparative answer
+            let correct;
+            const options = [];
+            
+            if (currentCurve === newCurve) {
+                if (currentCurve === "straight") {
+                    correct = "Still straight";
+                } else {
+                    const moreCurve = Math.abs(newFaceToPath) > Math.abs(currentFaceToPath);
+                    correct = moreCurve ? `More ${currentCurve} curve` : `Less ${currentCurve} curve`;
+                }
+            } else {
+                if (newCurve === "straight") {
+                    correct = "Go straight instead";
+                } else {
+                    correct = `Curve ${newCurve} instead`;
+                }
+            }
+            
+            // Generate contextual wrong options
+            options.push(correct);
+            if (currentCurve !== "straight") {
+                options.push(`More ${currentCurve} curve`);
+                options.push(`Less ${currentCurve} curve`);
+                const oppositeCurve = currentCurve === "left" ? "right" : "left";
+                options.push(`Curve ${oppositeCurve} instead`);
+                if (newCurve !== "straight") options.push("Go straight instead");
+            } else {
+                options.push("Curve left");
+                options.push("Curve right");
+                options.push("Still straight");
+            }
+            
+            const wrongOptions = options.filter(o => o !== correct).sort(() => Math.random() - 0.5).slice(0, 3);
             
             return {
-                question: `If the club face was ${hypotheticalFace > 0 ? '+' : ''}${hypotheticalFace}°, what would the face-to-path angle be?`,
-                options: [
-                    `${newFaceToPath.toFixed(1)}°`,
-                    `${originalFaceToPath.toFixed(1)}°`, // Current actual (common mistake)
-                    `${(hypotheticalFace + path).toFixed(1)}°`, // Wrong: adding
-                    `${(path - hypotheticalFace).toFixed(1)}°`  // Wrong: reversed
-                ].sort(() => Math.random() - 0.5),
-                correct: `${newFaceToPath.toFixed(1)}°`,
-                explanation: `<div><strong>Hypothetical face:</strong> ${hypotheticalFace > 0 ? '+' : ''}${hypotheticalFace}°</div><div><strong>Current path:</strong> ${path.toFixed(1)}°</div><div><strong>Face-to-path:</strong> ${hypotheticalFace > 0 ? '+' : ''}${hypotheticalFace}° - (${path.toFixed(1)}°) = ${newFaceToPath.toFixed(1)}°</div>`
+                question: `If the club path was ${hypotheticalPath > 0 ? '+' : ''}${hypotheticalPath}° (instead of ${path.toFixed(1)}°), what would happen to the curve?`,
+                options: [correct, ...wrongOptions].sort(() => Math.random() - 0.5),
+                correct: correct,
+                explanation: `<div><strong>Current shot:</strong> Face ${face.toFixed(1)}°, Path ${path.toFixed(1)}°</div><div class="ml-3">Face-to-path: ${currentFaceToPath.toFixed(1)}° → ${currentCurve === "straight" ? "straight" : "curves " + currentCurve}</div><div class="mt-2"><strong>If path was ${hypotheticalPath > 0 ? '+' : ''}${hypotheticalPath}°:</strong> Face ${face.toFixed(1)}°, Path ${hypotheticalPath > 0 ? '+' : ''}${hypotheticalPath}°</div><div class="ml-3">Face-to-path: ${newFaceToPath.toFixed(1)}° → ${newCurve === "straight" ? "straight" : "curves " + newCurve}</div><div class="mt-2 font-semibold text-blue-600">Result: ${correct}</div>`
+            };
+        }
+        
+        function generateWhatIfFaceQuestion(face, path, diffLevel, clubType) {
+            // 🔴🔭 CRIMSON TELESCOPE: Comparative what-if questions
+            const hypotheticalFace = Math.floor(Math.random() * 11) - 5;
+            
+            const currentFaceToPath = face - path;
+            const newFaceToPath = hypotheticalFace - path;
+            
+            const straightThresholds = {
+                driver: 0.25, wood: 0.35, long_iron: 0.45, mid_iron: 0.55, wedge: 0.80
+            };
+            const threshold = straightThresholds[clubType] || 0.5;
+            
+            // Determine current curve
+            const currentCurve = Math.abs(currentFaceToPath) <= threshold ? "straight" :
+                                currentFaceToPath < 0 ? "left" : "right";
+            
+            // Determine new curve
+            const newCurve = Math.abs(newFaceToPath) <= threshold ? "straight" :
+                            newFaceToPath < 0 ? "left" : "right";
+            
+            // Build comparative answer
+            let correct;
+            const options = [];
+            
+            if (currentCurve === newCurve) {
+                if (currentCurve === "straight") {
+                    correct = "Still straight";
+                } else {
+                    const moreCurve = Math.abs(newFaceToPath) > Math.abs(currentFaceToPath);
+                    correct = moreCurve ? `More ${currentCurve} curve` : `Less ${currentCurve} curve`;
+                }
+            } else {
+                if (newCurve === "straight") {
+                    correct = "Go straight instead";
+                } else {
+                    correct = `Curve ${newCurve} instead`;
+                }
+            }
+            
+            // Generate contextual wrong options
+            options.push(correct);
+            if (currentCurve !== "straight") {
+                options.push(`More ${currentCurve} curve`);
+                options.push(`Less ${currentCurve} curve`);
+                const oppositeCurve = currentCurve === "left" ? "right" : "left";
+                options.push(`Curve ${oppositeCurve} instead`);
+                if (newCurve !== "straight") options.push("Go straight instead");
+            } else {
+                options.push("Curve left");
+                options.push("Curve right");
+                options.push("Still straight");
+            }
+            
+            const wrongOptions = options.filter(o => o !== correct).sort(() => Math.random() - 0.5).slice(0, 3);
+            
+            return {
+                question: `If the club face was ${hypotheticalFace > 0 ? '+' : ''}${hypotheticalFace}° (instead of ${face.toFixed(1)}°), what would happen to the curve?`,
+                options: [correct, ...wrongOptions].sort(() => Math.random() - 0.5),
+                correct: correct,
+                explanation: `<div><strong>Current shot:</strong> Face ${face.toFixed(1)}°, Path ${path.toFixed(1)}°</div><div class="ml-3">Face-to-path: ${currentFaceToPath.toFixed(1)}° → ${currentCurve === "straight" ? "straight" : "curves " + currentCurve}</div><div class="mt-2"><strong>If face was ${hypotheticalFace > 0 ? '+' : ''}${hypotheticalFace}°:</strong> Face ${hypotheticalFace > 0 ? '+' : ''}${hypotheticalFace}°, Path ${path.toFixed(1)}°</div><div class="ml-3">Face-to-path: ${newFaceToPath.toFixed(1)}° → ${newCurve === "straight" ? "straight" : "curves " + newCurve}</div><div class="mt-2 font-semibold text-blue-600">Result: ${correct}</div>`
             };
         }
         
@@ -2020,6 +2367,117 @@
                 ].sort(() => Math.random() - 0.5),
                 correct: "Same curve (no change)",
                 explanation: `<div><strong>Current vertical:</strong> ${Math.abs(verticalImpact).toFixed(1)}mm ${verticalImpact > 0 ? 'high' : 'low'} (${currentMultiplier.toFixed(2)}x)</div><div><strong>Center vertical:</strong> 0mm = 1.00x (baseline curve)</div><div class="mt-2">Vertical impact amplifies or dampens existing curve but doesn't create it. Center strike = normal curve amount.</div>`
+            };
+        }
+
+        // LEVEL 2 IMPACT-FOCUSED QUESTION GENERATORS
+        
+        function generateImpactSpinTypeQuestion(gearEffect, impactLocation, impactLocationText, diffLevel) {
+            const spinType = Math.abs(gearEffect) < 0.2 ? "None (center strike)" : 
+                             gearEffect < 0 ? "Draw" : "Fade";
+            
+            return {
+                question: "What kind of spin will the impact location of this shot create?",
+                options: ["Draw", "Fade", "None (center strike)"].sort(() => Math.random() - 0.5),
+                correct: spinType,
+                explanation: `<div><strong>Impact:</strong> ${impactLocationText}</div><div><strong>Gear effect:</strong> ${Math.abs(gearEffect).toFixed(2)}°</div><div class="mt-2">${Math.abs(gearEffect) < 0.2 ? '<strong>Center strike</strong> = No gear effect' : impactLocation > 0 ? '<strong>Toe hit</strong> twists face closed → <strong>Draw spin</strong> (curves left)' : '<strong>Heel hit</strong> twists face open → <strong>Fade spin</strong> (curves right)'}</div>`
+            };
+        }
+        
+        function generateImpactMagnitudeQuestion(gearEffect, impactLocation, clubType, diffLevel) {
+            const isToe = impactLocation > 0;
+            const magnitude = Math.abs(gearEffect);
+            
+            const options = [
+                magnitude.toFixed(1),
+                (magnitude + 0.3).toFixed(1),
+                (magnitude - 0.3 > 0 ? magnitude - 0.3 : magnitude + 0.5).toFixed(1),
+                (magnitude + 0.6).toFixed(1)
+            ].filter((v, i, a) => a.indexOf(v) === i).sort(() => Math.random() - 0.5).slice(0, 4);
+            
+            return {
+                question: "How many degrees of gear effect does this impact location create?",
+                options: options.map(o => o + "°"),
+                correct: magnitude.toFixed(1) + "°",
+                explanation: `<div><strong>Impact:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${isToe ? 'toe' : 'heel'}</div><div><strong>Calculation:</strong> ${Math.abs(impactLocation).toFixed(1)}mm × ${clubType} multiplier = <strong>${magnitude.toFixed(1)}°</strong></div><div class="mt-2">${isToe ? 'Toe creates draw spin (negative)' : 'Heel creates fade spin (positive)'}</div>`
+            };
+        }
+        
+        function generateOpposingForcesLevel2Question(gearEffect, baseFaceToPath, diffLevel) {
+            const opposing = (gearEffect > 0 && baseFaceToPath < 0) || (gearEffect < 0 && baseFaceToPath > 0);
+            
+            return {
+                question: "Are the face-to-path and gear effect working together or against each other?",
+                options: ["Working together (same direction)", "Working against each other (opposite directions)"],
+                correct: opposing ? "Working against each other (opposite directions)" : "Working together (same direction)",
+                explanation: `<div><strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}° = ${baseFaceToPath < 0 ? 'draw' : 'fade'} tendency</div><div><strong>Gear effect:</strong> ${gearEffect.toFixed(1)}° = ${gearEffect < 0 ? 'draw' : 'fade'} spin</div><div class="mt-2"><strong>Result:</strong> ${opposing ? '⚠️ Opposing forces - gear effect <strong>reduces</strong> the curve' : '✓ Working together - gear effect <strong>amplifies</strong> the curve'}</div>`
+            };
+        }
+        
+        function generateCenterStrikeTargetQuestion(gearEffect, baseFaceToPath, diffLevel) {
+            const wouldHelp = (gearEffect > 0 && baseFaceToPath < 0) || (gearEffect < 0 && baseFaceToPath > 0);
+            
+            return {
+                question: "If this shot was struck CENTER on the face, would it finish closer to or further from the target line?",
+                options: ["Closer to target line", "Further from target line", "Same distance"],
+                correct: wouldHelp ? "Further from target line" : "Closer to target line",
+                explanation: `<div><strong>Current gear effect:</strong> ${Math.abs(gearEffect).toFixed(1)}° ${wouldHelp ? 'reducing curve (helping)' : 'adding curve (hurting)'}</div><div><strong>Center strike:</strong> No gear effect (0°)</div><div class="mt-2"><strong>Result:</strong> Without gear, shot would have ${wouldHelp ? '<strong>more</strong> curve → further from target' : '<strong>less</strong> curve → closer to target'}</div>`
+            };
+        }
+        
+        function generateImpactRankingTargetQuestion(impactLocation, diffLevel) {
+            const impacts = [5, 10, 15, 20];
+            const current = Math.round(Math.abs(impactLocation));
+            if (!impacts.includes(current) && current < 25) impacts.push(current);
+            impacts.sort((a, b) => a - b);
+            const selected = impacts.slice(0, 4);
+            
+            return {
+                question: "Which impact distance would bring the ball CLOSEST to the target line?",
+                options: selected.map(i => `${i}mm`),
+                correct: `${selected[0]}mm`,
+                explanation: `<div><strong>Rule:</strong> Closer to center = less gear effect = closer to target line</div><div class="mt-2"><strong>Ranking (closest to target first):</strong></div>${selected.map((s, i) => `<div>${i + 1}. ${s}mm from center</div>`).join('')}`
+            };
+        }
+        
+        function generateGearDirectionThisShotQuestion(impactLocation, gearEffect, diffLevel) {
+            const isToe = impactLocation > 0;
+            const direction = gearEffect < 0 ? "Left" : "Right";
+            
+            return {
+                question: `For THIS shot (${Math.abs(impactLocation).toFixed(0)}mm ${isToe ? 'toe' : 'heel'}), which direction will gear effect push the ball?`,
+                options: ["Left", "Right", "Straight", "Depends on clubface"],
+                correct: direction,
+                explanation: `<div><strong>This shot:</strong> ${Math.abs(impactLocation).toFixed(0)}mm ${isToe ? 'toe' : 'heel'}</div><div><strong>Gear effect:</strong> ${Math.abs(gearEffect).toFixed(1)}° ${isToe ? 'draw' : 'fade'} spin</div><div class="mt-2">${isToe ? '<strong>Toe</strong> twists face CLOSED → curves LEFT' : '<strong>Heel</strong> twists face OPEN → curves RIGHT'}</div>`
+            };
+        }
+        
+        function generateGearPercentageQuestion(gearEffect, baseFaceToPath, diffLevel) {
+            const totalCurve = Math.abs(baseFaceToPath + gearEffect);
+            if (totalCurve < 0.1) return null; // Avoid division by near-zero
+            
+            const gearPercent = Math.abs(gearEffect / totalCurve * 100);
+            
+            let correct;
+            if (gearPercent < 25) correct = "Less than 25%";
+            else if (gearPercent < 50) correct = "25-50%";
+            else if (gearPercent < 75) correct = "50-75%";
+            else correct = "More than 75%";
+            
+            return {
+                question: "What percentage of the total curve is caused by gear effect?",
+                options: ["Less than 25%", "25-50%", "50-75%", "More than 75%"],
+                correct: correct,
+                explanation: `<div><strong>Face-to-path:</strong> ${Math.abs(baseFaceToPath).toFixed(1)}°</div><div><strong>Gear effect:</strong> ${Math.abs(gearEffect).toFixed(1)}°</div><div><strong>Total curve tendency:</strong> ${totalCurve.toFixed(1)}°</div><div class="mt-2"><strong>Gear percentage:</strong> ${gearPercent.toFixed(0)}%</div>`
+            };
+        }
+        
+        function generateClubSensitivityQuestion(diffLevel) {
+            return {
+                question: "Unrelated to this specific shot above, for the SAME off-center hit, which club creates MORE gear effect?",
+                options: ["Driver (0.15 multiplier)", "7-iron (0.07 multiplier)", "Wedge (0.05 multiplier)", "All create the same"],
+                correct: "Driver (0.15 multiplier)",
+                explanation: `<div><strong>Gear multipliers by club:</strong></div><div>• Driver: 0.15 (MOST sensitive)</div><div>• Wood: 0.12</div><div>• Long iron: 0.09</div><div>• 7-iron: 0.07</div><div>• Wedge: 0.05 (least sensitive)</div><div class="mt-2"><strong>Why?</strong> Driver has deeper head = COG farther from face = more twist = more gear effect</div><div class="mt-2">Same 10mm toe hit: Driver creates 3x more spin than wedge!</div>`
             };
         }
 
@@ -2437,6 +2895,43 @@
                             </div>
                         </div>
                         
+                        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">🎯 When Does a Ball Curve vs Fly Straight?</h4>
+                            <p class="mb-3">Different clubs need different levels of precision. Here's what "straight" means for each club:</p>
+                            
+                            <div class="space-y-3">
+                                <div class="bg-white p-3 rounded">
+                                    <p class="font-semibold">Driver (250 yards):</p>
+                                    <p class="text-sm">A driver shot with 0.25° face-to-path finishes about <strong>2 yards offline</strong> - that's straight enough.</p>
+                                    <p class="text-sm">But 1° face-to-path? That's <strong>8 yards offline</strong> - definitely curving!</p>
+                                    <p class="text-sm">5° face-to-path? A massive <strong>41 yards offline</strong> - huge slice or hook!</p>
+                                    <p class="text-sm text-red-600 font-semibold mt-1">Driver requires precision - small errors get amplified!</p>
+                                    <p class="text-xs text-gray-500 mt-1 italic">Source: PGA Tour TrackMan data</p>
+                                </div>
+                                
+                                <div class="bg-white p-3 rounded">
+                                    <p class="font-semibold">7-Iron (150 yards):</p>
+                                    <p class="text-sm">Mid-irons are more forgiving. Even 0.5° face-to-path only moves the ball <strong>1.5 yards offline</strong> - still pretty straight.</p>
+                                    <p class="text-sm">1° face-to-path? About <strong>3 yards offline</strong> - starting to curve.</p>
+                                    <p class="text-sm">5° face-to-path? Around <strong>15 yards offline</strong> - noticeable curve, but less dramatic than driver.</p>
+                                    <p class="text-sm text-blue-600 font-semibold mt-1">More forgiving than driver - errors don't get amplified as much.</p>
+                                </div>
+                                
+                                <div class="bg-white p-3 rounded">
+                                    <p class="font-semibold">Pitching Wedge (120 yards):</p>
+                                    <p class="text-sm">Wedges are the most forgiving. Even 0.8° face-to-path is barely <strong>1 yard offline</strong> - essentially straight.</p>
+                                    <p class="text-sm">1° face-to-path? Only <strong>1.4 yards offline</strong> - still pretty good.</p>
+                                    <p class="text-sm">5° face-to-path? About <strong>7 yards offline</strong> - noticeable, but nothing like a driver.</p>
+                                    <p class="text-sm text-green-600 font-semibold mt-1">Most margin for error - short flight means less curve!</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3 p-3 bg-yellow-50 rounded">
+                                <p class="text-sm font-semibold">💡 The Big Lesson:</p>
+                                <p class="text-sm">The longer the club and the farther the ball flies, the more your mistakes get amplified. That 1° error? It's 8 yards with driver but only 1.4 yards with a wedge!</p>
+                            </div>
+                        </div>
+                        
                         <p class="text-sm italic text-gray-600">💡 Pro Tip: At Level 1, focus on calculating face-to-path. The hints will guide you through each step!</p>
                     `
                 },
@@ -2448,274 +2943,317 @@
                         
                         <div class="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4">
                             <h4 class="font-bold mb-2">⚙️ What is Gear Effect?</h4>
-                            <p class="mb-2">When you hit the ball off-center horizontally, the clubface <strong>twists</strong> at impact. This twisting creates extra sidespin.</p>
-                            <ul class="list-disc ml-6 space-y-1">
-                                <li><strong>TOE hit</strong> (positive mm) → Face twists CLOSED → Creates DRAW spin (curves LEFT)</li>
-                                <li><strong>HEEL hit</strong> (negative mm) → Face twists OPEN → Creates FADE spin (curves RIGHT)</li>
-                                <li><strong>Center hit</strong> (0mm) → No gear effect</li>
-                            </ul>
-                            <p class="text-sm italic mt-2">The farther off-center, the more gear effect!</p>
+                            <p class="mb-3">Hit the ball off-center and the clubface twists at impact. This twisting adds extra spin that changes where your ball ends up.</p>
+                            
+                            <div class="bg-white p-3 rounded mb-2">
+                                <p class="font-semibold">TOE hit (10mm towards toe):</p>
+                                <p class="text-sm">• Face twists CLOSED at impact</p>
+                                <p class="text-sm">• Adds DRAW spin (ball curves LEFT)</p>
+                                <p class="text-sm">• Driver: adds about 1.5° of draw = <strong>5 extra yards left</strong></p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded mb-2">
+                                <p class="font-semibold">HEEL hit (10mm towards heel):</p>
+                                <p class="text-sm">• Face twists OPEN at impact</p>
+                                <p class="text-sm">• Adds FADE spin (ball curves RIGHT)</p>
+                                <p class="text-sm">• Driver: adds about 1.5° of fade = <strong>5 extra yards right</strong></p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded">
+                                <p class="font-semibold">CENTER hit (perfect strike):</p>
+                                <p class="text-sm">• No twisting = No gear effect</p>
+                                <p class="text-sm">• Ball curves exactly as face-to-path predicts</p>
+                            </div>
+                            
+                            <p class="text-sm italic mt-3 text-gray-700">💡 The farther off-center you hit it, the more twist, the more extra spin!</p>
                         </div>
                         
                         <div class="bg-amber-50 border-l-4 border-amber-600 p-4 mb-4">
                             <h4 class="font-bold mb-2">⚠️ Gear Effect Can Help OR Hurt!</h4>
-                            <p class="mb-2"><strong>Opposing Forces:</strong></p>
-                            <ul class="list-disc ml-6 space-y-1 text-sm">
-                                <li>Trying to fade it? Heel hit HELPS (more fade spin)</li>
-                                <li>Trying to fade it? Toe hit FIGHTS (adds draw spin, reduces fade)</li>
-                                <li>Trying to draw it? Toe hit HELPS (more draw spin)</li>
-                                <li>Trying to draw it? Heel hit FIGHTS (adds fade spin, reduces draw)</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">🎯 Start Direction</h4>
-                            <p class="mb-2">You'll now predict where the ball <strong>starts</strong> (before it curves):</p>
-                            <p class="text-sm">Face angle controls 75-85% of start direction. Path has small influence.</p>
-                        </div>
-                        
-                        <div class="bg-gray-100 rounded-lg p-4">
-                            <h4 class="font-bold mb-2">📊 Example:</h4>
+                            <p class="mb-3">Here's where it gets interesting - sometimes your mishit actually HELPS your shot:</p>
+                            
+                            <div class="bg-white p-3 rounded mb-2">
+                                <p class="font-semibold text-sm">Scenario: Trying to hit a fade</p>
+                                <p class="text-sm">• Your face-to-path: +3° (fade tendency)</p>
+                                <p class="text-sm">• You hit the HEEL: adds MORE fade spin</p>
+                                <p class="text-sm text-green-600 font-semibold">✓ Gear effect HELPS - even bigger fade!</p>
+                            </div>
+                            
                             <div class="bg-white p-3 rounded">
-                                <p class="font-semibold mb-1">Face: +3° | Path: -2° | Impact: 8mm toe</p>
-                                <p class="text-sm"><strong>Face-to-path:</strong> 5° (fade tendency)</p>
-                                <p class="text-sm"><strong>Gear effect:</strong> Toe hit creates ~1° draw spin</p>
-                                <p class="text-sm"><strong>Result:</strong> Starts right, fades less than expected (gear reduces fade)</p>
+                                <p class="font-semibold text-sm">Scenario: Trying to hit a fade</p>
+                                <p class="text-sm">• Your face-to-path: +3° (fade tendency)</p>
+                                <p class="text-sm">• You hit the TOE: adds draw spin</p>
+                                <p class="text-sm text-red-600 font-semibold">✗ Gear effect FIGHTS - reduces your fade!</p>
                             </div>
                         </div>
                         
-                        <p class="text-sm italic text-gray-600 mt-4">💡 Pro Tip: TrackMan shows horizontal impact - now you know why it matters!</p>
+                        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">🎯 Where Does the Ball Start?</h4>
+                            <p class="mb-2">You'll also predict where the ball <strong>starts</strong> before it curves:</p>
+                            <p class="text-sm mb-3">Your face angle controls about 85% of where the ball starts. Path has a small influence, but face dominates.</p>
+                            
+                            <div class="bg-white p-3 rounded">
+                                <p class="text-sm"><strong>Example:</strong> Face is 4° open, path is 1° out-to-in</p>
+                                <p class="text-sm">Ball starts about <strong>3.5° right</strong> of target (mostly following the face)</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-100 rounded-lg p-4">
+                            <h4 class="font-bold mb-2">📊 Real Example - Driver Shot:</h4>
+                            <div class="bg-white p-3 rounded">
+                                <p class="font-semibold mb-2">Your swing: Face +3° open | Path 2° in-to-out | Impact 8mm TOE</p>
+                                
+                                <p class="text-sm mb-1"><strong>Face-to-path:</strong> 3° - 2° = 1° fade tendency</p>
+                                <p class="text-sm mb-1"><strong>Driver at 250 yards:</strong> 1° fade = about 8 yards right</p>
+                                
+                                <p class="text-sm mb-1 mt-2"><strong>But you hit the toe!</strong></p>
+                                <p class="text-sm mb-1">8mm toe on driver = about 1.2° DRAW spin (opposite direction!)</p>
+                                
+                                <p class="text-sm mt-2 font-semibold text-blue-600">Final Result:</p>
+                                <p class="text-sm">Ball starts right, but moves only 2 yards right total</p>
+                                <p class="text-sm">(The toe hit fought most of your fade and nearly straightened it out!)</p>
+                                <p class="text-xs text-gray-500 mt-2 italic">Source: Calculation based on TrackMan PGA Tour curve data</p>
+                            </div>
+                        </div>
+                        
+                        <p class="text-sm italic text-gray-600 mt-4">💡 Pro Tip: TrackMan shows horizontal impact location. Now you understand why tour pros obsess over it!</p>
                     `
                 },
                 3: {
-                    title: "Level 3: Vertical Impact & Offline Distance",
+                    title: "Level 3: Vertical Impact & Total Offline Distance",
                     content: `
                         <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Data: Vertical Impact Location (High/Low on Face)</h3>
-                        <p class="mb-4">Horizontal gear effect mastered! Now add the <strong>vertical dimension</strong>: hitting high or low on the clubface.</p>
+                        <p class="mb-4">You've mastered horizontal impact! Now let's add the <strong>vertical dimension</strong> - hitting high or low on the clubface.</p>
                         
                         <div class="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">⚙️ Vertical Gear Effect: The Amplifier/Dampener</h4>
-                            <p class="mb-2">Vertical impact position doesn't create new spin - it <strong>amplifies or dampens</strong> the existing sidespin!</p>
-                            <ul class="list-disc ml-6 space-y-1">
-                                <li><strong>HIGH on face</strong> (positive mm) → AMPLIFIES curve (draws hook more, fades slice more)</li>
-                                <li><strong>LOW on face</strong> (negative mm) → DAMPENS curve (hooks become draws, slices become fades)</li>
-                                <li><strong>Center strike</strong> (0mm vertical) → Normal curve, no amplification</li>
-                            </ul>
+                            <h4 class="font-bold mb-2">⚙️ Vertical Impact: The Volume Knob</h4>
+                            <p class="mb-3">Think of vertical impact as a volume knob for your curve. It doesn't create NEW spin - it turns up or down the spin you already have.</p>
+                            
+                            <div class="bg-white p-3 rounded mb-2">
+                                <p class="font-semibold">Hit HIGH on the face (8mm above center):</p>
+                                <p class="text-sm">• Your curve gets AMPLIFIED by about 15%</p>
+                                <p class="text-sm">• 10-yard draw? Now it's a 12-yard draw</p>
+                                <p class="text-sm">• 10-yard fade? Now it's a 12-yard fade</p>
+                                <p class="text-sm font-semibold text-red-600 mt-1">Volume turned UP - bigger curve!</p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded mb-2">
+                                <p class="font-semibold">Hit LOW on the face (8mm below center):</p>
+                                <p class="text-sm">• Your curve gets DAMPENED by about 15%</p>
+                                <p class="text-sm">• 10-yard draw? Now it's an 8-yard draw</p>
+                                <p class="text-sm">• 10-yard fade? Now it's an 8-yard fade</p>
+                                <p class="text-sm font-semibold text-blue-600 mt-1">Volume turned DOWN - smaller curve!</p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded">
+                                <p class="font-semibold">Hit CENTER vertically:</p>
+                                <p class="text-sm">• Normal curve - exactly as face-to-path predicts</p>
+                                <p class="text-sm">• No amplification, no dampening</p>
+                            </div>
                         </div>
                         
-                        <div class="bg-red-50 border-l-4 border-red-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">🎯 Offline Distance: The Complete Picture</h4>
-                            <p class="mb-2">Now you'll predict the <strong>total</strong> offline distance. This combines:</p>
-                            <ol class="list-decimal ml-6 space-y-1 text-sm">
-                                <li><strong>Start direction:</strong> Face angle × club-specific multiplier (~2 yards/degree)</li>
-                                <li><strong>Curve:</strong> Face-to-path × curve multiplier × vertical gear multiplier</li>
-                                <li><strong>Horizontal gear:</strong> Toe/heel effect on curve</li>
-                            </ol>
-                            <p class="text-sm italic mt-2">Total offline = Start + Curve (with all gear effects)</p>
-                        </div>
-                        
-                        <div class="bg-orange-50 border-l-4 border-orange-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">🎯 Toe vs Heel Hits</h4>
-                            <ul class="list-disc ml-6 space-y-2">
-                                <li><strong>TOE HITS</strong> (positive mm):
-                                    <ul class="list-circle ml-6 text-sm mt-1">
-                                        <li>Face twists OPEN (right)</li>
-                                        <li>Ball gets DRAW spin (curves left)</li>
-                                        <li>This FIGHTS a natural fade</li>
-                                        <li>Example: +15mm toe hit adds draw spin</li>
-                                    </ul>
-                                </li>
-                                <li><strong>HEEL HITS</strong> (negative mm):
-                                    <ul class="list-circle ml-6 text-sm mt-1">
-                                        <li>Face twists CLOSED (left)</li>
-                                        <li>Ball gets FADE spin (curves right)</li>
-                                        <li>This FIGHTS a natural draw</li>
-                                        <li>Example: -12mm heel hit adds fade spin</li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </div>
-                        
-                        <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                            <h4 class="font-bold mb-2">📊 How It Changes Shot Shape:</h4>
-                            <div class="space-y-3">
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Scenario: Face -3°, Path +2° (5° draw bias)</p>
-                                    <p class="text-sm mt-1"><strong>Center strike:</strong> Clean draw</p>
-                                    <p class="text-sm"><strong>Toe hit (+15mm):</strong> Draw becomes a HOOK (gear adds more draw)</p>
-                                    <p class="text-sm"><strong>Heel hit (-15mm):</strong> Draw becomes STRAIGHT or even a slight fade (gear fights the draw)</p>
-                                </div>
+                        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">🎯 Total Offline Distance</h4>
+                            <p class="mb-3">At Level 3, you're predicting where the ball finishes - the TOTAL distance offline. Here's what affects it:</p>
+                            
+                            <div class="bg-white p-3 rounded mb-3">
+                                <p class="font-semibold mb-2">Real Example - 7-Iron Shot:</p>
+                                <p class="text-sm mb-1">Face: 2° open, Path: 0° (neutral)</p>
+                                <p class="text-sm mb-1">Impact: 8mm toe, 5mm high</p>
+                                
+                                <p class="text-sm mt-2"><strong>Step 1 - Where does it start?</strong></p>
+                                <p class="text-sm">Face is 2° open → starts about 1.5° right of target</p>
+                                <p class="text-sm">At 150 yards: starts 4 yards right</p>
+                                
+                                <p class="text-sm mt-2"><strong>Step 2 - How much does it curve?</strong></p>
+                                <p class="text-sm">Face-to-path: 2° fade = 6 yards right normally</p>
+                                <p class="text-sm">But 8mm toe adds 0.6° draw (fights the fade!)</p>
+                                <p class="text-sm">Net curve: 1.4° fade = 4 yards right</p>
+                                <p class="text-sm">5mm high amplifies by 8%: 4.3 yards right</p>
+                                
+                                <p class="text-sm mt-2 font-semibold text-blue-600">Total: Starts 4 yards right + curves 4 yards right = <strong>8 yards right of target</strong></p>
                             </div>
                         </div>
                         
                         <div class="bg-yellow-50 border-l-4 border-yellow-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">🧮 The Math</h4>
-                            <p class="mb-2">Gear effect adds/subtracts from your face-to-path calculation:</p>
-                            <ul class="list-disc ml-6 space-y-1 text-sm">
-                                <li>Every 10mm toward toe ≈ -0.5° to -0.8° (more draw)</li>
-                                <li>Every 10mm toward heel ≈ +0.5° to +0.8° (more fade)</li>
-                                <li>Drivers have stronger gear effect than irons</li>
-                            </ul>
-                        </div>
-                        
-                        <p class="text-sm italic text-gray-600">💡 Pro Tip: Always consider if gear effect is HELPING or HURTING your face-to-path relationship!</p>
-                        
-                        <hr class="my-6 border-t-2 border-gray-300">
-                        
-                        <div class="bg-blue-50 rounded-lg p-6">
-                            <h4 class="font-bold mb-4 text-xl" style="color: var(--augusta-green);">📖 What We've Already Learned</h4>
-                            
-                            <div class="bg-white rounded-lg p-4 mb-3">
-                                <h5 class="font-bold mb-2 text-green-700">✅ Level 1-2: Ball Flight Fundamentals</h5>
-                                <div class="space-y-2 text-sm">
-                                    <p><strong>Club Face Angle:</strong> Direction the clubface points at impact. Controls 75-85% of start direction. Negative = left, positive = right, zero = square.</p>
-                                    <p><strong>Club Path:</strong> Direction the clubhead is traveling. Negative = swinging left (out-to-in), positive = swinging right (in-to-out).</p>
-                                    <p><strong>Face-to-Path (The Golden Rule):</strong> Ball curves based on the DIFFERENCE between face and path. Face LEFT of path = draw/hook (curves left). Face RIGHT of path = fade/slice (curves right). Face equals path = straight.</p>
-                                    <p><strong>Curve Direction:</strong> If face-to-path is negative (face left of path) → curves left. If positive (face right of path) → curves right. If near zero → flies straight.</p>
-                                </div>
+                            <h4 class="font-bold mb-2">💡 Why This Matters on the Course</h4>
+                            <p class="text-sm mb-2">Tour pros use vertical impact strategically:</p>
+                            <div class="bg-white p-3 rounded space-y-2">
+                                <p class="text-sm"><strong>Need a BIG curve?</strong> Tee it high, hit high on face (amplify)</p>
+                                <p class="text-sm"><strong>Want a controlled fade?</strong> Hit center or slightly low (normal or dampened)</p>
+                                <p class="text-sm"><strong>Fighting a hook?</strong> Hit low on face (dampens the draw)</p>
                             </div>
                         </div>
+                        
+                        <p class="text-sm italic text-gray-600 mt-4">💡 Pro Tip: TrackMan shows both horizontal AND vertical impact. Now you see why both numbers matter!</p>
                     `
                 },
                 4: {
                     title: "Level 4: Lie Angle Effects",
                     content: `
                         <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Variable: Lie Angle</h3>
-                        <p class="mb-4">Welcome to <strong>Championship Level</strong>! Master lie angle - the factor that silently adjusts your face angle.</p>
+                        <p class="mb-4">Welcome to <strong>Championship Level</strong>! Now you'll learn about lie angle - how the club sits at impact, which silently changes your face angle.</p>
                         
                         <div class="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">📐 Lie Angle: The Silent Face Adjuster</h4>
-                            <p class="mb-2">Lie angle is how upright or flat the club sits at impact. It directly adjusts the face angle!</p>
-                            <ul class="list-disc ml-6 space-y-1">
-                                <li><strong>Upright Lie</strong> (positive °) → CLOSES the face → Ball goes LEFT</li>
-                                <li><strong>Flat Lie</strong> (negative °) → OPENS the face → Ball goes RIGHT</li>
-                                <li><strong>Effect varies by club:</strong> Wedges 0.7x, Mid-iron 0.5x, Long-iron 0.45x, Wood 0.4x, Driver 0.3x</li>
-                            </ul>
-                        </div>
-
-                        <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                            <h4 class="font-bold mb-3">📊 Calculation Examples:</h4>
+                            <h4 class="font-bold mb-2">📐 What Is Lie Angle?</h4>
+                            <p class="mb-3">Lie angle is whether the club sits upright (toe up) or flat (toe down) at impact. This automatically adjusts where your face points!</p>
                             
-                            <div class="bg-white p-3 rounded mb-3">
-                                <p class="font-semibold mb-2">Example 1: 7-Iron (mid-iron, 0.5x multiplier)</p>
-                                <p class="text-sm"><strong>Scenario:</strong> 2.5° upright lie, Original face 2.1° right</p>
-                                <p class="text-sm mt-1"><strong>Step 1:</strong> 2.5° upright × 0.5 (multiplier) × -1 = <strong>-1.25°</strong></p>
-                                <p class="text-sm text-gray-600">(Upright = negative, Flat = positive)</p>
-                                <p class="text-sm mt-1"><strong>Step 2:</strong> 2.1° + (-1.25°) = <strong>0.85° effective face</strong></p>
-                            </div>
-                            
-                            <div class="bg-white p-3 rounded mb-3">
-                                <p class="font-semibold mb-2">Example 2: Pitching Wedge (0.7x multiplier)</p>
-                                <p class="text-sm"><strong>Scenario:</strong> 3° flat lie, Original face 1.5° left</p>
-                                <p class="text-sm mt-1"><strong>Step 1:</strong> -3° flat × 0.7 × -1 = <strong>+2.1°</strong></p>
-                                <p class="text-sm mt-1"><strong>Step 2:</strong> -1.5° + (+2.1°) = <strong>+0.6° effective face</strong></p>
-                                <p class="text-sm text-gray-600 mt-1">Face goes from left to right!</p>
+                            <div class="bg-white p-3 rounded mb-2">
+                                <p class="font-semibold">UPRIGHT Lie (club more vertical):</p>
+                                <p class="text-sm">• Face automatically CLOSES (points left)</p>
+                                <p class="text-sm">• Ball starts and curves LEFT</p>
+                                <p class="text-sm">• 2° upright on 7-iron? Face closes about 1° left</p>
                             </div>
                             
                             <div class="bg-white p-3 rounded">
-                                <p class="font-semibold mb-2">Example 3: Driver (0.3x multiplier)</p>
-                                <p class="text-sm"><strong>Scenario:</strong> 2° upright lie, Original face 3° right</p>
-                                <p class="text-sm mt-1"><strong>Step 1:</strong> 2° upright × 0.3 × -1 = <strong>-0.6°</strong></p>
-                                <p class="text-sm mt-1"><strong>Step 2:</strong> 3° + (-0.6°) = <strong>2.4° effective face</strong></p>
-                                <p class="text-sm text-gray-600 mt-1">Driver feels lie changes less</p>
+                                <p class="font-semibold">FLAT Lie (club more horizontal):</p>
+                                <p class="text-sm">• Face automatically OPENS (points right)</p>
+                                <p class="text-sm">• Ball starts and curves RIGHT</p>
+                                <p class="text-sm">• 2° flat on 7-iron? Face opens about 1° right</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-100 rounded-lg p-4 mb-4">
+                            <h4 class="font-bold mb-3">📊 Real Examples:</h4>
+                            
+                            <div class="bg-white p-3 rounded mb-3">
+                                <p class="font-semibold mb-2">7-Iron with 3° Upright Lie:</p>
+                                <p class="text-sm">Your swing face angle: +2° open (pointing right)</p>
+                                <p class="text-sm">But upright lie CLOSES it about 1.5°</p>
+                                <p class="text-sm font-semibold text-blue-600 mt-1">Actual face at impact: Only 0.5° open!</p>
+                                <p class="text-sm text-gray-600 mt-1">(Shot goes much straighter than you thought)</p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded mb-3">
+                                <p class="font-semibold mb-2">Pitching Wedge with 3° Flat Lie:</p>
+                                <p class="text-sm">Your swing face angle: 1° closed (pointing left)</p>
+                                <p class="text-sm">But flat lie OPENS it about 2°</p>
+                                <p class="text-sm font-semibold text-blue-600 mt-1">Actual face at impact: Now 1° OPEN!</p>
+                                <p class="text-sm text-gray-600 mt-1">(Your draw just became a fade!)</p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded">
+                                <p class="font-semibold mb-2">Driver with 2° Upright Lie:</p>
+                                <p class="text-sm">Your swing face angle: +3° open</p>
+                                <p class="text-sm">Driver barely feels lie changes (only 0.6° effect)</p>
+                                <p class="text-sm font-semibold text-blue-600 mt-1">Actual face: Still about 2.4° open</p>
+                                <p class="text-sm text-gray-600 mt-1">(Driver is less sensitive to lie than irons)</p>
                             </div>
                         </div>
 
                         <div class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4 mb-4">
-                            <h4 class="font-bold mb-2 text-amber-900">⚠️ CRITICAL: Always Use Effective Face</h4>
-                            <p class="text-sm">After calculating effective face, use it for ALL subsequent calculations (face-to-path, start direction, offline distance)</p>
+                            <h4 class="font-bold mb-2 text-amber-900">⚠️ Important: Use the ADJUSTED Face</h4>
+                            <p class="text-sm">Once lie angle adjusts your face, use that NEW face angle for everything - face-to-path, start direction, offline distance. Think of lie angle as changing what face you actually delivered.</p>
                         </div>
 
                         <div class="bg-green-50 border-l-4 border-green-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">🎯 Real-World Impact</h4>
-                            <p class="text-sm">Upright lie explains why tall players fight hooks. Getting fit for proper lie angle is crucial for accuracy!</p>
+                            <h4 class="font-bold mb-2">🎯 Why This Matters</h4>
+                            <p class="text-sm mb-2">This explains common fitting issues:</p>
+                            <p class="text-sm">• Tall player with standard clubs = upright lie = closes face = fights hooks</p>
+                            <p class="text-sm">• Short player with standard clubs = flat lie = opens face = fights slices</p>
+                            <p class="text-sm mt-2 font-semibold">Getting fit for proper lie angle is crucial for accuracy!</p>
                         </div>
                         
-                        <p class="text-sm italic text-gray-600">💡 Pro Tip: Wind is introduced at Level 5. For now, master lie angle calculations!</p>
+                        <p class="text-sm italic text-gray-600">💡 Pro Tip: Wind comes next at Level 5. Master lie angle first - it's often overlooked but hugely important!</p>
                     `
                 },
                 5: {
                     title: "Level 5: Wind Effects & Ultimate Challenge",
                     content: `
                         <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">New Variable: Wind Conditions</h3>
-                        <p class="mb-4">The final piece! Wind dramatically affects ball flight.</p>
+                        <p class="mb-4">The final piece! Wind dramatically changes how your ball flies - sometimes helping, sometimes hurting, always unpredictable.</p>
                         
                         <div class="bg-sky-50 border-l-4 border-sky-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">💨 Wind: Nature's Wildcard</h4>
-                            <ul class="list-disc ml-6 space-y-1">
-                                <li><strong>Headwind:</strong> AMPLIFIES curve (more spin effect) + reduces distance</li>
-                                <li><strong>Tailwind:</strong> DAMPENS curve (less spin effect) + increases distance</li>
-                                <li><strong>Crosswind:</strong> Pushes ball laterally</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="bg-gray-100 rounded-lg p-4">
-                            <h4 class="font-bold mb-2">📊 Wind Effect Example:</h4>
-                            <div class="bg-white p-3 rounded text-sm">
-                                <p><strong>Calm conditions:</strong> 5° fade = 15 yards curve</p>
-                                <p class="mt-1"><strong>15mph headwind:</strong> Same 5° fade = 22+ yards curve!</p>
-                                <p class="mt-2 text-gray-600">Pro tip: In wind, club selection matters as much as swing</p>
+                            <h4 class="font-bold mb-2">💨 How Wind Affects Your Shot:</h4>
+                            
+                            <div class="bg-white p-3 rounded mb-2">
+                                <p class="font-semibold">HEADWIND (into the wind):</p>
+                                <p class="text-sm">• Ball flies HIGHER (more lift)</p>
+                                <p class="text-sm">• Curve gets AMPLIFIED (ball in air longer)</p>
+                                <p class="text-sm">• Distance SHORTER (drag slows it down)</p>
+                                <p class="text-sm font-semibold text-red-600 mt-1">10mph headwind on driver: Lose ~25 yards, curve 10-20% more!</p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded mb-2">
+                                <p class="font-semibold">TAILWIND (wind from behind):</p>
+                                <p class="text-sm">• Ball flies LOWER (less lift)</p>
+                                <p class="text-sm">• Curve gets DAMPENED (ball falls faster)</p>
+                                <p class="text-sm">• Distance LONGER (wind pushes it)</p>
+                                <p class="text-sm font-semibold text-green-600 mt-1">10mph tailwind on driver: Gain ~15 yards, curve 10% less</p>
+                                <p class="text-xs text-gray-600 mt-1">Note: Tailwind helps HALF as much as headwind hurts!</p>
+                            </div>
+                            
+                            <div class="bg-white p-3 rounded">
+                                <p class="font-semibold">CROSSWIND (left or right):</p>
+                                <p class="text-sm">• Pushes ball sideways during flight</p>
+                                <p class="text-sm">• Doesn't change your curve much</p>
+                                <p class="text-sm">• Just adds lateral push</p>
+                                <p class="text-sm font-semibold text-blue-600 mt-1">15mph crosswind on 200-yard shot: ~15 yards sideways push!</p>
                             </div>
                         </div>
                         
-                        <p class="text-sm italic text-gray-600 mt-4">💡 Level 5: All variables, strategic questions, perfect scenarios unlock secret level!</p>
+                        <div class="bg-gray-100 rounded-lg p-4 mb-4">
+                            <h4 class="font-bold mb-2">📊 Real Example - 5° Fade with Driver:</h4>
+                            <div class="bg-white p-3 rounded">
+                                <p class="text-sm"><strong>Calm conditions:</strong> 5° fade = about 13 yards right</p>
+                                <p class="text-sm mt-1"><strong>15mph headwind:</strong> Same 5° fade = about 15 yards right</p>
+                                <p class="text-sm"><strong>15mph tailwind:</strong> Same 5° fade = about 11 yards right</p>
+                                <p class="text-sm mt-2 text-gray-600">The fade itself doesn't change - but how much time it has to curve does!</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-yellow-50 border-l-4 border-yellow-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">💡 Strategic Thinking:</h4>
+                            <p class="text-sm">• Into headwind: Take MORE club, swing easier (don't create more spin!)</p>
+                            <p class="text-sm">• With tailwind: Take LESS club, expect more roll</p>
+                            <p class="text-sm">• Crosswind: Aim to account for push, or play INTO wind and let it drift</p>
+                            <p class="text-sm mt-2 font-semibold">Wind is where course management becomes critical!</p>
+                        </div>
+                        
+                        <p class="text-sm italic text-gray-600 mt-4">💡 Level 5: Master all variables together! Perfect scenarios unlock the secret boss level!</p>
                     `
                 },
                 6: {
                     title: "Level 6: Grand Slam Winner - SECRET BOSS",
                     content: `
                         <h3 class="text-xl font-bold mb-3" style="color: #9333ea;">🏆 CONGRATULATIONS! 🏆</h3>
-                        <p class="mb-4">You've unlocked the <strong>SECRET BOSS LEVEL</strong>. This is the ultimate test of golf physics mastery.</p>
+                        <p class="mb-4">You've unlocked the <strong>SECRET BOSS LEVEL</strong>. This is the ultimate test - synthesizing EVERYTHING you've learned!</p>
                         
                         <div class="bg-indigo-50 border-l-4 border-indigo-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">📈 High vs Low Face Contact</h4>
-                            <p class="mb-2">Where you hit the ball vertically doesn't just affect distance - it <strong>amplifies or dampens sidespin</strong>.</p>
-                            <ul class="list-disc ml-6 space-y-2">
-                                <li><strong>HIGH on face</strong> (positive mm):
-                                    <ul class="list-circle ml-6 text-sm mt-1">
-                                        <li>Creates more effective sidespin</li>
-                                        <li>Ball CURVES MORE than expected</li>
-                                        <li>Draws become hooks, fades become slices</li>
-                                        <li>Club-specific multipliers (driver vs iron)</li>
-                                    </ul>
-                                </li>
-                                <li><strong>LOW on face</strong> (negative mm):
-                                    <ul class="list-circle ml-6 text-sm mt-1">
-                                        <li>Reduces sidespin effectiveness</li>
-                                        <li>Ball CURVES LESS than expected</li>
-                                        <li>Hooks become draws, slices become fades</li>
-                                        <li>Can make shots straighter overall</li>
-                                    </ul>
-                                </li>
-                            </ul>
+                            <h4 class="font-bold mb-2">🎯 Level 6 Challenge:</h4>
+                            <p class="mb-3">You'll face scenarios with ALL variables active simultaneously:</p>
+                            <p class="text-sm">• Face angle + Path + Face-to-path (Level 1)</p>
+                            <p class="text-sm">• Horizontal impact = Gear effect (Level 2)</p>
+                            <p class="text-sm">• Vertical impact = Amplify/dampen (Level 3)</p>
+                            <p class="text-sm">• Lie angle = Face adjustment (Level 4)</p>
+                            <p class="text-sm">• Wind = Distance & curve changes (Level 5)</p>
+                            <p class="text-sm mt-2 font-semibold text-purple-700">Can you predict where the ball finishes when everything happens at once?</p>
                         </div>
                         
                         <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                            <h4 class="font-bold mb-2">📊 Real Example:</h4>
-                            <div class="space-y-3">
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Driver Shot: Face -4°, Path +2°, Toe +10mm</p>
-                                    <p class="text-sm mt-1">Base calculation: 6° draw with toe helping = potential hook</p>
-                                    <p class="text-sm mt-1"><strong>HIGH on face (+8mm):</strong> Sidespin amplified → Severe HOOK</p>
-                                    <p class="text-sm"><strong>CENTER vertically (0mm):</strong> Normal hook</p>
-                                    <p class="text-sm"><strong>LOW on face (-8mm):</strong> Sidespin reduced → Moderate DRAW</p>
-                                </div>
+                            <h4 class="font-bold mb-2">📊 Boss Level Example:</h4>
+                            <div class="bg-white p-3 rounded">
+                                <p class="font-semibold mb-2">7-Iron, 15mph Headwind:</p>
+                                <p class="text-sm">• Original face: +2° open, but 3° upright lie closes it to +0.5°</p>
+                                <p class="text-sm">• Path: -1° → Face-to-path: 1.5° fade tendency</p>
+                                <p class="text-sm">• Impact: 6mm toe (adds draw spin, fights the fade)</p>
+                                <p class="text-sm">• Impact: 5mm high (amplifies the curve)</p>
+                                <p class="text-sm">• Headwind: Amplifies everything further</p>
+                                <p class="text-sm mt-2 font-semibold text-blue-600">Net result: Slight fade, about 4 yards right... can you see why?</p>
                             </div>
                         </div>
                         
-                        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">🎮 Club-Specific Multipliers</h4>
-                            <p class="mb-2">Different clubs respond differently to vertical impact:</p>
-                            <ul class="list-disc ml-6 space-y-1 text-sm">
-                                <li><strong>Driver:</strong> 1.3x multiplier (high amplifies a LOT)</li>
-                                <li><strong>Fairway Woods:</strong> 1.2x multiplier</li>
-                                <li><strong>Hybrids:</strong> 1.15x multiplier</li>
-                                <li><strong>Irons:</strong> 1.1x multiplier (more forgiving)</li>
-                                <li><strong>Wedges:</strong> 1.05x multiplier (most forgiving)</li>
-                            </ul>
+                        <div class="bg-yellow-50 border-l-4 border-yellow-600 p-4 mb-4">
+                            <h4 class="font-bold mb-2">💡 What Makes Level 6 Hard:</h4>
+                            <p class="text-sm">• Multiple forces working together AND against each other</p>
+                            <p class="text-sm">• Strategic questions about which variable matters most</p>
+                            <p class="text-sm">• Course management decisions</p>
+                            <p class="text-sm mt-2 font-semibold">This is TrackMan-level analysis. You're thinking like a tour pro!</p>
                         </div>
                         
-                        <div class="bg-yellow-50 border-l-4 border-yellow-600 p-4 mb-4">
+                        <p class="text-sm italic text-gray-600 mt-4">🏆 Beat Level 6 and you've mastered golf ball flight physics! Share your victory!</p>
+                    `
+                }
                             <h4 class="font-bold mb-2">🧠 Strategic Thinking</h4>
                             <p class="mb-2">New questions you'll see:</p>
                             <ul class="list-disc ml-6 space-y-1 text-sm">
@@ -3084,6 +3622,93 @@
         function closeSecretUnlock() {
             state.showSecretUnlock = false;
             render();
+        }
+        
+        // 👑🦩 FLAMINGO CROWN: Close Level 6 complete modal
+        function closeLevel6CompleteModal() {
+            state.showLevel6CompleteModal = false;
+            render();
+        }
+        
+        // 💎🔔 DIAMOND WHISTLE: Share secret unlock achievement
+        function shareSecretUnlock(platform) {
+            const perfectCount = state.totalPerfectScenarios;
+            const bestStreak = state.user.bestStreak || 0;
+            const gameUrl = window.location.href;
+            
+            const message = `🔓 SECRET LEVEL UNLOCKED! I just dominated Level 5 and earned access to the ultimate golf physics challenge! 💎
+
+Perfect scenarios: ${perfectCount} | Best streak: ${bestStreak}
+Can you unlock it too? Most players never make it this far! 🎯⛳`;
+
+            if (platform === 'native' && navigator.share) {
+                navigator.share({
+                    title: 'Ball Flight Master - Secret Level Unlocked!',
+                    text: message,
+                    url: gameUrl
+                }).catch(() => {
+                    // Fallback if share fails
+                    copyToClipboard(message + '\n\n' + gameUrl);
+                });
+            } else if (platform === 'twitter') {
+                const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(gameUrl)}`;
+                window.open(twitterUrl, '_blank', 'width=550,height=420');
+            } else if (platform === 'facebook') {
+                const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameUrl)}&quote=${encodeURIComponent(message)}`;
+                window.open(facebookUrl, '_blank', 'width=550,height=420');
+            } else if (platform === 'copy') {
+                copyToClipboard(message + '\n\n' + gameUrl);
+            }
+        }
+        
+        // 👑🦩 FLAMINGO CROWN: Share Level 6 completion
+        function shareLevel6Complete(platform) {
+            const perfectCount = state.totalPerfectScenarios;
+            const bestStreak = state.user.bestStreak || 0;
+            const gameUrl = window.location.href;
+            
+            const message = `🏆 GRAND SLAM WINNER! I just beat Level 6 and mastered professional-level golf ball flight physics!
+
+My stats:
+✓ ${perfectCount} perfect scenarios
+✓ ${bestStreak}-streak momentum
+
+I'm the Tiger Woods of ball flight! ⛳🎯
+Think you can beat ${perfectCount} perfects and a ${bestStreak}-streak? Prove it! 💪`;
+
+            if (platform === 'native' && navigator.share) {
+                navigator.share({
+                    title: 'Ball Flight Master - Grand Slam Winner!',
+                    text: message,
+                    url: gameUrl
+                }).catch(() => {
+                    copyToClipboard(message + '\n\n' + gameUrl);
+                });
+            } else if (platform === 'twitter') {
+                const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(gameUrl)}`;
+                window.open(twitterUrl, '_blank', 'width=550,height=420');
+            } else if (platform === 'facebook') {
+                const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameUrl)}&quote=${encodeURIComponent(message)}`;
+                window.open(facebookUrl, '_blank', 'width=550,height=420');
+            } else if (platform === 'copy') {
+                copyToClipboard(message + '\n\n' + gameUrl);
+            }
+        }
+        
+        // Helper: Copy to clipboard with user feedback
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✓ Copied to clipboard! Now paste it on Instagram or anywhere you like! 📋');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('✓ Copied to clipboard! Now paste it on Instagram or anywhere you like! 📋');
+            });
         }
 
         function closeOnboarding() {
@@ -3499,32 +4124,6 @@
                                 </div>
                             </div>
                         ` : ''}
-                        
-                        ${state.difficulty < 6 ? `
-                            <div class="mb-6 p-4 rounded-xl shadow-lg bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-300">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="font-bold text-gray-800">Progress to Level ${state.difficulty + 1}</span>
-                                    <span class="text-sm font-semibold text-gray-700">${state.levelProgress.progressPercent}%</span>
-                                </div>
-                                
-                                <div class="w-full bg-gray-300 rounded-full h-6 overflow-hidden mb-3">
-                                    <div class="bg-gradient-to-r from-green-400 to-green-600 h-full transition-all duration-500" 
-                                         style="width: ${state.levelProgress.progressPercent}%">
-                                    </div>
-                                </div>
-                                
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-bold text-sm">Momentum:</span>
-                                        <span class="text-2xl">${'🔥'.repeat(state.levelProgress.momentum)}</span>
-                                        <span class="text-xs text-gray-600">(${state.levelProgress.currentStreak}-streak)</span>
-                                    </div>
-                                    <span class="text-xs text-gray-600">
-                                        ${state.levelProgress.questionsCorrect}/${state.levelProgress.questionsAnswered} correct
-                                    </span>
-                                </div>
-                            </div>
-                        ` : ''}
 
                         ${state.hasUsedBoost ? `
                             <div class="mb-6 p-4 rounded-xl shadow-lg ${state.boostLost ? 'bg-gray-300 opacity-75' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}">
@@ -3578,7 +4177,7 @@
                                     <input type="range" min="1" max="10" value="${state.difficulty}" 
                                         oninput="changeDifficulty(this.value)" class="w-full">
                                     <div class="flex justify-between text-xs text-gray-600 mt-2">
-                                        ${difficultyLevels.map(d => `<span class="${d.level === state.difficulty ? 'font-bold text-blue-600' : ''}">${d.level}</span>`).join('')}
+                                        ${difficultyLevels.map(d => '<span class="' + (d.level === state.difficulty ? 'font-bold text-blue-600' : '') + '">' + d.level + '</span>').join('')}
                                     </div>
                                 </div>
                             ` : ''}
@@ -3593,6 +4192,37 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            ${state.difficulty < 6 ? `
+                                <div class="mx-6 mb-4 p-4 rounded-xl shadow-lg bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-300">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="font-bold text-gray-800">Progress to Level ${state.difficulty + 1}</span>
+                                        <span class="text-sm font-semibold text-gray-700">${state.levelProgress.progressPercent}%</span>
+                                    </div>
+                                    
+                                    <div class="w-full bg-gray-300 rounded-full h-6 overflow-hidden mb-3">
+                                        <div class="bg-gradient-to-r from-green-400 to-green-600 h-full transition-all duration-500" 
+                                             style="width: ${state.levelProgress.progressPercent}%">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-bold text-sm">Momentum:</span>
+                                            <span class="text-2xl${state.levelProgress.momentum === 5 ? ' momentum-celebrate' : ''}" id="momentum-display">${'🔥'.repeat(state.levelProgress.momentum)}</span>
+                                            <span class="text-xs text-gray-600">(${state.levelProgress.currentStreak}-streak)</span>
+                                            ${state.levelProgress.momentum === 5 ? `
+                                                <span class="text-2xl momentum-sparkle">✨</span>
+                                                <span class="text-xs font-bold text-yellow-600 bg-yellow-100 px-2 py-1 rounded">MAX!</span>
+                                            ` : ''}
+                                        </div>
+                                        <span class="text-xs text-gray-600">
+                                            ${state.levelProgress.questionsCorrect}/${state.levelProgress.questionsAnswered} correct
+                                        </span>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
                             <div class="p-6">
                                 <div class="mb-6">
                                     <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -3909,56 +4539,65 @@
             // Onboarding Modal (First-Time Users)
             if (state.showOnboarding) {
                 app.innerHTML += `
-                    <div class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
-                        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
+                    <div class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 my-8 max-h-[85vh] overflow-y-auto">
+                            
+                            <!-- TOP BUTTON -->
+                            <button onclick="closeOnboarding()" 
+                                class="w-full py-3 text-white rounded-lg font-bold text-lg hover:opacity-90 transition mb-6"
+                                style="background: linear-gradient(135deg, var(--augusta-green), var(--augusta-dark));">
+                                Got it! 👍 Start Playing
+                            </button>
+                            
                             <div class="text-center mb-6">
                                 <div class="text-6xl mb-4">⛳🏌️‍♂️</div>
-                                <h2 class="text-4xl font-bold mb-3" style="color: var(--augusta-green);">
+                                <h2 class="text-3xl md:text-4xl font-bold mb-3" style="color: var(--augusta-green);">
                                     Welcome to Ball Flight Master!
                                 </h2>
-                                <p class="text-xl text-gray-700">
+                                <p class="text-lg md:text-xl text-gray-700">
                                     Master the science behind every golf shot
                                 </p>
                             </div>
                             
                             <div class="space-y-4 mb-6">
-                                <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 p-4 rounded">
-                                    <h3 class="font-bold text-lg mb-2">🪙 Token System</h3>
-                                    <p class="text-sm text-gray-700">
+                                <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 p-3 md:p-4 rounded">
+                                    <h3 class="font-bold text-base md:text-lg mb-2">🪙 Token System</h3>
+                                    <p class="text-xs md:text-sm text-gray-700">
                                         <strong>Earn tokens</strong> by answering correctly. <strong>Lose tokens</strong> for wrong answers (penalties increase with difficulty). 
                                         Start with <span class="font-bold text-yellow-600">100 tokens</span>. Use them to climb the leaderboard!
                                     </p>
                                 </div>
                                 
-                                <div class="bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-purple-500 p-4 rounded">
-                                    <h3 class="font-bold text-lg mb-2">🎯 Confidence Boost</h3>
-                                    <p class="text-sm text-gray-700">
+                                <div class="bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-purple-500 p-3 md:p-4 rounded">
+                                    <h3 class="font-bold text-base md:text-lg mb-2">🎯 Confidence Boost</h3>
+                                    <p class="text-xs md:text-sm text-gray-700">
                                         Before some scenarios, you can bet on yourself with a <strong>2x or 3x multiplier</strong>. 
                                         Get all cards correct = <span class="font-bold text-purple-600">massive rewards</span>! 
                                         Get one wrong = <span class="font-bold text-red-600">boost lost</span> + penalty.
                                     </p>
                                 </div>
                                 
-                                <div class="bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500 p-4 rounded">
-                                    <h3 class="font-bold text-lg mb-2">📊 5 Levels + Secret Boss</h3>
-                                    <p class="text-sm text-gray-700">
+                                <div class="bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500 p-3 md:p-4 rounded">
+                                    <h3 class="font-bold text-base md:text-lg mb-2">📊 5 Levels + Secret Boss</h3>
+                                    <p class="text-xs md:text-sm text-gray-700">
                                         Progress from <strong>Range Rookie</strong> to <strong>Masters Champion</strong>. 
                                         Each level introduces new physics data. 
                                         Master Level 5 to unlock... <span class="font-bold text-purple-600">something special</span> 👀
                                     </p>
                                 </div>
                                 
-                                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-4 rounded">
-                                    <h3 class="font-bold text-lg mb-2">🎓 Learn Real Physics</h3>
-                                    <p class="text-sm text-gray-700">
+                                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-3 md:p-4 rounded">
+                                    <h3 class="font-bold text-base md:text-lg mb-2">🎓 Learn Real Physics</h3>
+                                    <p class="text-xs md:text-sm text-gray-700">
                                         Every question teaches <strong>TrackMan-level ball flight laws</strong>. 
                                         Tutorials explain each concept. Explanations show full calculations.
                                     </p>
                                 </div>
                             </div>
                             
+                            <!-- BOTTOM BUTTON -->
                             <button onclick="closeOnboarding()" 
-                                class="w-full py-4 text-white rounded-lg font-bold text-xl hover:opacity-90 transition"
+                                class="w-full py-3 text-white rounded-lg font-bold text-lg hover:opacity-90 transition"
                                 style="background: linear-gradient(135deg, var(--augusta-green), var(--augusta-dark));">
                                 Let's Play! ⛳
                             </button>
@@ -4019,6 +4658,29 @@
                                         </div>
                                     </div>
                                 </div>
+                                
+                                <!-- 💎🔔 DIAMOND WHISTLE: Share buttons for secret unlock -->
+                                <div class="mt-6 p-4 bg-white/50 rounded-lg">
+                                    <p class="text-center text-sm font-bold text-gray-700 mb-3">Share Your Achievement:</p>
+                                    <div class="flex gap-2 justify-center">
+                                        <button onclick="shareSecretUnlock('native')" 
+                                            class="px-4 py-2 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition flex items-center gap-2">
+                                            📱 Share
+                                        </button>
+                                        <button onclick="shareSecretUnlock('twitter')" 
+                                            class="px-4 py-2 bg-black text-white rounded-lg font-bold hover:bg-gray-800 transition flex items-center gap-2">
+                                            𝕏 Tweet
+                                        </button>
+                                        <button onclick="shareSecretUnlock('facebook')" 
+                                            class="px-4 py-2 bg-blue-700 text-white rounded-lg font-bold hover:bg-blue-800 transition flex items-center gap-2">
+                                            👍 Facebook
+                                        </button>
+                                        <button onclick="shareSecretUnlock('copy')" 
+                                            class="px-4 py-2 bg-gray-600 text-white rounded-lg font-bold hover:bg-gray-700 transition flex items-center gap-2">
+                                            📋 Copy
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div class="flex gap-4">
@@ -4032,6 +4694,76 @@
                                     🏆 Face the Challenge!
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 👑🦩 FLAMINGO CROWN: Level 6 Complete Share Modal
+            if (state.showLevel6CompleteModal) {
+                const perfectCount = state.totalPerfectScenarios;
+                const bestStreak = state.user.bestStreak || 0;
+                
+                app.innerHTML += `
+                    <div class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4 animate-fade-in">
+                        <div class="bg-gradient-to-br from-yellow-100 via-gold-100 to-orange-100 rounded-2xl shadow-2xl max-w-2xl w-full p-8 border-4 border-yellow-500 animate-bounce-in">
+                            <div class="text-center mb-6">
+                                <div class="text-8xl mb-4 animate-pulse">🏆</div>
+                                <h2 class="text-5xl font-bold mb-4" style="color: var(--augusta-green); text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+                                    GRAND SLAM WINNER!
+                                </h2>
+                                <p class="text-2xl font-bold text-gray-800 mb-4">
+                                    You've mastered professional-level golf ball flight physics!
+                                </p>
+                            </div>
+                            
+                            <div class="bg-white/50 rounded-xl p-6 mb-6 border-2 border-yellow-600">
+                                <p class="text-center text-xl font-bold text-gray-800 mb-4">
+                                    Your Final Stats:
+                                </p>
+                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                    <div class="bg-green-100 rounded-lg p-4 text-center border-2 border-green-500">
+                                        <div class="text-4xl font-bold text-green-700">${perfectCount}</div>
+                                        <div class="text-sm text-gray-700">Perfect Scenarios</div>
+                                    </div>
+                                    <div class="bg-purple-100 rounded-lg p-4 text-center border-2 border-purple-500">
+                                        <div class="text-4xl font-bold text-purple-700">${bestStreak}</div>
+                                        <div class="text-sm text-gray-700">Best Streak</div>
+                                    </div>
+                                </div>
+                                <p class="text-center text-lg font-bold text-gray-700">
+                                    🎯 You're the Tiger Woods of ball flight! ⛳
+                                </p>
+                            </div>
+                            
+                            <div class="bg-blue-50 rounded-lg p-4 mb-6 border-2 border-blue-400">
+                                <p class="text-center text-sm font-bold text-gray-700 mb-3">Challenge Your Friends:</p>
+                                <div class="flex flex-wrap gap-2 justify-center">
+                                    <button onclick="shareLevel6Complete('native')" 
+                                        class="px-4 py-2 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition flex items-center gap-2">
+                                        📱 Share
+                                    </button>
+                                    <button onclick="shareLevel6Complete('twitter')" 
+                                        class="px-4 py-2 bg-black text-white rounded-lg font-bold hover:bg-gray-800 transition flex items-center gap-2">
+                                        𝕏 Tweet
+                                    </button>
+                                    <button onclick="shareLevel6Complete('facebook')" 
+                                        class="px-4 py-2 bg-blue-700 text-white rounded-lg font-bold hover:bg-blue-800 transition flex items-center gap-2">
+                                        👍 Facebook
+                                    </button>
+                                    <button onclick="shareLevel6Complete('copy')" 
+                                        class="px-4 py-2 bg-gray-600 text-white rounded-lg font-bold hover:bg-gray-700 transition flex items-center gap-2">
+                                        📋 Copy
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <button onclick="closeLevel6CompleteModal()" 
+                                class="w-full py-4 text-white rounded-lg font-bold text-lg hover:opacity-90 transition shadow-lg"
+                                style="background: linear-gradient(135deg, var(--augusta-green), var(--augusta-dark));">
+                                Continue Playing! 🎮
+                            </button>
                         </div>
                     </div>
                 `;
@@ -4245,6 +4977,11 @@
                 const scenarioTotal = state.boostCardResults.length;
                 trackLevelPerformance(state.difficulty, scenarioCorrect, scenarioTotal);
                 
+                // 🥜 PEANUT BUTTER: Track ALL perfect scenarios for sharing stats
+                if (scenarioCorrect === scenarioTotal && scenarioTotal > 0) {
+                    state.totalPerfectScenarios++;
+                }
+                
                 // Track perfect scenarios on Level 5 for secret unlock
                 if (state.difficulty === 5 && scenarioCorrect === scenarioTotal && scenarioTotal > 0) {
                     state.perfectScenariosLevel5++;
@@ -4254,6 +4991,11 @@
                         state.secretLevelUnlocked = true;
                         state.showSecretUnlock = true;
                     }
+                }
+                
+                // 🥜 PEANUT BUTTER: Check for Level 6 completion (show share modal)
+                if (state.difficulty === 6 && scenarioCorrect === scenarioTotal && scenarioTotal > 0) {
+                    state.showLevel6CompleteModal = true;
                 }
                 
                 // Check for level-up promotion
