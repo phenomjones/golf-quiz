@@ -196,7 +196,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v3.15.4 - January 31, 2026 - 3:15 PM EST - Syntax Fix (Orphaned HTML)";
+        const APP_VERSION = "v3.21.2 - February 2, 2026 - 6:00 PM EST - LABEL FIX (No overlapping text)";
         
         // Simple state management
         let state = {
@@ -223,6 +223,8 @@
             showTutorial: false,
             tutorialLevel: null, // Which level's tutorial to show
             tutorialsShown: [], // Track which level tutorials have been shown
+            tutorialStep: 0, // 🌈🎸 RAINBOW GUITAR: Current step in multi-step tutorial
+            tutorialSliderValues: {}, // 🌈🎸 RAINBOW GUITAR: Values for interactive sliders
             levelPerformance: {}, // Track stats per level: { 1: { scenarios: 15, correct: 42, total: 45, recent: [3,2,3,3,2] }, ... }
             showLevelUpPromotion: false,
             promotionTargetLevel: null,
@@ -2809,130 +2811,295 @@
         }
 
         function getTutorialContent(level) {
+            // 🌈🎸 RAINBOW GUITAR: New visual, interactive tutorial system
             const tutorials = {
                 1: {
-                    title: "Level 1: Face, Path & Ball Flight Fundamentals",
-                    content: `
-                        <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">Welcome to Ball Flight Master!</h3>
-                        <p class="mb-4">You're about to learn the foundational physics that governs every golf shot. Let's start with the two most important factors:</p>
-                        
-                        <div class="bg-green-50 border-l-4 border-green-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">📐 Club Face Angle</h4>
-                            <p class="mb-2">The direction the clubface points at impact. This controls <strong>75-85%</strong> of the ball's starting direction.</p>
-                            <ul class="list-disc ml-6 space-y-1">
-                                <li><strong>Negative numbers</strong> = Face points LEFT of target</li>
-                                <li><strong>Positive numbers</strong> = Face points RIGHT of target</li>
-                                <li><strong>Zero</strong> = Face points at target (square)</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">↗️ Club Path</h4>
-                            <p class="mb-2">The direction the clubhead is traveling through impact. This creates the curve.</p>
-                            <ul class="list-disc ml-6 space-y-1">
-                                <li><strong>Negative numbers</strong> = Swinging LEFT (out-to-in for right-hander)</li>
-                                <li><strong>Positive numbers</strong> = Swinging RIGHT (in-to-out for right-hander)</li>
-                                <li><strong>Zero</strong> = Swinging at target</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="bg-yellow-50 border-l-4 border-yellow-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">🎯 The Golden Rule: Face-to-Path</h4>
-                            
-                            <div class="bg-red-50 border-l-2 border-red-500 p-3 mb-3">
-                                <p class="font-semibold text-red-800">⚠️ COMMON MISTAKE:</p>
-                                <p class="text-sm">Many golfers think "in-to-out swing = draw" and "out-to-in swing = slice." This is WRONG!</p>
+                    title: "Level 1: Face-to-Path Fundamentals",
+                    totalSteps: 5,
+                    steps: [
+                        {
+                            title: "Face Angle Controls START Direction",
+                            svg: `
+                                <svg viewBox="0 0 600 280" class="w-full" style="max-height: 300px;">
+                                    <defs>
+                                        <marker id="arrow-left" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                            <polygon points="0 0, 10 3, 0 6" fill="#ef4444"/>
+                                        </marker>
+                                        <marker id="arrow-straight" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                            <polygon points="0 0, 10 3, 0 6" fill="#22c55e"/>
+                                        </marker>
+                                        <marker id="arrow-right" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                            <polygon points="0 0, 10 3, 0 6" fill="#3b82f6"/>
+                                        </marker>
+                                    </defs>
+                                    
+                                    <!-- THREE SCENARIOS SIDE BY SIDE -->
+                                    
+                                    <!-- LEFT: Face -5° -->
+                                    <g transform="translate(0, 0)">
+                                        <rect x="10" y="10" width="180" height="260" fill="#fef2f2" stroke="#ef4444" stroke-width="2" rx="8"/>
+                                        <text x="100" y="35" text-anchor="middle" fill="#dc2626" font-size="16" font-weight="bold">Face -5° LEFT</text>
+                                        
+                                        <!-- Target line -->
+                                        <line x1="100" y1="220" x2="100" y2="80" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
+                                        <text x="100" y="70" text-anchor="middle" fill="#9ca3af" font-size="11">TARGET</text>
+                                        
+                                        <!-- Ball and club -->
+                                        <circle cx="100" cy="220" r="6" fill="#fff" stroke="#000" stroke-width="1.5"/>
+                                        <rect x="85" y="228" width="30" height="8" fill="#8b4513" rx="2"/>
+                                        
+                                        <!-- Face arrow pointing LEFT -->
+                                        <line x1="100" y1="220" x2="60" y2="120" stroke="#ef4444" stroke-width="4" marker-end="url(#arrow-left)"/>
+                                        <text x="50" y="160" fill="#ef4444" font-size="14" font-weight="bold">FACE</text>
+                                        
+                                        <!-- Ball starts LEFT -->
+                                        <circle cx="60" cy="90" r="5" fill="#ef4444"/>
+                                        <text x="100" y="255" text-anchor="middle" fill="#dc2626" font-size="13" font-weight="bold">Starts LEFT</text>
+                                    </g>
+                                    
+                                    <!-- MIDDLE: Face 0° -->
+                                    <g transform="translate(200, 0)">
+                                        <rect x="10" y="10" width="180" height="260" fill="#f0fdf4" stroke="#22c55e" stroke-width="2" rx="8"/>
+                                        <text x="100" y="35" text-anchor="middle" fill="#16a34a" font-size="16" font-weight="bold">Face 0° SQUARE</text>
+                                        
+                                        <!-- Target line -->
+                                        <line x1="100" y1="220" x2="100" y2="80" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
+                                        <text x="100" y="70" text-anchor="middle" fill="#9ca3af" font-size="11">TARGET</text>
+                                        
+                                        <!-- Ball and club -->
+                                        <circle cx="100" cy="220" r="6" fill="#fff" stroke="#000" stroke-width="1.5"/>
+                                        <rect x="85" y="228" width="30" height="8" fill="#8b4513" rx="2"/>
+                                        
+                                        <!-- Face arrow pointing STRAIGHT -->
+                                        <line x1="100" y1="220" x2="100" y2="120" stroke="#22c55e" stroke-width="4" marker-end="url(#arrow-straight)"/>
+                                        <text x="110" y="160" fill="#22c55e" font-size="14" font-weight="bold">FACE</text>
+                                        
+                                        <!-- Ball starts STRAIGHT -->
+                                        <circle cx="100" cy="90" r="5" fill="#22c55e"/>
+                                        <text x="100" y="255" text-anchor="middle" fill="#16a34a" font-size="13" font-weight="bold">Starts STRAIGHT</text>
+                                    </g>
+                                    
+                                    <!-- RIGHT: Face +5° -->
+                                    <g transform="translate(400, 0)">
+                                        <rect x="10" y="10" width="180" height="260" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" rx="8"/>
+                                        <text x="100" y="35" text-anchor="middle" fill="#2563eb" font-size="16" font-weight="bold">Face +5° RIGHT</text>
+                                        
+                                        <!-- Target line -->
+                                        <line x1="100" y1="220" x2="100" y2="80" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
+                                        <text x="100" y="70" text-anchor="middle" fill="#9ca3af" font-size="11">TARGET</text>
+                                        
+                                        <!-- Ball and club -->
+                                        <circle cx="100" cy="220" r="6" fill="#fff" stroke="#000" stroke-width="1.5"/>
+                                        <rect x="85" y="228" width="30" height="8" fill="#8b4513" rx="2"/>
+                                        
+                                        <!-- Face arrow pointing RIGHT -->
+                                        <line x1="100" y1="220" x2="140" y2="120" stroke="#3b82f6" stroke-width="4" marker-end="url(#arrow-right)"/>
+                                        <text x="150" y="160" fill="#3b82f6" font-size="14" font-weight="bold">FACE</text>
+                                        
+                                        <!-- Ball starts RIGHT -->
+                                        <circle cx="140" cy="90" r="5" fill="#3b82f6"/>
+                                        <text x="100" y="255" text-anchor="middle" fill="#2563eb" font-size="13" font-weight="bold">Starts RIGHT</text>
+                                    </g>
+                                </svg>
+                            `,
+                            description: "The clubface angle at impact controls WHERE the ball starts (75-85% influence). This is true regardless of your swing path!",
+                            keyPoint: `<div class="bg-green-50 border-2 border-green-500 rounded-lg p-3">
+                                <p class="font-bold mb-2">💡 Key Insight:</p>
+                                <p class="text-sm">If your face points LEFT, the ball starts LEFT.<br>
+                                If your face points RIGHT, the ball starts RIGHT.<br>
+                                Square face (0°) = Ball starts at TARGET.</p>
+                            </div>`,
+                            interactive: false
+                        },
+                        // STEP 2a: Scenario 1
+                        {
+                            title: "Scenario 1: In-to-Out Can Still Fade!",
+                            svg: `
+                                <svg viewBox="0 0 450 320" class="w-full">
+                                    <line x1="225" y1="270" x2="225" y2="50" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
+                                    <text x="225" y="40" text-anchor="middle" fill="#9ca3af" font-size="16" font-weight="bold">TARGET</text>
+                                    
+                                    <!-- Ball -->
+                                    <circle cx="225" cy="270" r="9" fill="#fff" stroke="#000" stroke-width="2"/>
+                                    
+                                    <!-- PATH arrow (blue, dashed) - less rotation -->
+                                    <g transform="rotate(9, 225, 270)">
+                                        <line x1="225" y1="270" x2="225" y2="160" stroke="#3b82f6" stroke-width="5" stroke-dasharray="8,4"/>
+                                        <text x="145" y="200" fill="#3b82f6" font-size="16" font-weight="bold">PATH</text>
+                                        <text x="145" y="220" fill="#3b82f6" font-size="14">+3°</text>
+                                    </g>
+                                    
+                                    <!-- FACE arrow (green, solid) - more rotation -->
+                                    <g transform="rotate(18, 225, 270)">
+                                        <line x1="225" y1="270" x2="225" y2="160" stroke="#10b981" stroke-width="5"/>
+                                        <text x="290" y="200" fill="#10b981" font-size="16" font-weight="bold">FACE</text>
+                                        <text x="290" y="220" fill="#10b981" font-size="14">+6°</text>
+                                    </g>
+                                    
+                                    <!-- Ball flight curve -->
+                                    <path d="M 225 260 Q 270 150, 320 60" stroke="#ef4444" stroke-width="5" fill="none"/>
+                                    <circle cx="320" cy="60" r="8" fill="#ef4444"/>
+                                    
+                                    <text x="225" y="305" text-anchor="middle" font-size="18" font-weight="bold" fill="#ef4444">FADE (starts right, curves more right)</text>
+                                </svg>
+                            `,
+                            description: "Face +6°, Path +3° (in-to-out swing)",
+                            keyPoint: `<div class="bg-red-50 border-2 border-red-400 rounded-lg p-3">
+                                <p class="font-bold mb-2">This FADES (starts right, curves more right)!</p>
+                                <p class="text-sm">Even though path is in-to-out (+3°), the face is OPEN TO THE PATH (+3° to path). Ball starts right (face +6°) and curves MORE right (face-to-path = +3°).</p>
+                            </div>`,
+                            interactive: false
+                        },
+                        // STEP 2b: Scenario 2
+                        {
+                            title: "Scenario 2: Face = Path = Straight",
+                            svg: `
+                                <svg viewBox="0 0 450 320" class="w-full">
+                                    <line x1="225" y1="270" x2="225" y2="50" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
+                                    <text x="225" y="40" text-anchor="middle" fill="#9ca3af" font-size="16" font-weight="bold">TARGET</text>
+                                    
+                                    <!-- Ball -->
+                                    <circle cx="225" cy="270" r="9" fill="#fff" stroke="#000" stroke-width="2"/>
+                                    
+                                    <!-- Both arrows point SAME direction (left) -->
+                                    <g transform="rotate(-12, 225, 270)">
+                                        <!-- PATH (blue dashed, behind) -->
+                                        <line x1="225" y1="270" x2="225" y2="160" stroke="#3b82f6" stroke-width="5" stroke-dasharray="8,4"/>
+                                        <text x="290" y="200" fill="#3b82f6" font-size="16" font-weight="bold">PATH</text>
+                                        <text x="290" y="220" fill="#3b82f6" font-size="14">-4°</text>
+                                        
+                                        <!-- FACE (green solid, in front) -->
+                                        <line x1="225" y1="270" x2="225" y2="160" stroke="#10b981" stroke-width="5"/>
+                                        <text x="140" y="200" fill="#10b981" font-size="16" font-weight="bold">FACE</text>
+                                        <text x="140" y="220" fill="#10b981" font-size="14">-4°</text>
+                                    </g>
+                                    
+                                    <!-- Straight ball flight left -->
+                                    <line x1="225" y1="260" x2="170" y2="60" stroke="#8b5cf6" stroke-width="5"/>
+                                    <circle cx="170" cy="60" r="8" fill="#8b5cf6"/>
+                                    
+                                    <text x="225" y="305" text-anchor="middle" font-size="18" font-weight="bold" fill="#8b5cf6">PULL (starts left, flies straight)</text>
+                                </svg>
+                            `,
+                            description: "Face -4°, Path -4° (both left)",
+                            keyPoint: `<div class="bg-purple-50 border-2 border-purple-400 rounded-lg p-3">
+                                <p class="font-bold mb-2">This is a PULL (starts left, flies straight)!</p>
+                                <p class="text-sm">Ball starts left (face -4°) and flies STRAIGHT (face-to-path = 0° because face equals path). No curve!</p>
+                            </div>`,
+                            interactive: false
+                        },
+                        // STEP 2c: Scenario 3
+                        {
+                            title: "Scenario 3: Over-the-Top Can Hook!",
+                            svg: `
+                                <svg viewBox="0 0 450 320" class="w-full">
+                                    <line x1="225" y1="270" x2="225" y2="50" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
+                                    <text x="225" y="40" text-anchor="middle" fill="#9ca3af" font-size="16" font-weight="bold">TARGET</text>
+                                    
+                                    <!-- Ball -->
+                                    <circle cx="225" cy="270" r="9" fill="#fff" stroke="#000" stroke-width="2"/>
+                                    
+                                    <!-- FACE arrow (green) - slight left -->
+                                    <g transform="rotate(-6, 225, 270)">
+                                        <line x1="225" y1="270" x2="225" y2="160" stroke="#10b981" stroke-width="5"/>
+                                        <text x="140" y="200" fill="#10b981" font-size="16" font-weight="bold">FACE</text>
+                                        <text x="140" y="220" fill="#10b981" font-size="14">-2°</text>
+                                    </g>
+                                    
+                                    <!-- PATH arrow (blue) - right -->
+                                    <g transform="rotate(12, 225, 270)">
+                                        <line x1="225" y1="270" x2="225" y2="160" stroke="#3b82f6" stroke-width="5" stroke-dasharray="8,4"/>
+                                        <text x="290" y="200" fill="#3b82f6" font-size="16" font-weight="bold">PATH</text>
+                                        <text x="290" y="220" fill="#3b82f6" font-size="14">+4°</text>
+                                    </g>
+                                    
+                                    <!-- Hooking ball flight -->
+                                    <path d="M 225 260 Q 175 150, 120 60" stroke="#3b82f6" stroke-width="5" fill="none"/>
+                                    <circle cx="120" cy="60" r="8" fill="#3b82f6"/>
+                                    
+                                    <text x="225" y="305" text-anchor="middle" font-size="18" font-weight="bold" fill="#3b82f6">DRAW/HOOK (starts left, curves MORE left!)</text>
+                                </svg>
+                            `,
+                            description: "Face -2°, Path +4° (\"over the top\")",
+                            keyPoint: `<div class="bg-blue-50 border-2 border-blue-400 rounded-lg p-3">
+                                <p class="font-bold mb-2">This HOOKS (starts left, curves MORE left)!</p>
+                                <p class="text-sm">Even with an "over the top" out-to-in path, this WON'T slice! Face is -6° to path, so ball starts left (face -2°) and curves MORE left. This is the anti-slice!</p>
+                            </div>`,
+                            interactive: false
+                        },
+                        {
+                            title: "Distance AMPLIFIES Errors",
+                            svg: `
+                                <svg viewBox="0 0 600 200" class="w-full">
+                                    <!-- THREE CLUBS HORIZONTAL -->
+                                    
+                                    <!-- DRIVER (left) -->
+                                    <g transform="translate(30, 30)">
+                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#dc2626">DRIVER</text>
+                                        <text x="0" y="18" font-size="13" fill="#dc2626">(250 yds)</text>
+                                        <circle cx="0" cy="50" r="5" fill="#000"/>
+                                        <line x1="0" y1="50" x2="0" y2="10" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
+                                        <path id="driver-path" d="M 0 50 Q 30 25, 60 0" stroke="#dc2626" stroke-width="4" fill="none"/>
+                                        <circle id="driver-ball" cx="60" cy="0" r="6" fill="#dc2626"/>
+                                        <line id="driver-line" x1="0" y1="70" x2="60" y2="70" stroke="#dc2626" stroke-width="2" stroke-dasharray="3,3"/>
+                                        <text x="30" y="90" text-anchor="middle" font-size="13" fill="#dc2626" font-weight="bold" id="driver-yards">25 yards</text>
+                                    </g>
+                                    
+                                    <!-- 7-IRON (middle) -->
+                                    <g transform="translate(220, 30)">
+                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#f59e0b">7-IRON</text>
+                                        <text x="0" y="18" font-size="13" fill="#f59e0b">(150 yds)</text>
+                                        <circle cx="0" cy="50" r="5" fill="#000"/>
+                                        <line x1="0" y1="50" x2="0" y2="10" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
+                                        <path id="iron-path" d="M 0 50 Q 18 25, 36 0" stroke="#f59e0b" stroke-width="4" fill="none"/>
+                                        <circle id="iron-ball" cx="36" cy="0" r="6" fill="#f59e0b"/>
+                                        <line id="iron-line" x1="0" y1="70" x2="36" y2="70" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3,3"/>
+                                        <text x="18" y="90" text-anchor="middle" font-size="13" fill="#f59e0b" font-weight="bold" id="iron-yards">15 yards</text>
+                                    </g>
+                                    
+                                    <!-- WEDGE (right) -->
+                                    <g transform="translate(410, 30)">
+                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#22c55e">WEDGE</text>
+                                        <text x="0" y="18" font-size="13" fill="#22c55e">(120 yds)</text>
+                                        <circle cx="0" cy="50" r="5" fill="#000"/>
+                                        <line x1="0" y1="50" x2="0" y2="10" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
+                                        <path id="wedge-path" d="M 0 50 Q 12 25, 24 0" stroke="#22c55e" stroke-width="4" fill="none"/>
+                                        <circle id="wedge-ball" cx="24" cy="0" r="6" fill="#22c55e"/>
+                                        <line id="wedge-line" x1="0" y1="70" x2="24" y2="70" stroke="#22c55e" stroke-width="2" stroke-dasharray="3,3"/>
+                                        <text x="12" y="90" text-anchor="middle" font-size="13" fill="#22c55e" font-weight="bold" id="wedge-yards">10 yards</text>
+                                    </g>
+                                </svg>
+                            `,
+                            description: "The same face-to-path error gets amplified more with longer clubs because the ball is in the air longer!",
+                            keyPoint: `<div class="bg-red-50 border-2 border-red-400 rounded-lg p-3">
+                                <p class="font-bold text-lg mb-2">💡 The Big Lesson:</p>
+                                <p class="mb-2">A <strong>3° face-to-path error</strong> costs you:</p>
+                                <ul class="list-disc ml-6 space-y-1">
+                                    <li><strong class="text-red-600">25 yards</strong> with driver (250 yds)</li>
+                                    <li><strong class="text-orange-600">15 yards</strong> with 7-iron (150 yds)</li>
+                                    <li><strong class="text-green-600">10 yards</strong> with wedge (120 yds)</li>
+                                </ul>
+                                <p class="mt-3 text-sm font-semibold">This is why driving is harder than wedge play! The same swing error gets amplified 2.5x more with driver!</p>
+                            </div>`,
+                            interactive: true,
+                            sliders: [
+                                { id: 'facetopath', label: 'Face-to-Path Error', min: 0, max: 5, default: 3, unit: '°' }
+                            ]
+                        }
+                    ],
+                    moreInfo: `
+                        <div class="space-y-3 text-sm">
+                            <div class="bg-gray-50 p-3 rounded">
+                                <p class="font-semibold mb-1">📊 Real Examples:</p>
+                                <p>• Face +5°, Path +3° → Face is 2° RIGHT of path = FADE</p>
+                                <p>• Face -2°, Path +3° → Face is 5° LEFT of path = DRAW</p>
+                                <p>• Face +4°, Path +4° → Face EQUALS path = PUSH (straight right)</p>
                             </div>
-                            
-                            <p class="mb-2 font-semibold text-green-700">✅ THE TRUTH: Curve direction is determined by FACE-TO-PATH, not path alone!</p>
-                            
-                            <p class="mb-2">The ball curves based on the <strong>difference</strong> between face and path:</p>
-                            <ul class="list-disc ml-6 space-y-1">
-                                <li><strong>Face LEFT of path</strong> → Ball curves LEFT (draw/hook)</li>
-                                <li><strong>Face RIGHT of path</strong> → Ball curves RIGHT (fade/slice)</li>
-                                <li><strong>Face equals path</strong> → Ball flies STRAIGHT</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                            <h4 class="font-bold mb-2">📊 Examples That Prove It:</h4>
-                            <div class="space-y-3">
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Path: +5° in-to-out | Face: +8°</p>
-                                    <p class="text-sm">Face is 3° RIGHT of path = <span class="text-orange-600 font-bold">FADE</span> (not draw!)</p>
-                                </div>
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Path: -3° out-to-in | Face: -5°</p>
-                                    <p class="text-sm">Face is 2° LEFT of path = <span class="text-blue-600 font-bold">DRAW</span> (not slice!)</p>
-                                </div>
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Path: +4° in-to-out | Face: +4°</p>
-                                    <p class="text-sm">Face equals path = <span class="text-green-600 font-bold">PUSH</span> (straight right, no curve)</p>
-                                </div>
+                            <div class="bg-blue-50 p-3 rounded">
+                                <p class="font-semibold mb-1">💡 Why Amateurs Struggle:</p>
+                                <p>Most golfers trying to "swing from the inside" to fix a slice actually open the face MORE relative to their new path, making the slice worse! Fix the face-to-path relationship, not just the path.</p>
                             </div>
                         </div>
-                        
-                        <div class="bg-blue-50 border-l-2 border-blue-500 p-3 mb-4">
-                            <p class="font-semibold text-blue-800">💡 Pro Insight:</p>
-                            <p class="text-sm">This is why amateur golfers who "swing from the inside" to fix their slice often make it WORSE - they're opening the face even more relative to their new path! Fix the face-to-path relationship, not just the path.</p>
-                        </div>
-                        
-                        <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                            <h4 class="font-bold mb-2">📊 More Example Scenarios:</h4>
-                            <div class="space-y-3">
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Face: -2° | Path: +3°</p>
-                                    <p class="text-sm">Face is 5° LEFT of path → <span class="text-blue-600 font-bold">DRAW</span> (starts slightly left, curves more left)</p>
-                                </div>
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Face: +4° | Path: -1°</p>
-                                    <p class="text-sm">Face is 5° RIGHT of path → <span class="text-orange-600 font-bold">FADE</span> (starts right, curves more right)</p>
-                                </div>
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Face: +2° | Path: +2°</p>
-                                    <p class="text-sm">Face equals path → <span class="text-green-600 font-bold">PUSH</span> (starts right, flies straight)</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
-                            <h4 class="font-bold mb-2">🎯 When Does a Ball Curve vs Fly Straight?</h4>
-                            <p class="mb-3">Different clubs need different levels of precision. Here's what "straight" means for each club:</p>
-                            
-                            <div class="space-y-3">
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Driver (250 yards):</p>
-                                    <p class="text-sm">A driver shot with 0.25° face-to-path finishes about <strong>2 yards offline</strong> - that's straight enough.</p>
-                                    <p class="text-sm">But 1° face-to-path? That's <strong>8 yards offline</strong> - definitely curving!</p>
-                                    <p class="text-sm">5° face-to-path? A massive <strong>41 yards offline</strong> - huge slice or hook!</p>
-                                    <p class="text-sm text-red-600 font-semibold mt-1">Driver requires precision - small errors get amplified!</p>
-                                    <p class="text-xs text-gray-500 mt-1 italic">Source: PGA Tour TrackMan data</p>
-                                </div>
-                                
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">7-Iron (150 yards):</p>
-                                    <p class="text-sm">Mid-irons are more forgiving. Even 0.5° face-to-path only moves the ball <strong>1.5 yards offline</strong> - still pretty straight.</p>
-                                    <p class="text-sm">1° face-to-path? About <strong>3 yards offline</strong> - starting to curve.</p>
-                                    <p class="text-sm">5° face-to-path? Around <strong>15 yards offline</strong> - noticeable curve, but less dramatic than driver.</p>
-                                    <p class="text-sm text-blue-600 font-semibold mt-1">More forgiving than driver - errors don't get amplified as much.</p>
-                                </div>
-                                
-                                <div class="bg-white p-3 rounded">
-                                    <p class="font-semibold">Pitching Wedge (120 yards):</p>
-                                    <p class="text-sm">Wedges are the most forgiving. Even 0.8° face-to-path is barely <strong>1 yard offline</strong> - essentially straight.</p>
-                                    <p class="text-sm">1° face-to-path? Only <strong>1.4 yards offline</strong> - still pretty good.</p>
-                                    <p class="text-sm">5° face-to-path? About <strong>7 yards offline</strong> - noticeable, but nothing like a driver.</p>
-                                    <p class="text-sm text-green-600 font-semibold mt-1">Most margin for error - short flight means less curve!</p>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-3 p-3 bg-yellow-50 rounded">
-                                <p class="text-sm font-semibold">💡 The Big Lesson:</p>
-                                <p class="text-sm">The longer the club and the farther the ball flies, the more your mistakes get amplified. That 1° error? It's 8 yards with driver but only 1.4 yards with a wedge!</p>
-                            </div>
-                        </div>
-                        
-                        <p class="text-sm italic text-gray-600">💡 Pro Tip: At Level 1, focus on calculating face-to-path. The hints will guide you through each step!</p>
                     `
                 },
                 2: {
@@ -3482,6 +3649,8 @@
         function showTutorial(level) {
             state.showTutorial = true;
             state.tutorialLevel = level;
+            state.tutorialStep = 0; // 🌈🎸 RAINBOW GUITAR: Start at first step
+            state.tutorialSliderValues = {}; // 🌈🎸 RAINBOW GUITAR: Reset sliders
             
             // Mark this level's tutorial as shown
             if (!state.tutorialsShown.includes(level)) {
@@ -3489,11 +3658,296 @@
             }
             
             render();
+            
+            // 🌈🎸 RAINBOW GUITAR FIX: Initialize slider values after render
+            setTimeout(() => {
+                const tutorialContent = getTutorialContent(level);
+                if (tutorialContent.steps && tutorialContent.steps[0]) {
+                    const firstStep = tutorialContent.steps[0];
+                    if (firstStep.sliders) {
+                        firstStep.sliders.forEach(slider => {
+                            state.tutorialSliderValues[slider.id] = slider.default;
+                            updateTutorialSlider(slider.id, slider.default, slider.unit);
+                        });
+                    }
+                }
+            }, 100);
         }
 
         function closeTutorial() {
             state.showTutorial = false;
+            state.tutorialStep = 0; // 🌈🎸 RAINBOW GUITAR: Reset step
             render();
+        }
+        
+        // 🌈🎸 RAINBOW GUITAR: Tutorial navigation
+        function nextTutorialStep() {
+            state.tutorialStep++;
+            render();
+            
+            // Initialize sliders for new step
+            setTimeout(() => {
+                const tutorialContent = getTutorialContent(state.tutorialLevel);
+                if (tutorialContent.steps) {
+                    const currentStep = tutorialContent.steps[state.tutorialStep];
+                    if (currentStep && currentStep.sliders) {
+                        currentStep.sliders.forEach(slider => {
+                            const value = state.tutorialSliderValues[slider.id] !== undefined ? 
+                                state.tutorialSliderValues[slider.id] : slider.default;
+                            state.tutorialSliderValues[slider.id] = value;
+                            updateTutorialSlider(slider.id, value, slider.unit);
+                        });
+                    }
+                }
+            }, 100);
+        }
+        
+        function previousTutorialStep() {
+            if (state.tutorialStep > 0) {
+                state.tutorialStep--;
+                render();
+                
+                // Initialize sliders for new step
+                setTimeout(() => {
+                    const tutorialContent = getTutorialContent(state.tutorialLevel);
+                    if (tutorialContent.steps) {
+                        const currentStep = tutorialContent.steps[state.tutorialStep];
+                        if (currentStep && currentStep.sliders) {
+                            currentStep.sliders.forEach(slider => {
+                                const value = state.tutorialSliderValues[slider.id] !== undefined ? 
+                                    state.tutorialSliderValues[slider.id] : slider.default;
+                                state.tutorialSliderValues[slider.id] = value;
+                                updateTutorialSlider(slider.id, value, slider.unit);
+                            });
+                        }
+                    }
+                }, 100);
+            }
+        }
+        
+        // 🌈🎸 RAINBOW GUITAR: Interactive slider updates
+        function updateTutorialSlider(sliderId, value, unit) {
+            // Update display
+            const display = document.getElementById(`slider-${sliderId}-display`);
+            if (display) {
+                display.textContent = value + unit;
+            }
+            
+            // Store value
+            state.tutorialSliderValues[sliderId] = parseFloat(value);
+            
+            const face = state.tutorialSliderValues.face || 0;
+            const path = state.tutorialSliderValues.path || 0;
+            
+            // STEP 1: Update face arrow rotation AND text
+            if (sliderId === 'face') {
+                const faceArrow = document.getElementById('face-arrow');
+                if (faceArrow) {
+                    faceArrow.style.transformOrigin = '200px 250px';
+                    faceArrow.style.transform = `rotate(${face}deg)`;
+                }
+                
+                // Update face value text in Step 1
+                const faceValueText = document.getElementById('face-value');
+                if (faceValueText) {
+                    faceValueText.textContent = (face >= 0 ? '+' : '') + face + '°';
+                }
+            }
+            
+            // STEP 2: Update path arrow rotation AND text
+            if (sliderId === 'path') {
+                const pathArrow = document.getElementById('path-arrow');
+                if (pathArrow) {
+                    pathArrow.style.transformOrigin = '200px 250px';
+                    pathArrow.style.transform = `rotate(${path}deg)`;
+                }
+                
+                // Update path value text in Step 2
+                const pathValueText = document.getElementById('path-value');
+                if (pathValueText) {
+                    pathValueText.textContent = (path >= 0 ? '+' : '') + path + '°';
+                }
+            }
+            
+            // STEP 3: Update both arrows AND ball curve (NEW coordinate system 500x400)
+            if (sliderId === 'face' || sliderId === 'path') {
+                // Update face arrow with SVG transform attribute (not CSS)
+                const faceArrow3 = document.getElementById('face-arrow-step3');
+                if (faceArrow3) {
+                    faceArrow3.setAttribute('transform', `rotate(${face}, 250, 350)`);
+                }
+                
+                // Update SVG face text in Step 3
+                const faceDisplay = document.getElementById('face-display-svg');
+                if (faceDisplay) {
+                    faceDisplay.textContent = (face >= 0 ? '+' : '') + face + '°';
+                }
+                
+                // Update path arrow with SVG transform attribute (not CSS)
+                const pathArrow3 = document.getElementById('path-arrow-step3');
+                if (pathArrow3) {
+                    pathArrow3.setAttribute('transform', `rotate(${path}, 250, 350)`);
+                }
+                
+                // Update SVG path text in Step 3
+                const pathDisplay = document.getElementById('path-display-svg');
+                if (pathDisplay) {
+                    pathDisplay.textContent = (path >= 0 ? '+' : '') + path + '°';
+                }
+                
+                // Calculate face-to-path and update ball curve
+                const faceToPath = face - path;
+                const ballCurve = document.getElementById('ball-curve');
+                if (ballCurve) {
+                    // More dramatic curve: 1° face-to-path = 20 pixels of curve
+                    const curveAmount = faceToPath * 20;
+                    const startX = 250;
+                    const startY = 350;
+                    const endY = 50;
+                    const endX = startX + curveAmount;
+                    
+                    // Control point for smooth curve
+                    const controlX = startX + (curveAmount * 0.6);
+                    const controlY = (startY + endY) / 2;
+                    
+                    const pathD = `M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`;
+                    ballCurve.setAttribute('d', pathD);
+                    
+                    // Update landing ball
+                    const landingBall = document.getElementById('landing-ball');
+                    if (landingBall) {
+                        landingBall.setAttribute('cx', endX);
+                    }
+                    
+                    // Update curve indicator
+                    const curveIndicator = document.getElementById('curve-indicator');
+                    if (curveIndicator) {
+                        // Show/hide based on curve amount
+                        if (Math.abs(faceToPath) < 0.5) {
+                            curveIndicator.style.opacity = '0';
+                        } else {
+                            curveIndicator.style.opacity = '0.5';
+                            // Position it along the curve
+                            const indicatorX = startX + (curveAmount * 0.4);
+                            const direction = faceToPath > 0 ? 'right' : 'left';
+                            const arrowPath = faceToPath > 0 ? 
+                                `M ${startX + 10} 180 Q ${indicatorX - 10} 180, ${indicatorX} 170` :
+                                `M ${startX - 10} 180 Q ${indicatorX + 10} 180, ${indicatorX} 170`;
+                            
+                            const arrowElement = curveIndicator.querySelector('path');
+                            if (arrowElement) {
+                                arrowElement.setAttribute('d', arrowPath);
+                            }
+                            
+                            const textElement = curveIndicator.querySelector('text');
+                            if (textElement) {
+                                textElement.setAttribute('x', indicatorX + 10);
+                            }
+                        }
+                    }
+                }
+                
+                // Update result text with color
+                const resultElement = document.getElementById('curve-result');
+                if (resultElement) {
+                    let result = '';
+                    let color = '';
+                    
+                    if (Math.abs(faceToPath) < 0.5) {
+                        // No curve - but is it straight to target, push, or pull?
+                        if (Math.abs(face) < 0.5 && Math.abs(path) < 0.5) {
+                            // Both near zero - straight to target
+                            result = 'STRAIGHT (at target)';
+                            color = '#22c55e'; // green
+                        } else if (face > 0.5) {
+                            // Face right, path right, no curve = PUSH
+                            result = `PUSH (straight ${Math.abs(face).toFixed(1)}° right)`;
+                            color = '#f59e0b'; // orange
+                        } else {
+                            // Face left, path left, no curve = PULL
+                            result = `PULL (straight ${Math.abs(face).toFixed(1)}° left)`;
+                            color = '#8b5cf6'; // purple
+                        }
+                    } else if (faceToPath > 0) {
+                        result = `FADE (${Math.abs(faceToPath).toFixed(1)}° right curve)`;
+                        color = '#ef4444'; // red
+                    } else {
+                        result = `DRAW (${Math.abs(faceToPath).toFixed(1)}° left curve)`;
+                        color = '#3b82f6'; // blue
+                    }
+                    
+                    resultElement.textContent = result;
+                    resultElement.setAttribute('fill', color);
+                }
+            }
+            
+            // STEP 4: Update club distance calculations AND move the ball flight paths
+            if (sliderId === 'facetopath') {
+                const faceToPathError = parseFloat(value);
+                
+                // Calculate offline distance for each club (pixels)
+                // Use ratio: 1 degree = ~6 pixels per 100 yards of distance
+                const driverPixels = (faceToPathError * 250 / 100) * 6;
+                const ironPixels = (faceToPathError * 150 / 100) * 6;
+                const wedgePixels = (faceToPathError * 120 / 100) * 6;
+                
+                // Calculate yards offline for display
+                const driverOffline = Math.round(faceToPathError * 250 / 30);
+                const ironOffline = Math.round(faceToPathError * 150 / 30);
+                const wedgeOffline = Math.round(faceToPathError * 120 / 30);
+                
+                // Update DRIVER path and ball
+                const driverPath = document.getElementById('driver-path');
+                const driverBall = document.getElementById('driver-ball');
+                const driverLine = document.getElementById('driver-line');
+                if (driverPath && driverBall && driverLine) {
+                    const pathD = `M 0 50 Q ${driverPixels * 0.5} 25, ${driverPixels} 0`;
+                    driverPath.setAttribute('d', pathD);
+                    driverBall.setAttribute('cx', driverPixels);
+                    driverLine.setAttribute('x2', driverPixels);
+                }
+                
+                // Update 7-IRON path and ball
+                const ironPath = document.getElementById('iron-path');
+                const ironBall = document.getElementById('iron-ball');
+                const ironLine = document.getElementById('iron-line');
+                if (ironPath && ironBall && ironLine) {
+                    const pathD = `M 0 50 Q ${ironPixels * 0.5} 25, ${ironPixels} 0`;
+                    ironPath.setAttribute('d', pathD);
+                    ironBall.setAttribute('cx', ironPixels);
+                    ironLine.setAttribute('x2', ironPixels);
+                }
+                
+                // Update WEDGE path and ball
+                const wedgePath = document.getElementById('wedge-path');
+                const wedgeBall = document.getElementById('wedge-ball');
+                const wedgeLine = document.getElementById('wedge-line');
+                if (wedgePath && wedgeBall && wedgeLine) {
+                    const pathD = `M 0 50 Q ${wedgePixels * 0.5} 25, ${wedgePixels} 0`;
+                    wedgePath.setAttribute('d', pathD);
+                    wedgeBall.setAttribute('cx', wedgePixels);
+                    wedgeLine.setAttribute('x2', wedgePixels);
+                }
+                
+                // Update text values
+                const driverText = document.getElementById('driver-yards');
+                if (driverText) {
+                    driverText.textContent = `${driverOffline} yards offline`;
+                    driverText.setAttribute('x', driverPixels / 2);
+                }
+                
+                const ironText = document.getElementById('iron-yards');
+                if (ironText) {
+                    ironText.textContent = `${ironOffline} yards offline`;
+                    ironText.setAttribute('x', ironPixels / 2);
+                }
+                
+                const wedgeText = document.getElementById('wedge-yards');
+                if (wedgeText) {
+                    wedgeText.textContent = `${wedgeOffline} yards offline`;
+                    wedgeText.setAttribute('x', wedgePixels / 2);
+                }
+            }
         }
 
         // Track performance for adaptive level-up
@@ -3882,6 +4336,19 @@ Think you can beat ${perfectCount} perfects and a ${bestStreak}-streak? Prove it
             if (state.showLevelSelect) {
                 app.innerHTML = `
                     <div class="min-h-screen golf-bg p-4">
+                        <!-- Top navigation bar across entire screen -->
+                        <div class="max-w-6xl mx-auto mb-4">
+                            <div class="bg-white rounded-lg shadow-lg px-6 py-3">
+                                ${state.difficulty ? `
+                                    <button onclick="startGame()" 
+                                        class="w-full px-6 py-3 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all hover:opacity-90"
+                                        style="background: var(--augusta-green);">
+                                        ⛳ Start Level ${state.difficulty}: ${difficultyLevels[state.difficulty - 1].name}
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
                         <div class="max-w-6xl mx-auto">
                             <div class="bg-white rounded-2xl shadow-2xl p-8 mb-4 relative">
                                 <div class="text-center mb-2">
@@ -3945,20 +4412,15 @@ Think you can beat ${perfectCount} perfects and a ${bestStreak}-streak? Prove it
                                     ` : ''}
                                 </div>
                                 
-                                <div class="flex gap-3 mt-6">
-                                    ${[1, 2, 3, 4, 5, 6].includes(state.difficulty) ? `
-                                        <button onclick="showTutorial(${state.difficulty})" 
-                                            class="flex-1 py-4 rounded-lg font-semibold text-lg hover:shadow-lg transition-all"
-                                            style="background: rgba(212, 175, 55, 0.15); color: var(--masters-gold); border: 2px solid var(--masters-gold);">
-                                            📚 View Level ${state.difficulty} Tutorial
+                                ${state.difficulty ? `
+                                    <div class="mt-6">
+                                        <button onclick="startGame()" 
+                                            class="w-full px-6 py-3 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all hover:opacity-90"
+                                            style="background: var(--augusta-green);">
+                                            ⛳ Start Level ${state.difficulty}: ${difficultyLevels[state.difficulty - 1].name}
                                         </button>
-                                    ` : ''}
-                                    <button onclick="startGame()" 
-                                        class="${[1, 2, 3, 4, 5, 6].includes(state.difficulty) ? 'flex-1' : 'w-full'} py-4 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all hover:opacity-90"
-                                        style="background: var(--augusta-green);">
-                                        ⛳ Start Level ${state.difficulty}: ${difficultyLevels[state.difficulty - 1].name}
-                                    </button>
-                                </div>
+                                    </div>
+                                ` : ''}
                                 <div class="text-center text-xs text-gray-400 mt-4 pt-4 border-t">
                                     ${APP_VERSION}
                                 </div>
@@ -4466,38 +4928,115 @@ Think you can beat ${perfectCount} perfects and a ${bestStreak}-streak? Prove it
             }
             
             // Tutorial Modal - only show when in game view (not level select or auth)
-            if (state.showTutorial && !state.showAuth && !state.showLevelSelect && state.currentScenarioData) {
+            if (state.showTutorial && !state.showAuth) {
                 const tutorialContent = getTutorialContent(state.tutorialLevel);
-                app.innerHTML += `
-                    <div class="tutorial-modal" onclick="closeTutorial()">
-                        <div class="tutorial-content" onclick="event.stopPropagation()">
-                            <div class="flex justify-between items-start mb-6">
-                                <h2 class="text-3xl font-bold" style="color: var(--augusta-green);">
-                                    📚 ${tutorialContent.title}
-                                </h2>
-                                <button onclick="closeTutorial()" class="text-gray-500 hover:text-gray-700 text-4xl font-bold leading-none">×</button>
-                            </div>
-                            
-                            <!-- Top Got It button -->
-                            <div class="mb-4 pb-4 border-b border-gray-200">
-                                <button onclick="closeTutorial()" class="w-full px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition" style="background: var(--augusta-green);">
-                                    Got it! 👍
-                                </button>
-                            </div>
-                            
-                            <div class="text-gray-700 space-y-4">
-                                ${tutorialContent.content}
-                            </div>
-                            
-                            <!-- Bottom Got It button -->
-                            <div class="mt-6 pt-6 border-t border-gray-200">
-                                <button onclick="closeTutorial()" class="w-full px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition" style="background: var(--augusta-green);">
-                                    Got it! 👍
-                                </button>
+                
+                // 🌈🎸 RAINBOW GUITAR: Support new visual step system
+                if (tutorialContent.steps) {
+                    const currentStep = tutorialContent.steps[state.tutorialStep] || tutorialContent.steps[0];
+                    const stepNum = state.tutorialStep + 1;
+                    const totalSteps = tutorialContent.totalSteps;
+                    
+                    // Progress dots
+                    const progressDots = Array.from({length: totalSteps}, (_, i) => 
+                        i === state.tutorialStep ? '●' : '○'
+                    ).join(' ');
+                    
+                    app.innerHTML += `
+                        <div class="tutorial-modal" onclick="closeTutorial()">
+                            <div class="tutorial-content" onclick="event.stopPropagation()">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h2 class="text-2xl font-bold" style="color: var(--augusta-green);">
+                                            📚 ${tutorialContent.title}
+                                        </h2>
+                                        <div class="text-gray-500 text-lg mt-1">${progressDots} Step ${stepNum}/${totalSteps}</div>
+                                    </div>
+                                    <button onclick="closeTutorial()" class="text-gray-500 hover:text-gray-700 text-4xl font-bold leading-none">×</button>
+                                </div>
+                                
+                                <!-- Visual Section -->
+                                <div class="bg-white rounded-lg p-4 mb-4">
+                                    <h3 class="text-xl font-bold mb-3" style="color: var(--augusta-green);">${currentStep.title}</h3>
+                                    ${currentStep.svg}
+                                </div>
+                                
+                                <!-- Description -->
+                                <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
+                                    <p class="mb-2">${currentStep.description}</p>
+                                </div>
+                                
+                                <!-- Interactive Sliders -->
+                                ${currentStep.interactive ? `
+                                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                                        <p class="font-bold mb-3">🎮 Try It Yourself:</p>
+                                        ${currentStep.sliders.map(slider => `
+                                            <div class="mb-3">
+                                                <label class="block text-sm font-semibold mb-1">${slider.label}: <span id="slider-${slider.id}-display">${slider.default}${slider.unit}</span></label>
+                                                <input type="range" min="${slider.min}" max="${slider.max}" value="${slider.default}" 
+                                                    class="w-full" 
+                                                    oninput="updateTutorialSlider('${slider.id}', this.value, '${slider.unit}')">
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                                
+                                <!-- Key Point (after sliders) -->
+                                <div class="mb-4">
+                                    ${currentStep.keyPoint}
+                                </div>
+                                
+                                <!-- Navigation -->
+                                <div class="flex gap-3">
+                                    ${state.tutorialStep > 0 ? `
+                                        <button onclick="previousTutorialStep()" class="flex-1 px-6 py-3 rounded-lg font-semibold bg-gray-300 hover:bg-gray-400 transition">
+                                            ← Back
+                                        </button>
+                                    ` : ''}
+                                    ${state.tutorialStep < totalSteps - 1 ? `
+                                        <button onclick="nextTutorialStep()" class="flex-1 px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition" style="background: var(--augusta-green);">
+                                            Next →
+                                        </button>
+                                    ` : `
+                                        <button onclick="closeTutorial()" class="flex-1 px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition" style="background: var(--augusta-green);">
+                                            Got it! 👍
+                                        </button>
+                                    `}
+                                </div>
+                                
+                                <!-- More Info (collapsible) -->
+                                ${tutorialContent.moreInfo ? `
+                                    <details class="mt-4">
+                                        <summary class="cursor-pointer text-blue-600 font-semibold">ⓘ More Details</summary>
+                                        <div class="mt-3">${tutorialContent.moreInfo}</div>
+                                    </details>
+                                ` : ''}
                             </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    // OLD FORMAT FALLBACK (for levels not yet updated)
+                    app.innerHTML += `
+                        <div class="tutorial-modal" onclick="closeTutorial()">
+                            <div class="tutorial-content" onclick="event.stopPropagation()">
+                                <div class="flex justify-between items-start mb-6">
+                                    <h2 class="text-3xl font-bold" style="color: var(--augusta-green);">
+                                        📚 ${tutorialContent.title}
+                                    </h2>
+                                    <button onclick="closeTutorial()" class="text-gray-500 hover:text-gray-700 text-4xl font-bold leading-none">×</button>
+                                </div>
+                                <div class="text-gray-700 space-y-4">
+                                    ${tutorialContent.content}
+                                </div>
+                                <div class="mt-6">
+                                    <button onclick="closeTutorial()" class="w-full px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition" style="background: var(--augusta-green);">
+                                        Got it! 👍
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
             }
             
             // Onboarding Modal (First-Time Users)
