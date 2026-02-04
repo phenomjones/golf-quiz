@@ -196,7 +196,7 @@
     <div id="app"></div>
     <script>
         // VERSION INFO
-        const APP_VERSION = "v3.22.3 - February 2, 2026 - 6:18 PM EST - SYNTAX FIX (Really fixed duplicate brace this time!)";
+        const APP_VERSION = "v3.23.0 - February 2, 2026 - 6:20 PM EST - COMBINED GRID (3×3 comparison grid)";
         
         // Simple state management
         let state = {
@@ -2815,7 +2815,7 @@
             const tutorials = {
                 1: {
                     title: "Level 1: Face-to-Path Fundamentals",
-                    totalSteps: 7,
+                    totalSteps: 5,
                     steps: [
                         {
                             title: "Face Angle Controls START Direction",
@@ -3028,145 +3028,98 @@
                             interactive: false
                         },
                         {
-                            title: "Distance Amplifies Errors: +2° Face-to-Path",
+                            title: "Distance AMPLIFIES Errors",
                             svg: `
-                                <svg viewBox="0 0 600 180" class="w-full">
-                                    <text x="300" y="20" text-anchor="middle" font-size="18" font-weight="bold" fill="#1f2937">+2° Face-to-Path</text>
+                                <svg viewBox="0 0 650 450" class="w-full">
+                                    <!-- Title -->
+                                    <text x="325" y="20" text-anchor="middle" font-size="18" font-weight="bold" fill="#1f2937">Same Error → Different Results by Club</text>
                                     
-                                    <!-- DRIVER -->
-                                    <g transform="translate(50, 40)">
-                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#dc2626">DRIVER (250 yds)</text>
-                                        <circle cx="0" cy="40" r="5" fill="#000"/>
-                                        <line x1="0" y1="40" x2="0" y2="0" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
-                                        <path d="M 0 40 Q 10 20, 17 0" stroke="#dc2626" stroke-width="4" fill="none"/>
-                                        <circle cx="17" cy="0" r="6" fill="#dc2626"/>
-                                        <line x1="0" y1="60" x2="17" y2="60" stroke="#dc2626" stroke-width="2" stroke-dasharray="3,3"/>
-                                        <text x="8" y="80" text-anchor="middle" font-size="14" fill="#dc2626" font-weight="bold">17 yards</text>
+                                    <!-- Column Headers -->
+                                    <text x="110" y="45" text-anchor="middle" font-size="14" font-weight="bold" fill="#dc2626">DRIVER (250 yds)</text>
+                                    <text x="325" y="45" text-anchor="middle" font-size="14" font-weight="bold" fill="#f59e0b">7-IRON (150 yds)</text>
+                                    <text x="540" y="45" text-anchor="middle" font-size="14" font-weight="bold" fill="#22c55e">WEDGE (120 yds)</text>
+                                    
+                                    <!-- ROW 1: +2° Face-to-Path -->
+                                    <text x="10" y="95" font-size="14" font-weight="bold" fill="#1f2937">+2°</text>
+                                    <g transform="translate(50, 70)">
+                                        <circle cx="0" cy="30" r="4" fill="#000"/>
+                                        <line x1="0" y1="30" x2="0" y2="0" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <path d="M 0 30 Q 8 15, 14 0" stroke="#dc2626" stroke-width="3" fill="none"/>
+                                        <circle cx="14" cy="0" r="4" fill="#dc2626"/>
+                                        <text x="7" y="50" text-anchor="middle" font-size="11" fill="#dc2626" font-weight="bold">17 yds</text>
+                                    </g>
+                                    <g transform="translate(265, 70)">
+                                        <circle cx="0" cy="30" r="4" fill="#000"/>
+                                        <line x1="0" y1="30" x2="0" y2="0" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <path d="M 0 30 Q 5 15, 8 0" stroke="#f59e0b" stroke-width="3" fill="none"/>
+                                        <circle cx="8" cy="0" r="4" fill="#f59e0b"/>
+                                        <text x="4" y="50" text-anchor="middle" font-size="11" fill="#f59e0b" font-weight="bold">10 yds</text>
+                                    </g>
+                                    <g transform="translate(480, 70)">
+                                        <circle cx="0" cy="30" r="4" fill="#000"/>
+                                        <line x1="0" y1="30" x2="0" y2="0" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <path d="M 0 30 Q 4 15, 6 0" stroke="#22c55e" stroke-width="3" fill="none"/>
+                                        <circle cx="6" cy="0" r="4" fill="#22c55e"/>
+                                        <text x="3" y="50" text-anchor="middle" font-size="11" fill="#22c55e" font-weight="bold">8 yds</text>
                                     </g>
                                     
-                                    <!-- 7-IRON -->
-                                    <g transform="translate(250, 40)">
-                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#f59e0b">7-IRON (150 yds)</text>
-                                        <circle cx="0" cy="40" r="5" fill="#000"/>
-                                        <line x1="0" y1="40" x2="0" y2="0" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
-                                        <path d="M 0 40 Q 6 20, 10 0" stroke="#f59e0b" stroke-width="4" fill="none"/>
-                                        <circle cx="10" cy="0" r="6" fill="#f59e0b"/>
-                                        <line x1="0" y1="60" x2="10" y2="60" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3,3"/>
-                                        <text x="5" y="80" text-anchor="middle" font-size="14" fill="#f59e0b" font-weight="bold">10 yards</text>
+                                    <!-- ROW 2: +5° Face-to-Path -->
+                                    <text x="10" y="215" font-size="14" font-weight="bold" fill="#1f2937">+5°</text>
+                                    <g transform="translate(50, 190)">
+                                        <circle cx="0" cy="30" r="4" fill="#000"/>
+                                        <line x1="0" y1="30" x2="0" y2="0" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <path d="M 0 30 Q 20 15, 35 0" stroke="#dc2626" stroke-width="3" fill="none"/>
+                                        <circle cx="35" cy="0" r="4" fill="#dc2626"/>
+                                        <text x="17" y="50" text-anchor="middle" font-size="11" fill="#dc2626" font-weight="bold">42 yds</text>
+                                    </g>
+                                    <g transform="translate(265, 190)">
+                                        <circle cx="0" cy="30" r="4" fill="#000"/>
+                                        <line x1="0" y1="30" x2="0" y2="0" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <path d="M 0 30 Q 12 15, 21 0" stroke="#f59e0b" stroke-width="3" fill="none"/>
+                                        <circle cx="21" cy="0" r="4" fill="#f59e0b"/>
+                                        <text x="10" y="50" text-anchor="middle" font-size="11" fill="#f59e0b" font-weight="bold">25 yds</text>
+                                    </g>
+                                    <g transform="translate(480, 190)">
+                                        <circle cx="0" cy="30" r="4" fill="#000"/>
+                                        <line x1="0" y1="30" x2="0" y2="0" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <path d="M 0 30 Q 10 15, 17 0" stroke="#22c55e" stroke-width="3" fill="none"/>
+                                        <circle cx="17" cy="0" r="4" fill="#22c55e"/>
+                                        <text x="8" y="50" text-anchor="middle" font-size="11" fill="#22c55e" font-weight="bold">20 yds</text>
                                     </g>
                                     
-                                    <!-- WEDGE -->
-                                    <g transform="translate(450, 40)">
-                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#22c55e">WEDGE (120 yds)</text>
-                                        <circle cx="0" cy="40" r="5" fill="#000"/>
-                                        <line x1="0" y1="40" x2="0" y2="0" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
-                                        <path d="M 0 40 Q 4 20, 8 0" stroke="#22c55e" stroke-width="4" fill="none"/>
-                                        <circle cx="8" cy="0" r="6" fill="#22c55e"/>
-                                        <line x1="0" y1="60" x2="8" y2="60" stroke="#22c55e" stroke-width="2" stroke-dasharray="3,3"/>
-                                        <text x="4" y="80" text-anchor="middle" font-size="14" fill="#22c55e" font-weight="bold">8 yards</text>
+                                    <!-- ROW 3: +8° Face-to-Path -->
+                                    <text x="10" y="335" font-size="14" font-weight="bold" fill="#1f2937">+8°</text>
+                                    <g transform="translate(50, 310)">
+                                        <circle cx="0" cy="30" r="4" fill="#000"/>
+                                        <line x1="0" y1="30" x2="0" y2="0" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <path d="M 0 30 Q 33 15, 56 0" stroke="#dc2626" stroke-width="3" fill="none"/>
+                                        <circle cx="56" cy="0" r="4" fill="#dc2626"/>
+                                        <text x="28" y="50" text-anchor="middle" font-size="11" fill="#dc2626" font-weight="bold">67 yds!</text>
+                                    </g>
+                                    <g transform="translate(265, 310)">
+                                        <circle cx="0" cy="30" r="4" fill="#000"/>
+                                        <line x1="0" y1="30" x2="0" y2="0" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <path d="M 0 30 Q 20 15, 33 0" stroke="#f59e0b" stroke-width="3" fill="none"/>
+                                        <circle cx="33" cy="0" r="4" fill="#f59e0b"/>
+                                        <text x="16" y="50" text-anchor="middle" font-size="11" fill="#f59e0b" font-weight="bold">40 yds</text>
+                                    </g>
+                                    <g transform="translate(480, 310)">
+                                        <circle cx="0" cy="30" r="4" fill="#000"/>
+                                        <line x1="0" y1="30" x2="0" y2="0" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <path d="M 0 30 Q 16 15, 27 0" stroke="#22c55e" stroke-width="3" fill="none"/>
+                                        <circle cx="27" cy="0" r="4" fill="#22c55e"/>
+                                        <text x="13" y="50" text-anchor="middle" font-size="11" fill="#22c55e" font-weight="bold">32 yds</text>
                                     </g>
                                 </svg>
                             `,
-                            description: "Small error (+2°) → Small amplification",
-                            keyPoint: `<div class="bg-green-50 border-2 border-green-400 rounded-lg p-3">
-                                <p class="font-bold mb-2">Manageable Miss!</p>
-                                <p class="text-sm">Even with driver, 17 yards offline is recoverable. This is why pros can play with small face-to-path errors.</p>
-                            </div>`,
-                            interactive: false
-                        },
-                        // STEP 5b: +5° Face-to-Path
-                        {
-                            title: "Distance Amplifies Errors: +5° Face-to-Path",
-                            svg: `
-                                <svg viewBox="0 0 600 180" class="w-full">
-                                    <text x="300" y="20" text-anchor="middle" font-size="18" font-weight="bold" fill="#1f2937">+5° Face-to-Path</text>
-                                    
-                                    <!-- DRIVER -->
-                                    <g transform="translate(50, 40)">
-                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#dc2626">DRIVER (250 yds)</text>
-                                        <circle cx="0" cy="40" r="5" fill="#000"/>
-                                        <line x1="0" y1="40" x2="0" y2="0" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
-                                        <path d="M 0 40 Q 25 20, 42 0" stroke="#dc2626" stroke-width="4" fill="none"/>
-                                        <circle cx="42" cy="0" r="6" fill="#dc2626"/>
-                                        <line x1="0" y1="60" x2="42" y2="60" stroke="#dc2626" stroke-width="2" stroke-dasharray="3,3"/>
-                                        <text x="21" y="80" text-anchor="middle" font-size="14" fill="#dc2626" font-weight="bold">42 yards</text>
-                                    </g>
-                                    
-                                    <!-- 7-IRON -->
-                                    <g transform="translate(250, 40)">
-                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#f59e0b">7-IRON (150 yds)</text>
-                                        <circle cx="0" cy="40" r="5" fill="#000"/>
-                                        <line x1="0" y1="40" x2="0" y2="0" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
-                                        <path d="M 0 40 Q 15 20, 25 0" stroke="#f59e0b" stroke-width="4" fill="none"/>
-                                        <circle cx="25" cy="0" r="6" fill="#f59e0b"/>
-                                        <line x1="0" y1="60" x2="25" y2="60" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3,3"/>
-                                        <text x="12" y="80" text-anchor="middle" font-size="14" fill="#f59e0b" font-weight="bold">25 yards</text>
-                                    </g>
-                                    
-                                    <!-- WEDGE -->
-                                    <g transform="translate(450, 40)">
-                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#22c55e">WEDGE (120 yds)</text>
-                                        <circle cx="0" cy="40" r="5" fill="#000"/>
-                                        <line x1="0" y1="40" x2="0" y2="0" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
-                                        <path d="M 0 40 Q 10 20, 20 0" stroke="#22c55e" stroke-width="4" fill="none"/>
-                                        <circle cx="20" cy="0" r="6" fill="#22c55e"/>
-                                        <line x1="0" y1="60" x2="20" y2="60" stroke="#22c55e" stroke-width="2" stroke-dasharray="3,3"/>
-                                        <text x="10" y="80" text-anchor="middle" font-size="14" fill="#22c55e" font-weight="bold">20 yards</text>
-                                    </g>
-                                </svg>
-                            `,
-                            description: "Medium error (+5°) → Big trouble with driver!",
-                            keyPoint: `<div class="bg-orange-50 border-2 border-orange-400 rounded-lg p-3">
-                                <p class="font-bold mb-2">Driver in the Trees!</p>
-                                <p class="text-sm">42 yards offline with driver = out of bounds. But wedge at 20 yards is still playable. Same swing error, dramatically different outcome!</p>
-                            </div>`,
-                            interactive: false
-                        },
-                        // STEP 5c: +8° Face-to-Path
-                        {
-                            title: "Distance Amplifies Errors: +8° Face-to-Path",
-                            svg: `
-                                <svg viewBox="0 0 600 180" class="w-full">
-                                    <text x="300" y="20" text-anchor="middle" font-size="18" font-weight="bold" fill="#1f2937">+8° Face-to-Path (BIG slice!)</text>
-                                    
-                                    <!-- DRIVER -->
-                                    <g transform="translate(50, 40)">
-                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#dc2626">DRIVER (250 yds)</text>
-                                        <circle cx="0" cy="40" r="5" fill="#000"/>
-                                        <line x1="0" y1="40" x2="0" y2="0" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
-                                        <path d="M 0 40 Q 40 20, 67 0" stroke="#dc2626" stroke-width="4" fill="none"/>
-                                        <circle cx="67" cy="0" r="6" fill="#dc2626"/>
-                                        <line x1="0" y1="60" x2="67" y2="60" stroke="#dc2626" stroke-width="2" stroke-dasharray="3,3"/>
-                                        <text x="33" y="80" text-anchor="middle" font-size="14" fill="#dc2626" font-weight="bold">67 yards!</text>
-                                    </g>
-                                    
-                                    <!-- 7-IRON -->
-                                    <g transform="translate(250, 40)">
-                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#f59e0b">7-IRON (150 yds)</text>
-                                        <circle cx="0" cy="40" r="5" fill="#000"/>
-                                        <line x1="0" y1="40" x2="0" y2="0" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
-                                        <path d="M 0 40 Q 24 20, 40 0" stroke="#f59e0b" stroke-width="4" fill="none"/>
-                                        <circle cx="40" cy="0" r="6" fill="#f59e0b"/>
-                                        <line x1="0" y1="60" x2="40" y2="60" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3,3"/>
-                                        <text x="20" y="80" text-anchor="middle" font-size="14" fill="#f59e0b" font-weight="bold">40 yards</text>
-                                    </g>
-                                    
-                                    <!-- WEDGE -->
-                                    <g transform="translate(450, 40)">
-                                        <text x="0" y="0" font-size="16" font-weight="bold" fill="#22c55e">WEDGE (120 yds)</text>
-                                        <circle cx="0" cy="40" r="5" fill="#000"/>
-                                        <line x1="0" y1="40" x2="0" y2="0" stroke="#d1d5db" stroke-width="2" stroke-dasharray="4,4"/>
-                                        <path d="M 0 40 Q 16 20, 32 0" stroke="#22c55e" stroke-width="4" fill="none"/>
-                                        <circle cx="32" cy="0" r="6" fill="#22c55e"/>
-                                        <line x1="0" y1="60" x2="32" y2="60" stroke="#22c55e" stroke-width="2" stroke-dasharray="3,3"/>
-                                        <text x="16" y="80" text-anchor="middle" font-size="14" fill="#22c55e" font-weight="bold">32 yards</text>
-                                    </g>
-                                </svg>
-                            `,
-                            description: "Big error (+8°) → MASSIVE amplification with driver!",
+                            description: "The same face-to-path error gets amplified more with longer clubs because the ball is in the air longer!",
                             keyPoint: `<div class="bg-red-50 border-2 border-red-400 rounded-lg p-3">
-                                <p class="font-bold mb-2">Unplayable with Driver!</p>
-                                <p class="text-sm">67 yards offline = two fairways over! But even wedge is only 32 yards offline. This is why slicers should practice with short irons first - same swing flaw, but manageable results.</p>
+                                <p class="font-bold text-lg mb-2">💡 The Pattern:</p>
+                                <p class="text-sm mb-2">Compare across each row to see how the SAME error (+2°, +5°, or +8°) affects each club differently.</p>
+                                <p class="text-sm mb-2"><strong>+2°:</strong> Manageable with all clubs (pros play with this)</p>
+                                <p class="text-sm mb-2"><strong>+5°:</strong> Driver = trouble (42 yds), Wedge = playable (20 yds)</p>
+                                <p class="text-sm"><strong>+8°:</strong> Driver = disaster (67 yds!), Wedge = still only 32 yds</p>
+                                <p class="text-sm mt-3 pt-3 border-t border-red-300 font-semibold">This is why beginners should practice with short irons first - same swing flaw, manageable results!</p>
                             </div>`,
                             interactive: false
                         },
