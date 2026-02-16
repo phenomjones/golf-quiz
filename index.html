@@ -391,7 +391,7 @@
         };
         
         // VERSION INFO
-        const APP_VERSION = "V4.2 - February 16, 2026 - THUNDER BATCH 2 + TRUE PHYSICS (8 UX fixes + researched gear multipliers)";
+        const APP_VERSION = "V4.3 - February 16, 2026 - L2 overhaul: gear-aware curve Q, yards-offline Q, equal-weight pool, fixed shot shape labels";
         
         // Simple state management
         let state = {
@@ -464,10 +464,10 @@
             "Straight": "starts on target, flies straight",
             "Push": "starts right, flies straight",
             "Pull": "starts left, flies straight",
-            "Draw": "starts on target, curves left",
-            "Fade": "starts on target, curves right",
-            "Hook": "starts on target, curves severely left",
-            "Slice": "starts on target, curves severely right",
+            "Draw": "gentle curve left",
+            "Fade": "gentle curve right",
+            "Hook": "strong curve left",
+            "Slice": "strong curve right",
             "Push-draw": "starts right, curves left",
             "Push-fade": "starts right, curves right",
             "Push-hook": "starts right, curves severely left",
@@ -906,53 +906,27 @@
                 }
                 
                 if (diffLevel === 2) {
-                    // 🔀 FRESH CARDS: Gear question pool for Level 2
+                    // 🔀 FRESH CARDS: All questions in one equal-weight pool, any can appear on any card
+                    const netSpin = baseFaceToPath + gearEffect;
+                    const yardsOffline = Math.abs(netSpin) * physics.curveMultiplier;
+                    
                     const gearPool = [
-                        {type: 'spin_type', weight: 20, fn: () => generateImpactSpinTypeQuestion(gearEffect, impact, impactLocationText, diffLevel)},
-                        {type: 'gear_help', weight: 18, fn: () => generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel)},
-                        {type: 'magnitude', weight: 15, fn: () => generateImpactMagnitudeQuestion(gearEffect, impact, clubType, diffLevel)},
-                        {type: 'opposing', weight: 12, fn: () => generateOpposingForcesLevel2Question(gearEffect, baseFaceToPath, diffLevel)},
-                        {type: 'center_target', weight: 10, fn: () => generateCenterStrikeTargetQuestion(gearEffect, baseFaceToPath, diffLevel)},
-                        {type: 'gear_direction', weight: 10, fn: () => generateGearDirectionThisShotQuestion(impact, gearEffect, diffLevel)},
-                        {type: 'gear_modifier', weight: 10, fn: () => generateGearModifierQuestion(clubType, diffLevel)},
-                        {type: 'ranking', weight: 5, fn: () => generateImpactRankingTargetQuestion(impact, diffLevel)}
+                        {type: 'spin_type', fn: () => generateImpactSpinTypeQuestion(gearEffect, impact, impactLocationText, diffLevel)},
+                        {type: 'gear_help', fn: () => generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, impact, face, path, clubType, diffLevel)},
+                        {type: 'magnitude', fn: () => generateImpactMagnitudeQuestion(gearEffect, impact, clubType, diffLevel)},
+                        {type: 'opposing', fn: () => generateOpposingForcesLevel2Question(gearEffect, baseFaceToPath, diffLevel)},
+                        {type: 'gear_direction', fn: () => generateGearDirectionThisShotQuestion(impact, gearEffect, diffLevel)},
+                        {type: 'gear_modifier', fn: () => generateGearModifierQuestion(clubType, diffLevel)},
+                        {type: 'curve_direction', fn: () => generateCurveDirectionQuestion(baseFaceToPath, diffLevel, clubType, gearEffect)},
+                        {type: 'ftp', fn: () => generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace)},
+                        {type: 'yards_offline', fn: () => generateYardsOfflineL2Question(baseFaceToPath, gearEffect, netSpin, yardsOffline, impact, face, path, clubType, physics, diffLevel)},
                     ];
                     
-                    // Helper: pick a weighted random gear question, avoiding already-used types
-                    const usedTypes = [];
-                    function pickGearQuestion() {
-                        const available = gearPool.filter(q => !usedTypes.includes(q.type));
-                        const totalWeight = available.reduce((sum, q) => sum + q.weight, 0);
-                        let rand = Math.random() * totalWeight;
-                        for (const item of available) {
-                            rand -= item.weight;
-                            if (rand <= 0) {
-                                usedTypes.push(item.type);
-                                return item.fn();
-                            }
-                        }
-                        // Fallback
-                        const fallback = available[0] || gearPool[0];
-                        usedTypes.push(fallback.type);
-                        return fallback.fn();
-                    }
-                    
-                    // Card 1: 40% FTP, 60% gear
-                    if (Math.random() < 0.40) {
-                        cards.push(generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace));
-                    } else {
-                        cards.push(pickGearQuestion());
-                    }
-                    
-                    // Card 2: 40% curve direction, 60% gear
-                    if (Math.random() < 0.40) {
-                        cards.push(generateCurveDirectionQuestion(baseFaceToPath, diffLevel, clubType));
-                    } else {
-                        cards.push(pickGearQuestion());
-                    }
-                    
-                    // Card 3: 100% gear
-                    cards.push(pickGearQuestion());
+                    // Pick 3 unique question types with equal probability
+                    const shuffled = gearPool.shuffled();
+                    cards.push(shuffled[0].fn());
+                    cards.push(shuffled[1].fn());
+                    cards.push(shuffled[2].fn());
                 }
                 
             } else if (diffLevel <= 4) {
@@ -1074,7 +1048,7 @@
                 
                 // Level 4: Add gear help/hurt if gear exists
                 if (diffLevel === 4 && gearEffect !== 0 && Math.abs(baseFaceToPath) > 1) {
-                    cards.push(generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel));
+                    cards.push(generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, impact, face, path, clubType, diffLevel));
                 }
                 
                 // Level 4: Add lie effect direction if lie exists
@@ -1194,7 +1168,7 @@
                 
                 // Level 5: Add gear effect help/hurt question if gear effect exists
                 if (diffLevel >= 5 && gearEffect !== 0 && Math.abs(baseFaceToPath) > 1) {
-                    basicQuestions.push(generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel));
+                    basicQuestions.push(generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, impact, face, path, clubType, diffLevel));
                 }
                 
                 // Level 5-6: Add face percentage and curve comparison questions
@@ -1554,10 +1528,10 @@
                 "Straight": "starts on target, flies straight",
                 "Push": "starts right, flies straight",
                 "Pull": "starts left, flies straight",
-                "Draw": "starts on target, curves left",
-                "Fade": "starts on target, curves right",
-                "Hook": "starts on target, curves severely left",
-                "Slice": "starts on target, curves severely right",
+                "Draw": "gentle curve left",
+                "Fade": "gentle curve right",
+                "Hook": "strong curve left",
+                "Slice": "strong curve right",
                 "Push-draw": "starts right, curves left",
                 "Push-fade": "starts right, curves right",
                 "Push-hook": "starts right, curves severely left",
@@ -1882,7 +1856,7 @@
         }
 
         // Level 2: Which direction will it curve?
-        function generateCurveDirectionQuestion(baseFaceToPath, diffLevel, clubType) {
+        function generateCurveDirectionQuestion(baseFaceToPath, diffLevel, clubType, gearEffect = 0) {
             // Club-specific "straight" thresholds - represents ~2-3 yards offline
             const straightThresholds = {
                 driver: 0.25,      // ~3 yards offline = acceptable straight
@@ -1894,10 +1868,13 @@
             
             const threshold = straightThresholds[clubType] || 0.5;
             
+            // In L2+, use net spin (FTP + gear effect) for the correct answer
+            const netSpin = diffLevel >= 2 ? baseFaceToPath + gearEffect : baseFaceToPath;
+            
             let correct;
-            if (Math.abs(baseFaceToPath) <= threshold) {
+            if (Math.abs(netSpin) <= threshold) {
                 correct = "No curve (straight)";
-            } else if (baseFaceToPath < 0) {
+            } else if (netSpin < 0) {
                 correct = "Left";
             } else {
                 correct = "Right";
@@ -1905,11 +1882,23 @@
             
             const options = ["Left", "Right", "No curve (straight)"];
             
+            const ftpDirection = baseFaceToPath < 0 ? 'draw' : baseFaceToPath > 0 ? 'fade' : 'straight';
+            const gearDirection = gearEffect < 0 ? 'draw' : gearEffect > 0 ? 'fade' : 'none';
+            const netDirection = netSpin < 0 ? 'draw (left)' : netSpin > 0 ? 'fade (right)' : 'straight';
+            
+            // Build explanation based on whether gear effect is relevant
+            let explanationHtml;
+            if (diffLevel >= 2 && Math.abs(gearEffect) > 0.1) {
+                explanationHtml = `<div><strong>Step 1 — Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}° ${ftpDirection}</div><div><strong>Step 2 — Gear effect:</strong> ${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}° ${gearDirection}</div><div><strong>Step 3 — Net spin:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}° ${netDirection}</strong></div>`;
+            } else {
+                explanationHtml = `<div><strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°</div><div>${Math.abs(baseFaceToPath) <= threshold ? `Face and path nearly aligned (within ${threshold}°) → flies relatively STRAIGHT` : baseFaceToPath < 0 ? 'Face is LEFT of path → draw spin → curves LEFT' : 'Face is RIGHT of path → fade spin → curves RIGHT'}</div>`;
+            }
+            
             return {
-                question: "Which direction will the ball curve?",
+                question: diffLevel >= 2 ? "Given ALL the data shown, which direction will the ball curve?" : "Which direction will the ball curve?",
                 options: options,
                 correct: correct,
-                explanation: `<div><strong>Face-to-path:</strong> ${baseFaceToPath.toFixed(1)}°</div><div>${Math.abs(baseFaceToPath) <= threshold ? `Face and path nearly aligned (within ${threshold}°) → flies relatively STRAIGHT` : baseFaceToPath < 0 ? 'Face is LEFT of path → draw spin → curves LEFT' : 'Face is RIGHT of path → fade spin → curves RIGHT'}</div>`
+                explanation: explanationHtml
             };
         }
 
@@ -2211,7 +2200,7 @@
             };
         }
 
-        function generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, diffLevel) {
+        function generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, impactLocation, face, path, clubType, diffLevel) {
             // Determine if gear effect is helping (opposing the curve) or hurting (adding to curve)
             const sameDirection = (gearEffect > 0 && baseFaceToPath > 0) || (gearEffect < 0 && baseFaceToPath < 0);
             
@@ -2231,11 +2220,28 @@
             }
             
             const netSpin = baseFaceToPath + gearEffect;
+            const isToe = impactLocation > 0;
+            const impactSide = isToe ? 'toe' : 'heel';
+            const gearDirection = gearEffect < 0 ? 'draw' : 'fade';
+            const ftpDirection = baseFaceToPath < 0 ? 'draw' : 'fade';
+            const multipliers = { driver: 0.30, wood: 0.24, long_iron: 0.12, mid_iron: 0.08, wedge: 0.04 };
+            const mult = multipliers[clubType] || 0.15;
+            const clubName = clubType.replace('_', ' ');
+            
+            let resultText;
+            if (isOvercorrect) {
+                resultText = `The ${Math.abs(gearEffect).toFixed(1)}° ${gearDirection} gear effect <strong>overpowers</strong> the ${Math.abs(baseFaceToPath).toFixed(1)}° ${ftpDirection} and reverses the curve into a <strong>${netSpin < 0 ? 'draw' : 'fade'}!</strong>`;
+            } else if (sameDirection) {
+                resultText = `Both point the same way → curve <strong>amplified</strong> from ${Math.abs(baseFaceToPath).toFixed(1)}° to ${Math.abs(netSpin).toFixed(1)}°`;
+            } else {
+                resultText = `Gear effect <strong>reduces</strong> the ${ftpDirection} curve from ${Math.abs(baseFaceToPath).toFixed(1)}° to ${Math.abs(netSpin).toFixed(1)}°`;
+            }
+            
             return {
                 question: `Will the gear effect from ${impactLocationText} help or hurt this shot?`,
                 options: options,
                 correct: correct,
-                explanation: `<div><strong>Base face-to-path:</strong> ${baseFaceToPath.toFixed(1)}° (${baseFaceToPath < 0 ? 'draw bias' : baseFaceToPath > 0 ? 'fade bias' : 'neutral'})</div><div><strong>Gear effect:</strong> ${gearEffect.toFixed(1)}° (${gearEffect < 0 ? 'draw spin' : 'fade spin'})</div><div><strong>Net spin:</strong> ${netSpin.toFixed(1)}°</div><div class="mt-2">${isOvercorrect ? 'The gear effect is STRONGER than the face-to-path and in the opposite direction. It overcorrects past straight into a ' + (netSpin < 0 ? 'draw' : 'fade') + '!' : sameDirection ? 'The gear effect is in the SAME direction as face-to-path, making the curve worse!' : 'The gear effect is in the OPPOSITE direction from face-to-path, helping to straighten the shot.'}</div>`
+                explanation: `<div><strong>Step 1 — Face-to-path:</strong> ${face.toFixed(1)}° − ${path >= 0 ? '' : '('}${path.toFixed(1)}°${path >= 0 ? '' : ')'} = <strong>${baseFaceToPath.toFixed(1)}° ${ftpDirection}</strong></div><div><strong>Step 2 — Gear effect:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${impactSide} × ${mult} (${clubName}) = <strong>${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}° ${gearDirection}</strong></div><div><strong>Step 3 — Combined:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}° net ${netSpin < 0 ? 'draw' : 'fade'}</strong></div><div class="mt-2">${resultText}</div>`
             };
         }
 
@@ -2594,11 +2600,11 @@
         
         function generateImpactSpinTypeQuestion(gearEffect, impactLocation, impactLocationText, diffLevel) {
             const spinType = Math.abs(gearEffect) < 0.2 ? "None (center strike)" : 
-                             gearEffect < 0 ? "Draw" : "Fade";
+                             gearEffect < 0 ? "Draw (curves left)" : "Fade (curves right)";
             
             return {
                 question: "What kind of spin will the impact location of this shot create?",
-                options: ["Draw", "Fade", "None (center strike)"].shuffled(),
+                options: ["Draw (curves left)", "Fade (curves right)", "None (center strike)"].shuffled(),
                 correct: spinType,
                 explanation: `<div><strong>Impact:</strong> ${impactLocationText}</div><div><strong>Gear effect:</strong> ${Math.abs(gearEffect).toFixed(2)}°</div><div class="mt-2">${Math.abs(gearEffect) < 0.2 ? '<strong>Center strike</strong> = No gear effect' : impactLocation > 0 ? '<strong>Toe hit</strong> twists face closed → <strong>Draw spin</strong> (curves left)' : '<strong>Heel hit</strong> twists face open → <strong>Fade spin</strong> (curves right)'}</div>`
             };
@@ -2634,14 +2640,59 @@
             };
         }
         
-        function generateCenterStrikeTargetQuestion(gearEffect, baseFaceToPath, diffLevel) {
+        function generateYardsOfflineL2Question(baseFaceToPath, gearEffect, netSpin, yardsOffline, impactLocation, face, path, clubType, physics, diffLevel) {
+            const isToe = impactLocation > 0;
+            const impactSide = isToe ? 'toe' : 'heel';
+            const mult = physics.gearMultiplier;
+            const clubName = clubType.replace('_', ' ');
+            const ftpDirection = baseFaceToPath < 0 ? 'draw' : 'fade';
+            const gearDirection = gearEffect < 0 ? 'draw' : 'fade';
+            const netDirection = netSpin < 0 ? 'draw (left)' : 'fade (right)';
+            
+            // Round to nearest 0.5 for cleaner answers
+            const correctYards = Math.round(yardsOffline * 2) / 2;
+            
+            // Generate wrong options
+            const wrongOptions = [
+                Math.round(Math.abs(baseFaceToPath) * physics.curveMultiplier * 2) / 2,  // Without gear effect
+                Math.round((correctYards + 3) * 2) / 2,
+                Math.round(Math.max(0.5, correctYards - 3) * 2) / 2
+            ].filter(v => Math.abs(v - correctYards) > 0.4);
+            
+            const options = [correctYards, ...wrongOptions.slice(0, 3)]
+                .filter((v, i, a) => a.indexOf(v) === i)
+                .shuffled()
+                .slice(0, 4)
+                .map(v => v.toFixed(1) + ' yards');
+            
+            // Ensure correct answer is in options
+            const correctStr = correctYards.toFixed(1) + ' yards';
+            if (!options.includes(correctStr)) options[0] = correctStr;
+            
+            return {
+                question: "How many yards offline will this ball finish due to curve?",
+                options: options.shuffled(),
+                correct: correctStr,
+                explanation: `<div><strong>Step 1 — Face-to-path:</strong> ${face.toFixed(1)}° − ${path.toFixed(1)}° = <strong>${baseFaceToPath.toFixed(1)}° ${ftpDirection}</strong></div><div><strong>Step 2 — Gear effect:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${impactSide} × ${mult} (${clubName}) = <strong>${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°</strong></div><div><strong>Step 3 — Net spin:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}°</strong></div><div><strong>Step 4 — Yards offline:</strong> ${Math.abs(netSpin).toFixed(1)}° × ${physics.curveMultiplier} yd/° (${clubName}) = <strong>${yardsOffline.toFixed(1)} yards ${netDirection}</strong></div>`
+            };
+        }
+        
+        function generateCenterStrikeTargetQuestion(gearEffect, baseFaceToPath, impactLocation, face, path, clubType, diffLevel) {
             const wouldHelp = (gearEffect > 0 && baseFaceToPath < 0) || (gearEffect < 0 && baseFaceToPath > 0);
+            const isToe = impactLocation > 0;
+            const impactSide = isToe ? 'toe' : 'heel';
+            const gearDirection = gearEffect < 0 ? 'draw' : 'fade';
+            const ftpDirection = baseFaceToPath < 0 ? 'draw' : 'fade';
+            const netSpin = baseFaceToPath + gearEffect;
+            const multipliers = { driver: 0.30, wood: 0.24, long_iron: 0.12, mid_iron: 0.08, wedge: 0.04 };
+            const mult = multipliers[clubType] || 0.15;
+            const clubName = clubType.replace('_', ' ');
             
             return {
                 question: "If this shot was struck CENTER on the face, would it finish closer to or further from the target line?",
                 options: ["Closer to target line", "Further from target line", "Same distance"],
                 correct: wouldHelp ? "Further from target line" : "Closer to target line",
-                explanation: `<div><strong>Current gear effect:</strong> ${Math.abs(gearEffect).toFixed(1)}° ${wouldHelp ? 'reducing curve (helping)' : 'adding curve (hurting)'}</div><div><strong>Center strike:</strong> No gear effect (0°)</div><div class="mt-2"><strong>Result:</strong> Without gear, shot would have ${wouldHelp ? '<strong>more</strong> curve → further from target' : '<strong>less</strong> curve → closer to target'}</div>`
+                explanation: `<div><strong>Step 1 — Face-to-path:</strong> ${face.toFixed(1)}° face − ${path >= 0 ? '' : '('}${path.toFixed(1)}°${path >= 0 ? '' : ')'} path = <strong>${baseFaceToPath.toFixed(1)}° ${ftpDirection}</strong></div><div><strong>Step 2 — Gear effect:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${impactSide} × ${mult} (${clubName}) = <strong>${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}° ${gearDirection}</strong></div><div><strong>Step 3 — Combined:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}° net ${netSpin < 0 ? 'draw' : 'fade'}</strong></div><div class="mt-2">${wouldHelp ? `The ${impactSide} gear effect is <strong>reducing</strong> the ${ftpDirection} curve (${Math.abs(baseFaceToPath).toFixed(1)}° → ${Math.abs(netSpin).toFixed(1)}°). Remove it with a center strike and the full ${Math.abs(baseFaceToPath).toFixed(1)}° ${ftpDirection} takes effect → <strong>further from target</strong>.` : `The ${impactSide} gear effect is <strong>adding</strong> to the ${ftpDirection} curve (${Math.abs(baseFaceToPath).toFixed(1)}° → ${Math.abs(netSpin).toFixed(1)}°). Remove it with a center strike and you only get ${Math.abs(baseFaceToPath).toFixed(1)}° → <strong>closer to target</strong>.`}</div>`
             };
         }
         
