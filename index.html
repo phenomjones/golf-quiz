@@ -369,28 +369,6 @@
         }
         
         /* Formula Sheet Styles */
-        .formula-sheet-btn {
-            position: fixed;
-            top: 12px;
-            right: 12px;
-            z-index: 40;
-            background: rgba(255,255,255,0.92);
-            border: 2px solid #d1d5db;
-            border-radius: 20px;
-            padding: 6px 14px;
-            font-size: 13px;
-            color: #4b5563;
-            cursor: pointer;
-            backdrop-filter: blur(8px);
-            transition: all 0.2s;
-            display: none;
-        }
-        .formula-sheet-btn:hover {
-            background: #f3f4f6;
-            border-color: #9ca3af;
-            color: #1f2937;
-        }
-        .formula-sheet-btn.visible { display: block; }
         .formula-modal-overlay {
             display: none;
             position: fixed;
@@ -472,7 +450,7 @@
         };
         
         // VERSION INFO
-        const APP_VERSION = "V4.4 - February 17, 2026 - Curve%×Carry system (TrackMan-verified), formula sheet, training wheels, direction binary fix, highlight mods";
+        const APP_VERSION = "V4.4.1 - February 17, 2026 - Split FTP/Gear curve calc (FTP=curvePct, Gear=1.0%), formula sheet, training wheels";
         
         // Simple state management
         let state = {
@@ -603,12 +581,11 @@
             const gearMults = {driver: '0.30', wood: '0.24', long_iron: '0.12', mid_iron: '0.08', wedge: '0.04'};
             
             let hintText = '';
-            if (level >= 1 && cardType === 'club_carry') {
+            if (level === 1 && cardType === 'club_carry') {
                 hintText = '(curve: ' + (curvePcts[clubType] || '3.2%') + ')';
             }
             if (level >= 2 && cardType === 'impact') {
-                const clubName = (clubType || 'driver').replace('_', ' ');
-                hintText = '(×' + (gearMults[clubType] || '0.30') + ' ' + clubName + ')';
+                hintText = '(×' + (gearMults[clubType] || '0.30') + ' gear mult)';
             }
             
             if (!hintText) return '';
@@ -619,11 +596,8 @@
         // FORMULA SHEET — Generate content based on current level
         // ============================================================
         function updateFormulaSheet(level) {
-            const btn = document.getElementById('formulaSheetBtn');
             const content = document.getElementById('formulaContent');
-            if (!btn || !content) return;
-            
-            btn.classList.add('visible');
+            if (!content) return;
             
             let html = '<div style="text-align:center;font-family:system-ui;font-weight:700;font-size:18px;margin-bottom:12px;">📋 Formula Reference</div>';
             
@@ -646,6 +620,7 @@
                 html += '<div class="formula">Impact(mm) × Gear Mult = Gear°</div>';
                 html += '<div class="values">Toe = Draw (−) &nbsp;│&nbsp; Heel = Fade (+)</div>';
                 html += '<div class="formula" style="margin-top:4px;">FTP + Gear° = Net Spin</div>';
+            html += '<div class="values" style="margin-top:4px;font-size:12px;color:#6b7280;">Note: Gear uses 1.0% (all clubs) — FTP uses higher curve% above</div>';
                 html += '<div class="values" style="margin-top:4px;">';
                 html += '&nbsp;&nbsp;Driver ........ <strong>0.30</strong><br>';
                 html += '&nbsp;&nbsp;Wood .......... <strong>0.24</strong><br>';
@@ -716,6 +691,7 @@
             
             // Curve percentage display helper
             const curvePctDisplay = (physics.curvePct * 100).toFixed(1) + '%';
+            const GEAR_CURVE_PCT = 0.01; // Universal: 1.0% for all clubs (spin axis → yards)
             
             // Safety checks
             if (!physics) {
@@ -849,7 +825,7 @@
                 data["Impact Location"] = {
                     icon: "📍",
                     label: "Impact Location",
-                    value: Math.abs(impact).toFixed(1) + "mm " + impactSide,
+                    value: Math.abs(impact).toFixed(1) + "mm " + impactSide + getTrainingHint(diffLevel, "impact", clubType, scenarioCountForLevel[diffLevel]),
                     visual: null // Will be set after vertical impact is calculated
                 };
                 
@@ -1085,7 +1061,9 @@
                 if (diffLevel === 2) {
                     // 🔀 FRESH CARDS: All questions in one equal-weight pool, any can appear on any card
                     const netSpin = baseFaceToPath + gearEffect;
-                    const yardsOffline = Math.abs(netSpin) * Math.round(carry) * physics.curvePct;
+                    const ftpYards = baseFaceToPath * Math.round(carry) * physics.curvePct;
+                    const gearYards = gearEffect * Math.round(carry) * GEAR_CURVE_PCT;
+                    const yardsOffline = Math.abs(ftpYards + gearYards);
                     
                     const gearPool = [
                         {type: 'spin_type', fn: () => generateImpactSpinTypeQuestion(gearEffect, impact, impactLocationText, diffLevel)},
@@ -1120,7 +1098,7 @@
                 // Curve calculation (only use gear effect at L3-4, no wind yet)
                 const roundedCarry = Math.round(carry);
                 const baseCurveContribution = baseFaceToPath * roundedCarry * physics.curvePct * verticalGearMultiplier;
-                const gearContribution = gearEffect * roundedCarry * physics.curvePct * verticalGearMultiplier;
+                const gearContribution = gearEffect * roundedCarry * GEAR_CURVE_PCT * verticalGearMultiplier;
                 const curveContribution = baseCurveContribution + gearContribution;
                 
                 // NO WIND at Level 3-4 (wind starts at Level 5)
@@ -1194,7 +1172,7 @@
                 offlineExplanation += ` = ${baseCurveContribution.toFixed(1)} yards</div>`;
                 
                 if (Math.abs(gearEffect) > 0.1) {
-                    offlineExplanation += `<div class="ml-3">Gear effect: ${gearEffect.toFixed(1)}° × ${roundedCarry} yd × ${curvePctDisplay}`;
+                    offlineExplanation += `<div class="ml-3">Gear effect: ${gearEffect.toFixed(1)}° × ${roundedCarry} yd × 1.0%`;
                     if (diffLevel >= 3 && Math.abs(verticalImpact) > 0.1) {
                         offlineExplanation += ` × ${verticalGearMultiplier.toFixed(2)}`;
                     }
@@ -1387,7 +1365,7 @@
                 const faceContribution = face * startMultiplier; // Keep sign - positive = right, negative = left
                 const roundedCarry = Math.round(carry);
                 const baseCurveContribution = baseFaceToPath * roundedCarry * physics.curvePct * windMultiplier * verticalGearMultiplier; // Wind and vertical impact affect spin/curve
-                const gearContribution = gearEffect * roundedCarry * physics.curvePct * windMultiplier * verticalGearMultiplier; // Gear effect also affected by wind and vertical impact
+                const gearContribution = gearEffect * roundedCarry * GEAR_CURVE_PCT * windMultiplier * verticalGearMultiplier; // Gear effect: 1.0% (already spin axis)
                 const curveContribution = baseCurveContribution + gearContribution; // Total curve
                 
                 // Level 7: Add standard lie hypothetical (after curveContribution is calculated)
@@ -1609,7 +1587,7 @@
                     
                     explanationHTML += `<div class="${highlightClass} rounded p-2 border-2">`;
                     explanationHTML += `<div class="text-sm font-medium mb-1 ${textClass}"><strong>${warningIcon}Gear effect (${gearRelation}):</strong> ${impactLocationText}</div>`;
-                    explanationHTML += `<div class="font-semibold">${Math.abs(gearEffect).toFixed(1)}° ${gearDir} × ${roundedCarry} yd × ${curvePctDisplay}${windMultiplier !== 1.0 ? ' × ' + windMultiplier.toFixed(2) : ''}${verticalGearMultiplier !== 1.0 ? ' × ' + verticalGearMultiplier.toFixed(2) : ''}</div>`;
+                    explanationHTML += `<div class="font-semibold">${Math.abs(gearEffect).toFixed(1)}° ${gearDir} × ${roundedCarry} yd × 1.0%${windMultiplier !== 1.0 ? ' × ' + windMultiplier.toFixed(2) : ''}${verticalGearMultiplier !== 1.0 ? ' × ' + verticalGearMultiplier.toFixed(2) : ''}</div>`;
                     explanationHTML += `<div class="font-bold text-lg mt-1">= ${gearContribution > 0 ? '+' : ''}${gearContribution.toFixed(1)} yards ${gearContribution > 0 ? 'right' : 'left'}</div>`;
                     explanationHTML += '</div>';
                 }
@@ -1932,7 +1910,7 @@
             // CRITICAL: Recalculate curve with new face-to-path
             const newFaceToPath = newFace - path;
             const newBaseCurveContribution = newFaceToPath * carry * curvePct * windMultiplier * verticalGearMultiplier;
-            const newGearContribution = gearEffect * carry * curvePct * windMultiplier * verticalGearMultiplier; // Gear stays same
+            const newGearContribution = gearEffect * carry * GEAR_CURVE_PCT * windMultiplier * verticalGearMultiplier; // Gear stays same (1.0%)
             const newCurveContribution = newBaseCurveContribution + newGearContribution;
             
             const newNetOffline = newFaceContribution + newCurveContribution + windEffect;
@@ -2154,7 +2132,7 @@
             // CRITICAL: Recalculate curve with original face (path stays the same)
             const standardBaseFaceToPath = standardFace - path;
             const standardBaseCurve = standardBaseFaceToPath * carry * curvePct * windMultiplier * verticalGearMultiplier;
-            const standardGearCurve = (gearEffect || 0) * carry * curvePct * windMultiplier * verticalGearMultiplier;
+            const standardGearCurve = (gearEffect || 0) * carry * GEAR_CURVE_PCT * windMultiplier * verticalGearMultiplier;
             const standardCurveContribution = standardBaseCurve + standardGearCurve;
             
             const standardNetOffline = standardFaceContribution + standardCurveContribution + windEffect;
@@ -2852,7 +2830,7 @@
                 question: "How many yards offline will this ball finish due to curve?",
                 options: options.shuffled(),
                 correct: correctStr,
-                explanation: `<div><strong>Step 1 — Face-to-path:</strong> ${face.toFixed(1)}° − ${path.toFixed(1)}° = <strong>${baseFaceToPath.toFixed(1)}° ${ftpDirection}</strong></div><div><strong>Step 2 — Gear effect:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${impactSide} × ${mult} (${clubName}) = <strong>${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°</strong></div><div><strong>Step 3 — Net spin:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}°</strong></div><div><strong>Step 4 — Yards offline:</strong> ${Math.abs(netSpin).toFixed(1)}° × ${Math.round(carry)} yd × ${(physics.curvePct * 100).toFixed(1)}% = <strong>${yardsOffline.toFixed(1)} yards ${netDirection}</strong></div>`
+                explanation: `<div><strong>Step 1 — Face-to-path:</strong> ${face.toFixed(1)}° − ${path.toFixed(1)}° = <strong>${baseFaceToPath.toFixed(1)}° ${ftpDirection}</strong></div><div><strong>Step 2 — Gear effect:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${impactSide} × ${mult} (${clubName}) = <strong>${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°</strong></div><div><strong>Step 3 — Net spin:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}°</strong></div><div><strong>Step 4 — Yards offline:</strong></div><div class="ml-3">FTP: ${Math.abs(baseFaceToPath).toFixed(1)}° × ${Math.round(carry)} yd × ${(physics.curvePct * 100).toFixed(1)}% = ${Math.abs(baseFaceToPath * Math.round(carry) * physics.curvePct).toFixed(1)} yd</div><div class="ml-3">Gear: ${Math.abs(gearEffect).toFixed(1)}° × ${Math.round(carry)} yd × 1.0% = ${Math.abs(gearEffect * Math.round(carry) * 0.01).toFixed(1)} yd</div><div class="ml-3"><strong>Total: ${yardsOffline.toFixed(1)} yards ${netDirection}</strong></div>`
             };
         }
         
@@ -4393,7 +4371,8 @@
                     <!-- STEP 4: Distance -->
                     <g transform="translate(50, 475)">
                         <rect x="0" y="0" width="600" height="60" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
-                        <text x="300" y="42" text-anchor="middle" font-size="17" fill="#1a1a1a">4.7° × 250 yd × 3.2% = <tspan font-weight="700" fill="#ef4444" font-size="19">37.6 yards fade!</tspan></text>
+                        <text x="300" y="42" text-anchor="middle" font-size="17" fill="#1a1a1a">FTP: 2.0° × 250 × 3.2% = 16.0 yd   Gear: 2.7° × 250 × 1.0% = 6.8 yd</text>
+                        <text x="300" y="62" text-anchor="middle" font-size="17" fill="#1a1a1a">Total: <tspan font-weight="700" fill="#ef4444" font-size="19">22.8 yards fade!</tspan></text>
                     </g>
                     
                     <!-- Arrow markers -->
@@ -5014,8 +4993,9 @@
                         <text x="45" y="55" text-anchor="middle" font-size="26" fill="white" font-weight="700">5</text>
                         
                         <text x="90" y="32" text-anchor="start" font-size="18" fill="#16a34a" font-weight="700">CURVE DISTANCE</text>
-                        <text x="90" y="55" text-anchor="start" font-size="16" fill="#1a1a1a">7.92° × 250 yd × 3.2% = <tspan font-weight="700" fill="#dc2626" font-size="19">63.4 yards of curve!</tspan></text>
-                        <text x="90" y="76" text-anchor="start" font-size="14" fill="#6b7280" font-style="italic">This is how far the ball curves — it started right too!</text>
+                        <text x="90" y="55" text-anchor="start" font-size="16" fill="#1a1a1a">FTP: 3.6° × 250 × 3.2% = 28.8 yd   Gear: 4.32° × 250 × 1.0% = 10.8 yd</text>
+                        <text x="90" y="76" text-anchor="start" font-size="16" fill="#1a1a1a">Total: <tspan font-weight="700" fill="#dc2626" font-size="19">39.6 yards of curve!</tspan></text>
+                        <text x="90" y="92" text-anchor="start" font-size="13" fill="#6b7280" font-style="italic">FTP uses 3.2% (driver curve%) — Gear uses 1.0% (spin axis rate)</text>
                     </g>
                     
                     <!-- Clarification box -->
@@ -5023,7 +5003,7 @@
                         <rect x="0" y="0" width="600" height="110" fill="#eff6ff" stroke="#3b82f6" stroke-width="3" rx="12"/>
                         <text x="300" y="28" text-anchor="middle" font-size="17" fill="#1e40af" font-weight="700">📐 Understanding the Total Miss</text>
                         <text x="30" y="52" text-anchor="start" font-size="15" fill="#1a1a1a">The ball starts right (open face aims it right of target)</text>
-                        <text x="30" y="74" text-anchor="start" font-size="15" fill="#1a1a1a">THEN curves 26 more yards right (from spin axis)</text>
+                        <text x="30" y="74" text-anchor="start" font-size="15" fill="#1a1a1a">THEN curves 39.6 more yards right (from spin axis)</text>
                         <rect x="30" y="85" width="540" height="18" fill="#dbeafe" rx="3"/>
                         <text x="300" y="99" text-anchor="middle" font-size="14" fill="#1e40af" font-weight="700">Spin axis = curve only. Start direction is separate. Total miss = both combined.</text>
                     </g>
@@ -5649,7 +5629,7 @@
                     <!-- STEP 6: Final Distance -->
                     <g transform="translate(50, 755)">
                         <rect x="0" y="0" width="600" height="60" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
-                        <text x="300" y="42" text-anchor="middle" font-size="17" fill="#1a1a1a">2.49° × 170 yd × 2.3% = <tspan font-weight="700" fill="#dc2626" font-size="19">9.7 yards of fade</tspan></text>
+                        <text x="300" y="42" text-anchor="middle" font-size="17" fill="#1a1a1a">FTP: 1.68° × 170 × 2.3% = 6.6 yd   Gear: 0.81° × 170 × 1.0% = 1.4 yd   Total: <tspan font-weight="700" fill="#dc2626" font-size="18">8.0 yd fade</tspan></text>
                     </g>
                     
                     <!-- Clarification box -->
@@ -5657,7 +5637,7 @@
                         <rect x="0" y="0" width="600" height="100" fill="#eff6ff" stroke="#3b82f6" stroke-width="3" rx="12"/>
                         <text x="300" y="25" text-anchor="middle" font-size="17" fill="#1e40af" font-weight="700">📐 Understanding the Total Miss</text>
                         <text x="30" y="48" text-anchor="start" font-size="15" fill="#1a1a1a">Start direction: Effective face (+2.5°) aims ball right of target</text>
-                        <text x="30" y="68" text-anchor="start" font-size="15" fill="#1a1a1a">Curve: Spin axis adds 9.7 yards of fade on top of that</text>
+                        <text x="30" y="68" text-anchor="start" font-size="15" fill="#1a1a1a">Curve: Spin axis adds 8.0 yards of fade on top of that</text>
                         <rect x="30" y="77" width="540" height="18" fill="#dbeafe" rx="3"/>
                         <text x="300" y="91" text-anchor="middle" font-size="14" fill="#1e40af" font-weight="700">Without lie angle, face would be +4° — lie angle helped reduce start direction!</text>
                     </g>
@@ -5674,7 +5654,7 @@
             <div class="key-insight">
                 <div class="key-insight-title">💡 Key Insight</div>
                 <div class="key-insight-text">
-                    Lie angle is the silent game-changer! It altered the effective face from +4° to +2.5° before anything else happened. That means the ball starts less right AND creates less fade spin. The 9.7 yards of curve is additional movement after the ball already launched right due to the effective face angle. Total miss = start direction (from effective face) + curve (from spin axis). Getting fitted for proper lie angle reduces both!
+                    Lie angle is the silent game-changer! It altered the effective face from +4° to +2.5° before anything else happened. That means the ball starts less right AND creates less fade spin. The 8.0 yards of curve is additional movement after the ball already launched right due to the effective face angle. Total miss = start direction (from effective face) + curve (from spin axis). Getting fitted for proper lie angle reduces both!
                 </div>
             </div>
             
@@ -6232,8 +6212,9 @@
                         <circle cx="45" cy="45" r="28" fill="#22c55e"/>
                         <text x="45" y="55" text-anchor="middle" font-size="26" fill="white" font-weight="700">7</text>
                         <text x="90" y="32" text-anchor="start" font-size="18" fill="#16a34a" font-weight="700">CURVE DISTANCE</text>
-                        <text x="90" y="58" text-anchor="start" font-size="16" fill="#1a1a1a">1.57° × 250 yd × 3.2% = <tspan font-weight="700" fill="#dc2626" font-size="19">12.6 yards of fade</tspan></text>
-                        <text x="90" y="80" text-anchor="start" font-size="14" fill="#6b7280" font-style="italic">Curve only — effective face also aims ball right to start</text>
+                        <text x="90" y="58" text-anchor="start" font-size="16" fill="#1a1a1a">FTP: 3.94° × 238 × 3.2% = 30.0 yd fade   Gear: 2.37° × 238 × 1.0% = 5.6 yd draw</text>
+                        <text x="90" y="76" text-anchor="start" font-size="16" fill="#1a1a1a">Total: <tspan font-weight="700" fill="#dc2626" font-size="19">24.4 yards of fade</tspan></text>
+                        <text x="90" y="92" text-anchor="start" font-size="13" fill="#6b7280" font-style="italic">Gear opposes FTP but uses 1.0% vs 3.2% — less cancellation than you'd expect!</text>
                     </g>
                     
                     <!-- Clarification box -->
@@ -6241,7 +6222,7 @@
                         <rect x="0" y="0" width="600" height="100" fill="#eff6ff" stroke="#3b82f6" stroke-width="3" rx="12"/>
                         <text x="300" y="24" text-anchor="middle" font-size="17" fill="#1e40af" font-weight="700">Total Miss Breakdown</text>
                         <text x="30" y="48" text-anchor="start" font-size="15" fill="#1a1a1a">Start direction: +5 effective face aims ball right</text>
-                        <text x="30" y="68" text-anchor="start" font-size="15" fill="#1a1a1a">Curve: 12.6 yards of fade (wind-amplified spin axis)</text>
+                        <text x="30" y="68" text-anchor="start" font-size="15" fill="#1a1a1a">Curve: 24.4 yards of fade (FTP dominates despite gear opposition)</text>
                         <rect x="30" y="78" width="540" height="18" fill="#dbeafe" rx="3"/>
                         <text x="300" y="91" text-anchor="middle" font-size="14" fill="#1e40af" font-weight="700">Without headwind: 1.4 spin. With 12 mph headwind: 1.57. Wind made curve 12% worse.</text>
                     </g>
@@ -8689,6 +8670,9 @@ Think you can beat ${perfectCount} perfects and a ${bestStreak}-streak? Prove it
                                     <button onclick="showTutorial(${state.difficulty})" class="px-4 py-2 text-white rounded-lg mr-2" style="background: var(--masters-gold); color: var(--augusta-dark); font-weight: 600;">
                                         📚 Tutorial
                                     </button>
+                                    <button onclick="document.getElementById('formulaOverlay').classList.add('open')" class="px-4 py-2 rounded-lg mr-2" style="background: #e5e7eb; color: #374151; font-weight: 600;">
+                                        📋 Reference
+                                    </button>
                                 ` : ''}
                                 <button onclick="toggleDifficulty()" class="px-4 py-2 bg-blue-600 text-white rounded-lg mr-2">
                                     Change Level
@@ -9767,9 +9751,6 @@ Think you can beat ${perfectCount} perfects and a ${bestStreak}-streak? Prove it
         // Initial render
         render();
     </script>
-    
-    <!-- FORMULA SHEET BUTTON -->
-    <button id="formulaSheetBtn" class="formula-sheet-btn" onclick="document.getElementById('formulaOverlay').classList.add('open')">📋 Reference</button>
     
     <!-- FORMULA SHEET MODAL -->
     <div id="formulaOverlay" class="formula-modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
