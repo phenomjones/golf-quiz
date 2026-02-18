@@ -382,28 +382,72 @@
         .formula-modal-box {
             background: white;
             border-radius: 16px;
-            padding: 24px;
-            max-width: 420px;
-            width: 90%;
-            max-height: 80vh;
+            padding: 28px;
+            max-width: 560px;
+            width: 92%;
+            max-height: 85vh;
             overflow-y: auto;
             box-shadow: 0 25px 50px rgba(0,0,0,0.25);
-            font-family: monospace;
-            font-size: 13px;
-            line-height: 1.6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
             position: relative;
         }
-        .formula-modal-box h3 {
-            font-family: system-ui, sans-serif;
-            font-size: 16px;
-            color: #1f2937;
-            margin: 12px 0 6px 0;
-            padding-top: 8px;
-            border-top: 1px solid #e5e7eb;
+        .formula-modal-box .ref-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 16px;
         }
-        .formula-modal-box h3:first-child { border-top: none; margin-top: 0; }
-        .formula-modal-box .formula { color: #2563eb; font-weight: 600; margin: 4px 0; }
-        .formula-modal-box .values { color: #374151; }
+        .formula-modal-box .ref-section {
+            margin-bottom: 18px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .formula-modal-box .ref-section-header {
+            padding: 10px 16px;
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 0.5px;
+        }
+        .formula-modal-box .ref-section-body {
+            padding: 14px 16px;
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+        }
+        .formula-modal-box .ref-formula {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2563eb;
+            margin: 6px 0;
+        }
+        .formula-modal-box .ref-note {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 4px 0;
+        }
+        .formula-modal-box .ref-table {
+            width: 100%;
+            margin: 8px 0;
+            font-size: 15px;
+        }
+        .formula-modal-box .ref-table td {
+            padding: 3px 8px;
+        }
+        .formula-modal-box .ref-table td:first-child {
+            color: #374151;
+        }
+        .formula-modal-box .ref-table td:nth-child(2) {
+            font-weight: 700;
+            text-align: center;
+        }
+        .formula-modal-box .ref-table td:nth-child(3) {
+            font-size: 13px;
+            color: #9ca3af;
+        }
         .formula-close-btn {
             position: absolute;
             top: 8px;
@@ -418,10 +462,10 @@
         
         /* Training Wheels Styles */
         .training-hint {
-            font-size: 11px;
+            font-size: 15px;
             color: #dc2626;
             font-weight: 600;
-            margin-left: 6px;
+            margin-left: 8px;
             transition: opacity 0.3s;
         }
         .training-hint.fade-50 { opacity: 0.5; }
@@ -450,7 +494,7 @@
         };
         
         // VERSION INFO
-        const APP_VERSION = "V4.4.1 - February 17, 2026 - Split FTP/Gear curve calc (FTP=curvePct, Gear=1.0%), formula sheet, training wheels";
+        const APP_VERSION = "V4.4.3 - February 18, 2026 - 4mm impact floor, gear question reword, L3/L5 tutorial fixes, tutorial polish, styled ref modal, split FTP/Gear calc";
         
         // Simple state management
         let state = {
@@ -599,54 +643,81 @@
             const content = document.getElementById('formulaContent');
             if (!content) return;
             
-            let html = '<div style="text-align:center;font-family:system-ui;font-weight:700;font-size:18px;margin-bottom:12px;">📋 Formula Reference</div>';
+            let html = '<div class="ref-title">📋 Formula Reference</div>';
             
-            html += '<h3>FACE-TO-PATH</h3>';
-            html += '<div class="formula">Face Angle − Club Path = FTP</div>';
-            html += '<div class="values">Negative = curves left &nbsp;│&nbsp; Positive = curves right</div>';
+            // FACE-TO-PATH section
+            html += '<div class="ref-section">';
+            html += '<div class="ref-section-header" style="background: #667eea;">FACE-TO-PATH</div>';
+            html += '<div class="ref-section-body">';
+            html += '<div class="ref-formula">Face Angle − Club Path = FTP</div>';
+            html += '<div class="ref-note">Positive = fade (curves right) &nbsp;│&nbsp; Negative = draw (curves left)</div>';
+            html += '</div></div>';
             
-            html += '<h3>YARDS OFFLINE</h3>';
-            html += '<div class="formula">FTP × Carry × Curve% = Yards</div>';
-            html += '<div class="values" style="margin-top:4px;">';
-            html += '&nbsp;&nbsp;Driver ........ <strong>3.2%</strong><br>';
-            html += '&nbsp;&nbsp;Wood .......... <strong>2.7%</strong><br>';
-            html += '&nbsp;&nbsp;Long Iron ..... <strong>2.3%</strong><br>';
-            html += '&nbsp;&nbsp;Mid Iron ...... <strong>2.0%</strong><br>';
-            html += '&nbsp;&nbsp;Wedge ......... <strong>1.0%</strong>';
-            html += '</div>';
+            // YARDS OFFLINE section
+            html += '<div class="ref-section">';
+            html += '<div class="ref-section-header" style="background: #f59e0b; color: #1a1a1a;">CONVERTING TO YARDS</div>';
+            html += '<div class="ref-section-body">';
+            html += '<div class="ref-formula">FTP × Carry × Curve% = Yards Offline</div>';
+            html += '<table class="ref-table">';
+            html += '<tr><td>Driver</td><td style="color:#ef4444;">3.2%</td><td>Most amplification</td></tr>';
+            html += '<tr><td>Wood</td><td style="color:#ea580c;">2.7%</td><td></td></tr>';
+            html += '<tr><td>Long Iron</td><td style="color:#d97706;">2.3%</td><td></td></tr>';
+            html += '<tr><td>Mid Iron</td><td style="color:#059669;">2.0%</td><td></td></tr>';
+            html += '<tr><td>Wedge</td><td style="color:#3b82f6;">1.0%</td><td>Least amplification</td></tr>';
+            html += '</table>';
+            html += '</div></div>';
             
             if (level >= 2) {
-                html += '<h3>GEAR EFFECT</h3>';
-                html += '<div class="formula">Impact(mm) × Gear Mult = Gear°</div>';
-                html += '<div class="values">Toe = Draw (−) &nbsp;│&nbsp; Heel = Fade (+)</div>';
-                html += '<div class="formula" style="margin-top:4px;">FTP + Gear° = Net Spin</div>';
-            html += '<div class="values" style="margin-top:4px;font-size:12px;color:#6b7280;">Note: Gear uses 1.0% (all clubs) — FTP uses higher curve% above</div>';
-                html += '<div class="values" style="margin-top:4px;">';
-                html += '&nbsp;&nbsp;Driver ........ <strong>0.30</strong><br>';
-                html += '&nbsp;&nbsp;Wood .......... <strong>0.24</strong><br>';
-                html += '&nbsp;&nbsp;Long Iron ..... <strong>0.12</strong><br>';
-                html += '&nbsp;&nbsp;Mid Iron ...... <strong>0.08</strong><br>';
-                html += '&nbsp;&nbsp;Wedge ......... <strong>0.04</strong>';
-                html += '</div>';
+                // GEAR EFFECT section
+                html += '<div class="ref-section">';
+                html += '<div class="ref-section-header" style="background: #059669;">GEAR EFFECT</div>';
+                html += '<div class="ref-section-body">';
+                html += '<div class="ref-formula">Impact (mm) × Gear Multiplier = Gear°</div>';
+                html += '<div class="ref-note" style="margin-bottom:8px;">Toe = draw spin &nbsp;│&nbsp; Heel = fade spin</div>';
+                html += '<table class="ref-table">';
+                html += '<tr><td>Driver</td><td style="color:#ef4444;">0.30</td><td>Most sensitive</td></tr>';
+                html += '<tr><td>Wood</td><td style="color:#ea580c;">0.24</td><td></td></tr>';
+                html += '<tr><td>Long Iron</td><td style="color:#d97706;">0.12</td><td></td></tr>';
+                html += '<tr><td>Mid Iron</td><td style="color:#059669;">0.08</td><td></td></tr>';
+                html += '<tr><td>Wedge</td><td style="color:#3b82f6;">0.04</td><td>Least sensitive</td></tr>';
+                html += '</table>';
+                html += '</div></div>';
+                
+                // GEAR → YARDS section
+                html += '<div class="ref-section">';
+                html += '<div class="ref-section-header" style="background: #0284c7;">GEAR → YARDS</div>';
+                html += '<div class="ref-section-body">';
+                html += '<div class="ref-formula">Gear° × Carry × 1.0% SA = Yards</div>';
+                html += '<div class="ref-note">Gear is already spin axis tilt — uses 1.0% SA rate for ALL clubs (no extra amplification)</div>';
+                html += '</div></div>';
             }
             
             if (level >= 3) {
-                html += '<h3>VERTICAL IMPACT</h3>';
-                html += '<div class="formula">Vertical Impact → Amplifier/Dampener</div>';
-                html += '<div class="values">High hit = amplifies curve<br>Low hit = dampens curve</div>';
+                html += '<div class="ref-section">';
+                html += '<div class="ref-section-header" style="background: #dc2626;">VERTICAL IMPACT</div>';
+                html += '<div class="ref-section-body">';
+                html += '<div class="ref-formula">High on face = amplifies curve</div>';
+                html += '<div class="ref-formula">Low on face = dampens curve</div>';
+                html += '</div></div>';
             }
             
             if (level >= 4) {
-                html += '<h3>LIE ANGLE</h3>';
-                html += '<div class="formula">Lie Deviation × Modifier = Face Adj°</div>';
-                html += '<div class="values">Upright = closes face &nbsp;│&nbsp; Flat = opens face</div>';
+                html += '<div class="ref-section">';
+                html += '<div class="ref-section-header" style="background: #7c3aed;">LIE ANGLE</div>';
+                html += '<div class="ref-section-body">';
+                html += '<div class="ref-formula">Lie Deviation × Modifier = Face Adjustment°</div>';
+                html += '<div class="ref-note">Upright = closes face &nbsp;│&nbsp; Flat = opens face</div>';
+                html += '</div></div>';
             }
             
             if (level >= 5) {
-                html += '<h3>WIND</h3>';
-                html += '<div class="values">Headwind: mult = 1.0 + (speed ÷ 100)<br>';
-                html += 'Tailwind: mult = 1.0 − (speed ÷ 150)<br>';
-                html += 'Crosswind: pushes ball laterally</div>';
+                html += '<div class="ref-section">';
+                html += '<div class="ref-section-header" style="background: #0891b2;">WIND</div>';
+                html += '<div class="ref-section-body">';
+                html += '<div class="ref-formula">Headwind: multiplier = 1.0 + (speed ÷ 100)</div>';
+                html += '<div class="ref-formula">Tailwind: multiplier = 1.0 − (speed ÷ 150)</div>';
+                html += '<div class="ref-note">Crosswind: pushes ball laterally</div>';
+                html += '</div></div>';
             }
             
             content.innerHTML = html;
@@ -820,19 +891,24 @@
                     isTrickScenario = true; // Level 6 trick scenarios
                 }
                 
+                // 4mm floor: impacts under 4mm are meaningless — snap to center
+                if (Math.abs(impact) < 4) {
+                    impact = 0;
+                }
+                
                 impactSide = impact > 0 ? "toe" : impact < 0 ? "heel" : "center";
                 
                 data["Impact Location"] = {
                     icon: "📍",
                     label: "Impact Location",
-                    value: Math.abs(impact).toFixed(1) + "mm " + impactSide + getTrainingHint(diffLevel, "impact", clubType, scenarioCountForLevel[diffLevel]),
+                    value: (impact === 0 ? "Center" : Math.abs(impact).toFixed(1) + "mm " + impactSide) + getTrainingHint(diffLevel, "impact", clubType, scenarioCountForLevel[diffLevel]),
                     visual: null // Will be set after vertical impact is calculated
                 };
                 
                 // Gear effect: heel creates FADE spin (negative impact = positive gear effect = fade)
                 // toe creates DRAW spin (positive impact = negative gear effect = draw)
                 gearEffect = impact * -physics.gearMultiplier;
-                impactLocationText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
+                impactLocationText = impact === 0 ? "Center" : Math.abs(impact).toFixed(1) + "mm " + impactSide;
             }
             
             // Vertical impact (high/low on face) added at level 3
@@ -860,7 +936,7 @@
                 }
                 // Level 2: Only horizontal
                 else if (diffLevel === 2) {
-                    impactLocationText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
+                    impactLocationText = impact === 0 ? "Center" : Math.abs(impact).toFixed(1) + "mm " + impactSide;
                 }
                 
                 // Calculate vertical gear effect (club-specific)
@@ -1172,7 +1248,7 @@
                 offlineExplanation += ` = ${baseCurveContribution.toFixed(1)} yards</div>`;
                 
                 if (Math.abs(gearEffect) > 0.1) {
-                    offlineExplanation += `<div class="ml-3">Gear effect: ${gearEffect.toFixed(1)}° × ${roundedCarry} yd × 1.0%`;
+                    offlineExplanation += `<div class="ml-3">Gear effect: ${gearEffect.toFixed(1)}° × ${roundedCarry} yd × 1.0% SA`;
                     if (diffLevel >= 3 && Math.abs(verticalImpact) > 0.1) {
                         offlineExplanation += ` × ${verticalGearMultiplier.toFixed(2)}`;
                     }
@@ -1587,7 +1663,7 @@
                     
                     explanationHTML += `<div class="${highlightClass} rounded p-2 border-2">`;
                     explanationHTML += `<div class="text-sm font-medium mb-1 ${textClass}"><strong>${warningIcon}Gear effect (${gearRelation}):</strong> ${impactLocationText}</div>`;
-                    explanationHTML += `<div class="font-semibold">${Math.abs(gearEffect).toFixed(1)}° ${gearDir} × ${roundedCarry} yd × 1.0%${windMultiplier !== 1.0 ? ' × ' + windMultiplier.toFixed(2) : ''}${verticalGearMultiplier !== 1.0 ? ' × ' + verticalGearMultiplier.toFixed(2) : ''}</div>`;
+                    explanationHTML += `<div class="font-semibold">${Math.abs(gearEffect).toFixed(1)}° ${gearDir} × ${roundedCarry} yd × 1.0% SA${windMultiplier !== 1.0 ? ' × ' + windMultiplier.toFixed(2) : ''}${verticalGearMultiplier !== 1.0 ? ' × ' + verticalGearMultiplier.toFixed(2) : ''}</div>`;
                     explanationHTML += `<div class="font-bold text-lg mt-1">= ${gearContribution > 0 ? '+' : ''}${gearContribution.toFixed(1)} yards ${gearContribution > 0 ? 'right' : 'left'}</div>`;
                     explanationHTML += '</div>';
                 }
@@ -2395,7 +2471,7 @@
             }
             
             return {
-                question: `Will the gear effect from ${impactLocationText} help or hurt this shot?`,
+                question: `How will the gear effect from ${impactLocationText} affect this shot's curve?`,
                 options: options,
                 correct: correct,
                 explanation: `<div><strong>Step 1 — Face-to-path:</strong> ${face.toFixed(1)}° − ${path >= 0 ? '' : '('}${path.toFixed(1)}°${path >= 0 ? '' : ')'} = <strong>${baseFaceToPath.toFixed(1)}° ${ftpDirection}</strong></div><div><strong>Step 2 — Gear effect:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${impactSide} × ${mult} (${clubName}) = <strong>${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}° ${gearDirection}</strong></div><div><strong>Step 3 — Combined:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}° net ${netSpin < 0 ? 'draw' : 'fade'}</strong></div><div class="mt-2">${resultText}</div>`
@@ -2830,7 +2906,7 @@
                 question: "How many yards offline will this ball finish due to curve?",
                 options: options.shuffled(),
                 correct: correctStr,
-                explanation: `<div><strong>Step 1 — Face-to-path:</strong> ${face.toFixed(1)}° − ${path.toFixed(1)}° = <strong>${baseFaceToPath.toFixed(1)}° ${ftpDirection}</strong></div><div><strong>Step 2 — Gear effect:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${impactSide} × ${mult} (${clubName}) = <strong>${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°</strong></div><div><strong>Step 3 — Net spin:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}°</strong></div><div><strong>Step 4 — Yards offline:</strong></div><div class="ml-3">FTP: ${Math.abs(baseFaceToPath).toFixed(1)}° × ${Math.round(carry)} yd × ${(physics.curvePct * 100).toFixed(1)}% = ${Math.abs(baseFaceToPath * Math.round(carry) * physics.curvePct).toFixed(1)} yd</div><div class="ml-3">Gear: ${Math.abs(gearEffect).toFixed(1)}° × ${Math.round(carry)} yd × 1.0% = ${Math.abs(gearEffect * Math.round(carry) * 0.01).toFixed(1)} yd</div><div class="ml-3"><strong>Total: ${yardsOffline.toFixed(1)} yards ${netDirection}</strong></div>`
+                explanation: `<div><strong>Step 1 — Face-to-path:</strong> ${face.toFixed(1)}° − ${path.toFixed(1)}° = <strong>${baseFaceToPath.toFixed(1)}° ${ftpDirection}</strong></div><div><strong>Step 2 — Gear effect:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${impactSide} × ${mult} (${clubName}) = <strong>${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°</strong></div><div><strong>Step 3 — Net spin:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}°</strong></div><div><strong>Step 4 — Yards offline:</strong></div><div class="ml-3">FTP: ${Math.abs(baseFaceToPath).toFixed(1)}° × ${Math.round(carry)} yd × ${(physics.curvePct * 100).toFixed(1)}% = ${Math.abs(baseFaceToPath * Math.round(carry) * physics.curvePct).toFixed(1)} yd</div><div class="ml-3">Gear: ${Math.abs(gearEffect).toFixed(1)}° × ${Math.round(carry)} yd × 1.0% SA = ${Math.abs(gearEffect * Math.round(carry) * 0.01).toFixed(1)} yd</div><div class="ml-3"><strong>Total: ${yardsOffline.toFixed(1)} yards ${netDirection}</strong></div>`
             };
         }
         
@@ -3312,7 +3388,7 @@
         
         <!-- STEP 1: Face Angle Controls Start -->
         <div class="step">
-            <div class="step-number">STEP 1 OF 5</div>
+            <div class="step-number">STEP 1 OF 6</div>
             <h1 class="step-title">Face Angle Controls Start Direction</h1>
             
             <div class="headline">
@@ -3394,12 +3470,13 @@
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
+                <div class="dot"></div>
             </div>
         </div>
 
         <!-- STEP 2: Club Path Creates Curve -->
         <div class="step">
-            <div class="step-number">STEP 2 OF 5</div>
+            <div class="step-number">STEP 2 OF 6</div>
             <h1 class="step-title">Club Path Creates the Curve</h1>
             
             <div class="headline">
@@ -3487,12 +3564,13 @@
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
+                <div class="dot"></div>
             </div>
         </div>
 
         <!-- STEP 3: Face-to-Path = Curve Amount -->
         <div class="step">
-            <div class="step-number">STEP 3 OF 5</div>
+            <div class="step-number">STEP 3 OF 6</div>
             <h1 class="step-title">Face-to-Path Determines Curve</h1>
             
             <div class="headline">
@@ -3504,8 +3582,8 @@
             </p>
             
             <div class="diagram">
-                <svg viewBox="0 0 700 600" style="width: 100%; height: auto;">
-                    <rect width="700" height="600" fill="#fafbfc" rx="8"/>
+                <svg viewBox="0 0 700 400" style="width: 100%; height: auto;">
+                    <rect width="700" height="400" fill="#fafbfc" rx="8"/>
                     
                     <text x="350" y="35" text-anchor="middle" font-size="22" fill="#667eea" font-weight="700">The Face-to-Path Formula</text>
                     
@@ -3556,23 +3634,14 @@
                         <text x="100" y="160" text-anchor="middle" font-size="15" fill="#2563eb" font-weight="600">Negative = Draw spin</text>
                     </g>
                     
-                    <!-- Conversion -->
-                    <rect x="75" y="390" width="550" height="180" fill="white" stroke="#f59e0b" stroke-width="4" rx="12"/>
-                    <text x="350" y="418" text-anchor="middle" font-size="20" fill="#92400e" font-weight="700">Converting to Yards</text>
-                    
-                    <text x="350" y="448" text-anchor="middle" font-size="16" fill="#1a1a1a" font-weight="600">FTP × Carry × Curve% = Yards offline</text>
-                    
-                    <text x="120" y="482" text-anchor="start" font-size="14" fill="#6b7280">Driver (250 yd carry, 3.2% curve):</text>
-                    <text x="140" y="504" text-anchor="start" font-size="14" fill="#ef4444" font-weight="600">+3° × 250 × 0.032 = 24.0 yards RIGHT</text>
-                    <text x="120" y="530" text-anchor="start" font-size="14" fill="#6b7280">Wedge (115 yd carry, 1.0% curve):</text>
-                    <text x="140" y="552" text-anchor="start" font-size="14" fill="#3b82f6" font-weight="600">+3° × 115 × 0.010 = 3.5 yards RIGHT</text>
+                    <!-- Conversion moved to Step 4 -->
                 </svg>
             </div>
             
             <div class="key-insight">
                 <div class="key-insight-title">💡 Key Insight</div>
                 <div class="key-insight-text">
-                    Face-to-path (Face - Path) determines curve direction and amount. Positive = fade/slice right. Negative = draw/hook left. To get yards offline: FTP × Carry × Curve%. Driver (3.2%) curves far more than wedge (1.0%) because it flies farther AND has a higher curve percentage!
+                    Face-to-path (Face - Path) determines curve direction and amount. Positive = fade/slice right. Negative = draw/hook left. The bigger the gap between face and path, the more the ball curves. Next step: we'll convert these degrees into actual yards!
                 </div>
             </div>
             
@@ -3582,12 +3651,94 @@
                 <div class="dot active"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
+                <div class="dot"></div>
             </div>
         </div>
 
-        <!-- STEP 4: D-Plane Visuals -->
+        <!-- STEP 4: How Far Does It Curve? (NEW) -->
         <div class="step">
-            <div class="step-number">STEP 4 OF 5</div>
+            <div class="step-number">STEP 4 OF 6</div>
+            <h1 class="step-title">How Far Does It Curve?</h1>
+            
+            <div class="headline">
+                📏 Converting degrees of spin into yards offline
+            </div>
+            
+            <p class="step-intro">
+                Knowing you have 3° of fade is useless unless you know how far that moves the ball. The formula is simple — but the curve% is different for each club.
+            </p>
+            
+            <div class="diagram">
+                <svg viewBox="0 0 700 520" style="width: 100%; height: auto;">
+                    <rect width="700" height="520" fill="#fafbfc" rx="8"/>
+                    
+                    <text x="350" y="35" text-anchor="middle" font-size="22" fill="#f59e0b" font-weight="700">Converting FTP to Yards</text>
+                    
+                    <!-- Formula box -->
+                    <rect x="80" y="55" width="540" height="65" fill="white" stroke="#f59e0b" stroke-width="4" rx="12"/>
+                    <text x="350" y="85" text-anchor="middle" font-size="22" fill="#92400e" font-weight="700">FTP × Carry × Curve% = Yards Offline</text>
+                    <text x="350" y="108" text-anchor="middle" font-size="14" fill="#6b7280">Each club has a different curve% based on its spin characteristics</text>
+                    
+                    <!-- Curve% Table -->
+                    <rect x="80" y="140" width="540" height="195" fill="white" stroke="#667eea" stroke-width="3" rx="10"/>
+                    <text x="350" y="168" text-anchor="middle" font-size="18" fill="#667eea" font-weight="700">Curve Percentages by Club</text>
+                    
+                    <text x="130" y="200" text-anchor="start" font-size="15" fill="#1a1a1a" font-family="monospace">Driver ........</text>
+                    <text x="340" y="200" text-anchor="start" font-size="17" fill="#ef4444" font-weight="700">3.2%</text>
+                    <text x="430" y="200" text-anchor="start" font-size="13" fill="#6b7280">Low spin loft = max amplification</text>
+                    
+                    <text x="130" y="225" text-anchor="start" font-size="15" fill="#1a1a1a" font-family="monospace">Wood ..........</text>
+                    <text x="340" y="225" text-anchor="start" font-size="17" fill="#ea580c" font-weight="700">2.7%</text>
+                    
+                    <text x="130" y="250" text-anchor="start" font-size="15" fill="#1a1a1a" font-family="monospace">Long Iron .....</text>
+                    <text x="340" y="250" text-anchor="start" font-size="17" fill="#d97706" font-weight="700">2.3%</text>
+                    
+                    <text x="130" y="275" text-anchor="start" font-size="15" fill="#1a1a1a" font-family="monospace">Mid Iron ......</text>
+                    <text x="340" y="275" text-anchor="start" font-size="17" fill="#059669" font-weight="700">2.0%</text>
+                    
+                    <text x="130" y="300" text-anchor="start" font-size="15" fill="#1a1a1a" font-family="monospace">Wedge .........</text>
+                    <text x="340" y="300" text-anchor="start" font-size="17" fill="#3b82f6" font-weight="700">1.0%</text>
+                    <text x="430" y="300" text-anchor="start" font-size="13" fill="#6b7280">High spin loft = minimal amplification</text>
+                    
+                    <line x="130" y1="315" x2="570" y2="315" stroke="#e5e7eb" stroke-width="1"/>
+                    <text x="350" y="330" text-anchor="middle" font-size="13" fill="#6b7280" font-style="italic">Higher curve% = each degree of FTP moves the ball further offline</text>
+                    
+                    <!-- Worked examples -->
+                    <text x="350" y="370" text-anchor="middle" font-size="18" fill="#1f2937" font-weight="700">Same 3° FTP — Two Different Clubs</text>
+                    
+                    <rect x="80" y="385" width="260" height="55" fill="#fee2e2" stroke="#ef4444" stroke-width="2" rx="8"/>
+                    <text x="210" y="405" text-anchor="middle" font-size="14" fill="#991b1b" font-weight="600">DRIVER (250 yd carry)</text>
+                    <text x="210" y="428" text-anchor="middle" font-size="16" fill="#dc2626" font-weight="700">3° × 250 × 3.2% = 24.0 yd</text>
+                    
+                    <rect x="360" y="385" width="260" height="55" fill="#dbeafe" stroke="#3b82f6" stroke-width="2" rx="8"/>
+                    <text x="490" y="405" text-anchor="middle" font-size="14" fill="#1e40af" font-weight="600">WEDGE (115 yd carry)</text>
+                    <text x="490" y="428" text-anchor="middle" font-size="16" fill="#2563eb" font-weight="700">3° × 115 × 1.0% = 3.5 yd</text>
+                    
+                    <text x="350" y="470" text-anchor="middle" font-size="16" fill="#dc2626" font-weight="700">Driver curves 7× more! 🔥</text>
+                    <text x="350" y="495" text-anchor="middle" font-size="14" fill="#6b7280">Longer carry AND higher curve% = double whammy</text>
+                </svg>
+            </div>
+            
+            <div class="key-insight">
+                <div class="key-insight-title">💡 Key Insight</div>
+                <div class="key-insight-text">
+                    Driver is your hardest club to control because it has BOTH the longest carry and the highest curve percentage — a double whammy. That's why a 3° face-to-path error costs you 24 yards with driver but only 3.5 yards with a wedge. This is also why the best players focus most of their practice on driver accuracy!
+                </div>
+            </div>
+            
+            <div class="dots">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot active"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+        </div>
+
+        <!-- STEP 5: D-Plane Visuals -->
+        <div class="step">
+            <div class="step-number">STEP 5 OF 6</div>
             <h1 class="step-title">How Face and Path Work Together</h1>
             
             <div class="headline">
@@ -3725,14 +3876,15 @@
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
+                <div class="dot"></div>
                 <div class="dot active"></div>
                 <div class="dot"></div>
             </div>
         </div>
 
-        <!-- STEP 5: Summary -->
+        <!-- STEP 6: Summary -->
         <div class="step">
-            <div class="step-number">STEP 5 OF 5</div>
+            <div class="step-number">STEP 6 OF 6</div>
             <h1 class="step-title">Putting It All Together</h1>
             
             <div class="headline">
@@ -3744,64 +3896,68 @@
             </p>
             
             <div class="diagram">
-                <svg viewBox="0 0 700 650" style="width: 100%; height: auto;">
-                    <rect width="700" height="650" fill="#fafbfc" rx="8"/>
+                <svg viewBox="0 0 700 620" style="width: 100%; height: auto;">
+                    <rect width="700" height="620" fill="#fafbfc" rx="8"/>
                     
-                    <text x="350" y="35" text-anchor="middle" font-size="22" fill="#667eea" font-weight="700">The Complete System</text>
+                    <text x="350" y="35" text-anchor="middle" font-size="22" fill="#667eea" font-weight="700">Worked Example: Driver</text>
+                    <text x="350" y="60" text-anchor="middle" font-size="16" fill="#6b7280">Face +4°, Path +1°, Driver 250 yd carry</text>
                     
-                    <!-- STEP 1 -->
-                    <g transform="translate(50, 70)">
-                        <rect x="0" y="0" width="600" height="90" fill="white" stroke="#667eea" stroke-width="4" rx="12"/>
-                        <circle cx="45" cy="45" r="28" fill="#667eea"/>
-                        <text x="45" y="55" text-anchor="middle" font-size="26" fill="white" font-weight="700">1</text>
+                    <!-- STEP 1: Face Angle -->
+                    <g transform="translate(50, 80)">
+                        <rect x="0" y="0" width="600" height="85" fill="white" stroke="#667eea" stroke-width="4" rx="12"/>
+                        <circle cx="45" cy="42" r="26" fill="#667eea"/>
+                        <text x="45" y="52" text-anchor="middle" font-size="24" fill="white" font-weight="700">1</text>
                         
-                        <text x="90" y="35" text-anchor="start" font-size="18" fill="#667eea" font-weight="700">FACE ANGLE (Start Direction)</text>
-                        <text x="90" y="62" text-anchor="start" font-size="16" fill="#1a1a1a">Controls 85% of where ball starts. Open = right, Closed = left</text>
+                        <text x="90" y="32" text-anchor="start" font-size="17" fill="#667eea" font-weight="700">FACE ANGLE</text>
+                        <text x="90" y="58" text-anchor="start" font-size="16" fill="#1a1a1a">Face: <tspan font-weight="700" fill="#dc2626">+4° (open right)</tspan> → Ball starts right</text>
+                        <text x="90" y="76" text-anchor="start" font-size="13" fill="#6b7280">Face controls 85% of start direction</text>
                     </g>
                     
-                    <path d="M 350 165 L 350 190" stroke="#667eea" stroke-width="4" marker-end="url(#arrow)"/>
+                    <path d="M 350 170 L 350 190" stroke="#667eea" stroke-width="4" marker-end="url(#arrow-sum)"/>
                     
-                    <!-- STEP 2 -->
+                    <!-- STEP 2: Club Path -->
                     <g transform="translate(50, 195)">
-                        <rect x="0" y="0" width="600" height="90" fill="white" stroke="#667eea" stroke-width="4" rx="12"/>
-                        <circle cx="45" cy="45" r="28" fill="#667eea"/>
-                        <text x="45" y="55" text-anchor="middle" font-size="26" fill="white" font-weight="700">2</text>
+                        <rect x="0" y="0" width="600" height="85" fill="white" stroke="#667eea" stroke-width="4" rx="12"/>
+                        <circle cx="45" cy="42" r="26" fill="#667eea"/>
+                        <text x="45" y="52" text-anchor="middle" font-size="24" fill="white" font-weight="700">2</text>
                         
-                        <text x="90" y="35" text-anchor="start" font-size="18" fill="#667eea" font-weight="700">CLUB PATH (Spin Direction)</text>
-                        <text x="90" y="62" text-anchor="start" font-size="16" fill="#1a1a1a">Out-to-in = fade spin, In-to-out = draw spin</text>
+                        <text x="90" y="32" text-anchor="start" font-size="17" fill="#667eea" font-weight="700">CLUB PATH</text>
+                        <text x="90" y="58" text-anchor="start" font-size="16" fill="#1a1a1a">Path: <tspan font-weight="700" fill="#dc2626">+1° (in-to-out)</tspan></text>
+                        <text x="90" y="76" text-anchor="start" font-size="13" fill="#6b7280">Path direction determines spin type</text>
                     </g>
                     
-                    <path d="M 350 290 L 350 315" stroke="#667eea" stroke-width="4" marker-end="url(#arrow)"/>
+                    <path d="M 350 285 L 350 305" stroke="#667eea" stroke-width="4" marker-end="url(#arrow-sum)"/>
                     
-                    <!-- STEP 3 -->
-                    <g transform="translate(50, 320)">
-                        <rect x="0" y="0" width="600" height="90" fill="#fef3c7" stroke="#f59e0b" stroke-width="4" rx="12"/>
-                        <circle cx="45" cy="45" r="28" fill="#f59e0b"/>
-                        <text x="45" y="55" text-anchor="middle" font-size="26" fill="white" font-weight="700">3</text>
+                    <!-- STEP 3: Face-to-Path -->
+                    <g transform="translate(50, 310)">
+                        <rect x="0" y="0" width="600" height="85" fill="#fef3c7" stroke="#f59e0b" stroke-width="4" rx="12"/>
+                        <circle cx="45" cy="42" r="26" fill="#f59e0b"/>
+                        <text x="45" y="52" text-anchor="middle" font-size="24" fill="white" font-weight="700">3</text>
                         
-                        <text x="90" y="35" text-anchor="start" font-size="18" fill="#92400e" font-weight="700">FACE-TO-PATH (Curve Amount)</text>
-                        <text x="90" y="62" text-anchor="start" font-size="16" fill="#1a1a1a">Face Angle - Club Path = Spin (+ = fade, - = draw)</text>
+                        <text x="90" y="32" text-anchor="start" font-size="17" fill="#92400e" font-weight="700">FACE-TO-PATH</text>
+                        <text x="90" y="58" text-anchor="start" font-size="16" fill="#1a1a1a">4° − 1° = <tspan font-weight="700" fill="#dc2626" font-size="18">+3° fade spin</tspan></text>
+                        <text x="90" y="76" text-anchor="start" font-size="13" fill="#6b7280">Positive = fade (curves right)</text>
                     </g>
                     
-                    <path d="M 350 415 L 350 440" stroke="#667eea" stroke-width="4" marker-end="url(#arrow)"/>
+                    <path d="M 350 400 L 350 420" stroke="#667eea" stroke-width="4" marker-end="url(#arrow-sum)"/>
                     
-                    <!-- STEP 4 -->
-                    <g transform="translate(50, 445)">
-                        <rect x="0" y="0" width="600" height="90" fill="white" stroke="#22c55e" stroke-width="4" rx="12"/>
-                        <circle cx="45" cy="45" r="28" fill="#22c55e"/>
-                        <text x="45" y="55" text-anchor="middle" font-size="26" fill="white" font-weight="700">4</text>
+                    <!-- STEP 4: Convert to Yards -->
+                    <g transform="translate(50, 425)">
+                        <rect x="0" y="0" width="600" height="105" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
+                        <circle cx="45" cy="52" r="26" fill="#22c55e"/>
+                        <text x="45" y="62" text-anchor="middle" font-size="24" fill="white" font-weight="700">4</text>
                         
-                        <text x="90" y="35" text-anchor="start" font-size="18" fill="#16a34a" font-weight="700">CONVERT TO YARDS (Driver)</text>
-                        <text x="90" y="62" text-anchor="start" font-size="16" fill="#1a1a1a">Spin × 3.3 = Yards of curve offline</text>
+                        <text x="90" y="32" text-anchor="start" font-size="17" fill="#16a34a" font-weight="700">CONVERT TO YARDS</text>
+                        <text x="90" y="58" text-anchor="start" font-size="16" fill="#1a1a1a">3° × 250 yd × <tspan fill="#1e40af" font-weight="700">3.2%</tspan> (driver curve%)</text>
+                        <text x="90" y="85" text-anchor="start" font-size="20" fill="#1a1a1a">= <tspan font-weight="700" fill="#dc2626" font-size="22">24.0 yards fade!</tspan></text>
                     </g>
                     
-                    <!-- Example -->
-                    <rect x="75" y="565" width="550" height="70" fill="white" stroke="#dc2626" stroke-width="4" rx="12"/>
-                    <text x="350" y="595" text-anchor="middle" font-size="17" fill="#1a1a1a">Example: Face +4°, Path +1° → (4° - 1°) × 3.3 = <tspan fill="#dc2626" font-weight="700" font-size="19">10 yards right</tspan></text>
-                    <text x="350" y="620" text-anchor="middle" font-size="15" fill="#6b7280">Starts right (face open), curves more right (fade spin)</text>
+                    <!-- Summary caption -->
+                    <rect x="75" y="555" width="550" height="50" fill="white" stroke="#667eea" stroke-width="3" rx="10"/>
+                    <text x="350" y="580" text-anchor="middle" font-size="15" fill="#374151">Ball starts right (face open) and curves more right (fade spin) = <tspan font-weight="700" fill="#dc2626">big miss right</tspan></text>
                     
                     <defs>
-                        <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <marker id="arrow-sum" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
                             <path d="M0,0 L0,6 L9,3 z" fill="#667eea"/>
                         </marker>
                     </defs>
@@ -3816,6 +3972,7 @@
             </div>
             
             <div class="dots">
+                <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
@@ -4006,8 +4163,8 @@
             </p>
             
             <div class="diagram">
-                <svg viewBox="0 0 700 450" style="width: 100%; height: auto;">
-                    <rect width="700" height="450" fill="#fafbfc" rx="8"/>
+                <svg viewBox="0 0 700 490" style="width: 100%; height: auto;">
+                    <rect width="700" height="490" fill="#fafbfc" rx="8"/>
                     
                     <text x="350" y="35" text-anchor="middle" font-size="22" fill="#059669" font-weight="700">Toe Hit Gear Effect Formula</text>
                     
@@ -4018,7 +4175,7 @@
                     
                     <!-- Example -->
                     <g transform="translate(50, 180)">
-                        <rect x="0" y="0" width="600" height="240" fill="white" stroke="#3b82f6" stroke-width="4" rx="12"/>
+                        <rect x="0" y="0" width="600" height="280" fill="white" stroke="#3b82f6" stroke-width="4" rx="12"/>
                         <text x="300" y="35" text-anchor="middle" font-size="20" fill="#3b82f6" font-weight="700">Example: 12mm Toe Hit</text>
                         
                         <!-- Visual -->
@@ -4055,8 +4212,8 @@
                         </g>
                         
                         <!-- Bottom note -->
-                        <rect x="50" y="170" width="500" height="50" fill="#d1fae5" rx="6"/>
-                        <text x="300" y="200" text-anchor="middle" font-size="15" fill="#065f46" font-weight="600">This spin ADDS to your face-to-path spin</text>
+                        <rect x="50" y="210" width="500" height="50" fill="#d1fae5" rx="6"/>
+                        <text x="300" y="240" text-anchor="middle" font-size="15" fill="#065f46" font-weight="600">This spin ADDS to your face-to-path spin</text>
                     </g>
                 </svg>
             </div>
@@ -4107,8 +4264,8 @@
             </p>
             
             <div class="diagram">
-                <svg viewBox="0 0 700 450" style="width: 100%; height: auto;">
-                    <rect width="700" height="450" fill="#fafbfc" rx="8"/>
+                <svg viewBox="0 0 700 490" style="width: 100%; height: auto;">
+                    <rect width="700" height="490" fill="#fafbfc" rx="8"/>
                     
                     <text x="350" y="35" text-anchor="middle" font-size="22" fill="#059669" font-weight="700">Heel Hit Gear Effect Formula</text>
                     
@@ -4119,7 +4276,7 @@
                     
                     <!-- Example -->
                     <g transform="translate(50, 180)">
-                        <rect x="0" y="0" width="600" height="240" fill="white" stroke="#ef4444" stroke-width="4" rx="12"/>
+                        <rect x="0" y="0" width="600" height="280" fill="white" stroke="#ef4444" stroke-width="4" rx="12"/>
                         <text x="300" y="35" text-anchor="middle" font-size="20" fill="#ef4444" font-weight="700">Example: 12mm Heel Hit</text>
                         
                         <!-- Visual -->
@@ -4156,8 +4313,8 @@
                         </g>
                         
                         <!-- Bottom note -->
-                        <rect x="50" y="170" width="500" height="50" fill="#d1fae5" rx="6"/>
-                        <text x="300" y="200" text-anchor="middle" font-size="15" fill="#065f46" font-weight="600">This spin ADDS to your face-to-path spin</text>
+                        <rect x="50" y="210" width="500" height="50" fill="#d1fae5" rx="6"/>
+                        <text x="300" y="240" text-anchor="middle" font-size="15" fill="#065f46" font-weight="600">This spin ADDS to your face-to-path spin</text>
                     </g>
                 </svg>
             </div>
@@ -4323,8 +4480,8 @@
             </p>
             
             <div class="diagram">
-                <svg viewBox="0 0 700 550" style="width: 100%; height: auto;">
-                    <rect width="700" height="550" fill="#fafbfc" rx="8"/>
+                <svg viewBox="0 0 700 850" style="width: 100%; height: auto;">
+                    <rect width="700" height="850" fill="#fafbfc" rx="8"/>
                     
                     <text x="350" y="35" text-anchor="middle" font-size="22" fill="#059669" font-weight="700">Complete Calculation</text>
                     <text x="350" y="65" text-anchor="middle" font-size="17" fill="#92400e" font-weight="600">Face +3°, Path +1°, Heel 9mm</text>
@@ -4368,11 +4525,33 @@
                     <!-- Arrow down -->
                     <path d="M 350 445 L 350 470" stroke="#059669" stroke-width="4" marker-end="url(#arrow-green)"/>
                     
-                    <!-- STEP 4: Distance -->
+                    <!-- STEP 4: Converting to Yards — Reference Panel -->
                     <g transform="translate(50, 475)">
-                        <rect x="0" y="0" width="600" height="60" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
-                        <text x="300" y="42" text-anchor="middle" font-size="17" fill="#1a1a1a">FTP: 2.0° × 250 × 3.2% = 16.0 yd   Gear: 2.7° × 250 × 1.0% = 6.8 yd</text>
-                        <text x="300" y="62" text-anchor="middle" font-size="17" fill="#1a1a1a">Total: <tspan font-weight="700" fill="#ef4444" font-size="19">22.8 yards fade!</tspan></text>
+                        <rect x="0" y="0" width="600" height="210" fill="#eff6ff" stroke="#3b82f6" stroke-width="3" rx="12"/>
+                        <text x="300" y="28" text-anchor="middle" font-size="18" fill="#1e40af" font-weight="700">📏 Converting to Yards</text>
+                        
+                        <text x="70" y="55" text-anchor="start" font-size="16" fill="#1e40af" font-weight="700">FTP → Yards (club-specific curve%):</text>
+                        <text x="90" y="78" text-anchor="start" font-size="15" fill="#374151">Driver <tspan font-weight="700" fill="#ef4444">3.2%</tspan>    Wood <tspan font-weight="700" fill="#ea580c">2.7%</tspan>    Long Iron <tspan font-weight="700" fill="#d97706">2.3%</tspan></text>
+                        <text x="90" y="100" text-anchor="start" font-size="15" fill="#374151">Mid Iron <tspan font-weight="700" fill="#059669">2.0%</tspan>    Wedge <tspan font-weight="700" fill="#3b82f6">1.0%</tspan></text>
+                        
+                        <line x1="70" y1="115" x2="580" y2="115" stroke="#93c5fd" stroke-width="2"/>
+                        
+                        <text x="70" y="140" text-anchor="start" font-size="16" fill="#1e40af" font-weight="700">Gear → Yards (spin axis rate):</text>
+                        <text x="90" y="163" text-anchor="start" font-size="16" fill="#374151">All clubs: <tspan font-weight="700" fill="#0284c7">1.0% SA rate</tspan></text>
+                        
+                        <text x="70" y="195" text-anchor="start" font-size="14" fill="#6b7280" font-style="italic">FTP gets amplified per club. Gear is already spin axis — same rate for all.</text>
+                    </g>
+                    
+                    <!-- Arrow down -->
+                    <path d="M 350 690 L 350 705" stroke="#059669" stroke-width="3" marker-end="url(#arrow-green)"/>
+                    
+                    <!-- Final calculation -->
+                    <g transform="translate(50, 710)">
+                        <rect x="0" y="0" width="600" height="110" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
+                        <text x="300" y="25" text-anchor="middle" font-size="15" fill="#1a1a1a">FTP: 2.0° × 250 yd × <tspan fill="#1e40af" font-weight="700">3.2%</tspan> = <tspan font-weight="700">16.0 yd fade</tspan></text>
+                        <text x="300" y="50" text-anchor="middle" font-size="15" fill="#1a1a1a">Gear: 2.7° × 250 yd × <tspan fill="#1e40af" font-weight="700">1.0% SA</tspan> = <tspan font-weight="700">6.8 yd fade</tspan></text>
+                        <line x1="120" y1="62" x2="580" y2="62" stroke="#86efac" stroke-width="2"/>
+                        <text x="300" y="88" text-anchor="middle" font-size="20" fill="#1a1a1a">Total: <tspan font-weight="700" fill="#ef4444" font-size="22">22.8 yards fade!</tspan></text>
                     </g>
                     
                     <!-- Arrow markers -->
@@ -4923,8 +5102,8 @@
             </p>
             
             <div class="diagram">
-                <svg viewBox="0 0 700 850" style="width: 100%; height: auto;">
-                    <rect width="700" height="850" fill="#fafbfc" rx="8"/>
+                <svg viewBox="0 0 700 880" style="width: 100%; height: auto;">
+                    <rect width="700" height="880" fill="#fafbfc" rx="8"/>
                     
                     <text x="350" y="35" text-anchor="middle" font-size="22" fill="#667eea" font-weight="700">Complete Calculation Flow</text>
                     <text x="350" y="65" text-anchor="middle" font-size="17" fill="#92400e" font-weight="600">Face +4°, Path +1°, Heel 12mm, High 10mm</text>
@@ -4988,18 +5167,19 @@
                     
                     <!-- STEP 5: Final Distance -->
                     <g transform="translate(50, 610)">
-                        <rect x="0" y="0" width="600" height="90" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
-                        <circle cx="45" cy="45" r="28" fill="#22c55e"/>
-                        <text x="45" y="55" text-anchor="middle" font-size="26" fill="white" font-weight="700">5</text>
+                        <rect x="0" y="0" width="600" height="115" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
+                        <circle cx="45" cy="50" r="28" fill="#22c55e"/>
+                        <text x="45" y="60" text-anchor="middle" font-size="26" fill="white" font-weight="700">5</text>
                         
-                        <text x="90" y="32" text-anchor="start" font-size="18" fill="#16a34a" font-weight="700">CURVE DISTANCE</text>
-                        <text x="90" y="55" text-anchor="start" font-size="16" fill="#1a1a1a">FTP: 3.6° × 250 × 3.2% = 28.8 yd   Gear: 4.32° × 250 × 1.0% = 10.8 yd</text>
-                        <text x="90" y="76" text-anchor="start" font-size="16" fill="#1a1a1a">Total: <tspan font-weight="700" fill="#dc2626" font-size="19">39.6 yards of curve!</tspan></text>
-                        <text x="90" y="92" text-anchor="start" font-size="13" fill="#6b7280" font-style="italic">FTP uses 3.2% (driver curve%) — Gear uses 1.0% (spin axis rate)</text>
+                        <text x="90" y="30" text-anchor="start" font-size="18" fill="#16a34a" font-weight="700">CURVE DISTANCE</text>
+                        <text x="90" y="52" text-anchor="start" font-size="15" fill="#1a1a1a">FTP: 3.6° × 250 × 3.2% = 28.8 yd</text>
+                        <text x="90" y="72" text-anchor="start" font-size="15" fill="#1a1a1a">Gear: 4.32° × 250 × 1.0% SA = 10.8 yd</text>
+                        <text x="90" y="92" text-anchor="start" font-size="17" fill="#1a1a1a">Total: <tspan font-weight="700" fill="#dc2626" font-size="20">39.6 yards of curve!</tspan></text>
+                        <text x="90" y="110" text-anchor="start" font-size="14" fill="#065f46" font-style="italic">FTP uses 3.2% (driver curve%) — Gear uses 1.0% SA rate (spin axis)</text>
                     </g>
                     
                     <!-- Clarification box -->
-                    <g transform="translate(50, 720)">
+                    <g transform="translate(50, 745)">
                         <rect x="0" y="0" width="600" height="110" fill="#eff6ff" stroke="#3b82f6" stroke-width="3" rx="12"/>
                         <text x="300" y="28" text-anchor="middle" font-size="17" fill="#1e40af" font-weight="700">📐 Understanding the Total Miss</text>
                         <text x="30" y="52" text-anchor="start" font-size="15" fill="#1a1a1a">The ball starts right (open face aims it right of target)</text>
@@ -5629,7 +5809,7 @@
                     <!-- STEP 6: Final Distance -->
                     <g transform="translate(50, 755)">
                         <rect x="0" y="0" width="600" height="60" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
-                        <text x="300" y="42" text-anchor="middle" font-size="17" fill="#1a1a1a">FTP: 1.68° × 170 × 2.3% = 6.6 yd   Gear: 0.81° × 170 × 1.0% = 1.4 yd   Total: <tspan font-weight="700" fill="#dc2626" font-size="18">8.0 yd fade</tspan></text>
+                        <text x="300" y="42" text-anchor="middle" font-size="17" fill="#1a1a1a">FTP: 1.68° × 170 × 2.3% = 6.6 yd   Gear: 0.81° × 170 × 1.0% SA = 1.4 yd   Total: <tspan font-weight="700" fill="#dc2626" font-size="18">8.0 yd fade</tspan></text>
                     </g>
                     
                     <!-- Clarification box -->
@@ -6122,8 +6302,8 @@
             </p>
             
             <div class="diagram">
-                <svg viewBox="0 0 700 1060" style="width: 100%; height: auto;">
-                    <rect width="700" height="1060" fill="#fafbfc" rx="8"/>
+                <svg viewBox="0 0 700 1090" style="width: 100%; height: auto;">
+                    <rect width="700" height="1090" fill="#fafbfc" rx="8"/>
                     
                     <text x="350" y="35" text-anchor="middle" font-size="22" fill="#0284c7" font-weight="700">Complete Calculation Flow</text>
                     <text x="350" y="63" text-anchor="middle" font-size="15" fill="#92400e" font-weight="600">Driver: Face +4, Path +1, Lie 2 Flat, Toe 8mm, Low 6mm</text>
@@ -6208,17 +6388,18 @@
                     
                     <!-- STEP 7: Final -->
                     <g transform="translate(50, 830)">
-                        <rect x="0" y="0" width="600" height="90" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
-                        <circle cx="45" cy="45" r="28" fill="#22c55e"/>
-                        <text x="45" y="55" text-anchor="middle" font-size="26" fill="white" font-weight="700">7</text>
-                        <text x="90" y="32" text-anchor="start" font-size="18" fill="#16a34a" font-weight="700">CURVE DISTANCE</text>
-                        <text x="90" y="58" text-anchor="start" font-size="16" fill="#1a1a1a">FTP: 3.94° × 238 × 3.2% = 30.0 yd fade   Gear: 2.37° × 238 × 1.0% = 5.6 yd draw</text>
-                        <text x="90" y="76" text-anchor="start" font-size="16" fill="#1a1a1a">Total: <tspan font-weight="700" fill="#dc2626" font-size="19">24.4 yards of fade</tspan></text>
-                        <text x="90" y="92" text-anchor="start" font-size="13" fill="#6b7280" font-style="italic">Gear opposes FTP but uses 1.0% vs 3.2% — less cancellation than you'd expect!</text>
+                        <rect x="0" y="0" width="600" height="115" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
+                        <circle cx="45" cy="50" r="28" fill="#22c55e"/>
+                        <text x="45" y="60" text-anchor="middle" font-size="26" fill="white" font-weight="700">7</text>
+                        <text x="90" y="30" text-anchor="start" font-size="18" fill="#16a34a" font-weight="700">CURVE DISTANCE</text>
+                        <text x="90" y="52" text-anchor="start" font-size="15" fill="#1a1a1a">FTP: 3.94° × 238 × 3.2% = 30.0 yd fade</text>
+                        <text x="90" y="72" text-anchor="start" font-size="15" fill="#1a1a1a">Gear: 2.37° × 238 × 1.0% SA = 5.6 yd draw</text>
+                        <text x="90" y="92" text-anchor="start" font-size="17" fill="#1a1a1a">Total: <tspan font-weight="700" fill="#dc2626" font-size="20">24.4 yards of fade</tspan></text>
+                        <text x="90" y="110" text-anchor="start" font-size="14" fill="#065f46" font-style="italic">Gear opposes FTP but uses 1.0% SA rate vs 3.2% curve% — less cancellation than you'd expect!</text>
                     </g>
                     
                     <!-- Clarification box -->
-                    <g transform="translate(50, 940)">
+                    <g transform="translate(50, 965)">
                         <rect x="0" y="0" width="600" height="100" fill="#eff6ff" stroke="#3b82f6" stroke-width="3" rx="12"/>
                         <text x="300" y="24" text-anchor="middle" font-size="17" fill="#1e40af" font-weight="700">Total Miss Breakdown</text>
                         <text x="30" y="48" text-anchor="start" font-size="15" fill="#1a1a1a">Start direction: +5 effective face aims ball right</text>
