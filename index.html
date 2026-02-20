@@ -494,7 +494,7 @@
         };
         
         // VERSION INFO
-        const APP_VERSION = "V4.4.5 - February 19, 2026 - Impact reroll, vert threshold 4mm, curve yards, sign fix, SA spelled out, gear-yards Q, tutorial totals";
+        const APP_VERSION = "V4.4.6 - February 20, 2026 - Start direction: fix ×3 bug (7 functions), per-club physics, ref modal, L1 teaching step, wind/spin separation, dead code cleanup";
         
         // Simple state management
         let state = {
@@ -644,6 +644,21 @@
             if (!content) return;
             
             let html = '<div class="ref-title">📋 Formula Reference</div>';
+            
+            // START DIRECTION section (fundamental - all levels)
+            html += '<div class="ref-section">';
+            html += '<div class="ref-section-header" style="background: #3b82f6;">START DIRECTION</div>';
+            html += '<div class="ref-section-body">';
+            html += '<div class="ref-formula">Face° × Start Multiplier = Start Yards</div>';
+            html += '<table class="ref-table">';
+            html += '<tr><td>Driver</td><td style="color:#ef4444;">2.5</td><td>Most push per degree</td></tr>';
+            html += '<tr><td>Wood</td><td style="color:#ea580c;">2.3</td><td></td></tr>';
+            html += '<tr><td>Long Iron</td><td style="color:#d97706;">2.0</td><td></td></tr>';
+            html += '<tr><td>Mid Iron</td><td style="color:#059669;">1.8</td><td></td></tr>';
+            html += '<tr><td>Wedge</td><td style="color:#3b82f6;">1.5</td><td>Least push per degree</td></tr>';
+            html += '</table>';
+            html += '<div class="ref-note">Positive face = right &nbsp;│&nbsp; Negative face = left</div>';
+            html += '</div></div>';
             
             // FACE-TO-PATH section
             html += '<div class="ref-section">';
@@ -1441,7 +1456,7 @@
                 
                 // Level 4: Hypothetical question (only lie-based, no wind yet)
                 if (diffLevel === 4 && Math.abs(lieAngle) > 0.5) {
-                    cards.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, 0, diffLevel, Math.round(carry), physics.curvePct, windMultiplier, verticalGearMultiplier, gearEffect));
+                    cards.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, 0, diffLevel, Math.round(carry), physics.curvePct, windMultiplier, verticalGearMultiplier, gearEffect, clubType));
                 }
                 
                 // Shot shape
@@ -1545,7 +1560,7 @@
                 // Advanced questions for level 6+
                 // 🥈🪗 SILVER ACCORDION V2: Gate at scenario 10+ (50% of players)
                 if (diffLevel >= 6 && state.scenarioNumber >= 10) {
-                    spoilerQuestions.push(generatePrimaryCauseQuestion(face, path, gearEffect, windEffect, diffLevel));
+                    spoilerQuestions.push(generatePrimaryCauseQuestion(face, path, gearEffect, windEffect, diffLevel, clubType, roundedCarry, physics.curvePct));
                     spoilerQuestions.push(generateNetCurveQuestion(baseFaceToPath, gearEffect, windEffect, diffLevel));
                 }
                 
@@ -1558,7 +1573,7 @@
                 if (diffLevel >= 5 && diffLevel <= 6) {
                     basicQuestions.push(generateFaceSquareStartQuestion(face, path, physics, diffLevel));
                     if (gearEffect !== 0 && Math.abs(baseFaceToPath) > 1) {
-                        basicQuestions.push(generateCurveComparisonQuestion(baseFaceToPath, gearEffect, clubType, diffLevel));
+                        basicQuestions.push(generateCurveComparisonQuestion(baseFaceToPath, gearEffect, clubType, diffLevel, roundedCarry, physics.curvePct, impact));
                     }
                 }
                 
@@ -1569,7 +1584,7 @@
                 
                 // Advanced questions for level 7-10
                 if (diffLevel >= 4) {
-                    spoilerQuestions.push(generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
+                    spoilerQuestions.push(generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel, clubType, roundedCarry, physics.curvePct));
                 }
                 
                 if (diffLevel >= 4) {
@@ -1597,7 +1612,7 @@
                 
                 // Level 7: Add standard lie hypothetical (after curveContribution is calculated)
                 if (diffLevel >= 7 && Math.abs(lieAngle) > 0.5) {
-                    hypotheticalQuestions.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, windEffect, diffLevel, roundedCarry, physics.curvePct, windMultiplier, verticalGearMultiplier, gearEffect));
+                    hypotheticalQuestions.push(generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, windEffect, diffLevel, roundedCarry, physics.curvePct, windMultiplier, verticalGearMultiplier, gearEffect, clubType));
                 }
                 
                 // Add hypothetical question and vertical impact question (Level 8+)
@@ -1609,7 +1624,7 @@
                     }
                     
                     // Hypothetical question
-                    hypotheticalQuestions.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel, roundedCarry, physics.curvePct, windMultiplier, verticalGearMultiplier, gearEffect));
+                    hypotheticalQuestions.push(generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel, roundedCarry, physics.curvePct, windMultiplier, verticalGearMultiplier, gearEffect, clubType));
                     
                     // Add vertical impact curve question if significant vertical impact
                     if (Math.abs(verticalImpact) > 4 && Math.abs(baseFaceToPath) > 1) {
@@ -1624,12 +1639,12 @@
                     
                     // BestVariable: Intermediate difficulty - scenario 6+ (80% of players)
                     if (state.scenarioNumber >= 6) {
-                        spoilerQuestions.push(generateBestVariableQuestion(face, path, gearEffect, windEffect, diffLevel));
+                        spoilerQuestions.push(generateBestVariableQuestion(face, path, gearEffect, windEffect, diffLevel, clubType, roundedCarry, physics.curvePct));
                     }
                     
                     // RankByImpact: Expert only - Level 6 only
                     if (diffLevel === 6) {
-                        spoilerQuestions.push(generateRankByImpactQuestion(face, path, gearEffect, windEffect, diffLevel));
+                        spoilerQuestions.push(generateRankByImpactQuestion(face, path, gearEffect, windEffect, diffLevel, clubType, roundedCarry, physics.curvePct));
                     }
                 }
                 
@@ -1733,7 +1748,7 @@
                     calcParts.push(`<strong>Effective face:</strong> ${originalFace.toFixed(1)}° ${adjustmentText}° = ${face.toFixed(1)}°`);
                 }
                 
-                calcParts.push(`<strong>Start direction (face):</strong> ${face.toFixed(1)}° × 3 = ${faceYards.toFixed(1)} yards ${faceDir}`);
+                calcParts.push(`<strong>Start direction (face):</strong> ${face.toFixed(1)}° × ${startMultiplier} (${clubType.replace('_',' ')}) = ${faceYards.toFixed(1)} yards ${faceDir}`);
                 
                 // Show vertical impact multiplier if applicable (Level 5+)
                 if (diffLevel >= 5 && Math.abs(verticalImpact) > 0.5) {
@@ -1766,7 +1781,7 @@
                     explanationHTML += `<div class="text-sm mb-2">Effective face: ${originalFace.toFixed(1)}° ${lieAngleAdjustment > 0 ? '+' : ''}${lieAngleAdjustment.toFixed(1)}° = ${face.toFixed(1)}°</div>`;
                 }
                 
-                explanationHTML += `<div class="font-semibold">${face.toFixed(1)}° × 3 = ${faceContribution > 0 ? '+' : ''}${faceContribution.toFixed(1)} yards</div>`;
+                explanationHTML += `<div class="font-semibold">${face.toFixed(1)}° × ${startMultiplier} (${clubType.replace('_',' ')}) = ${faceContribution > 0 ? '+' : ''}${faceContribution.toFixed(1)} yards</div>`;
                 explanationHTML += `<div class="text-sm text-gray-600 mt-1">${faceContribution > 0 ? 'Right' : faceContribution < 0 ? 'Left' : 'Straight'}</div>`;
                 explanationHTML += '</div>';
                 
@@ -2049,11 +2064,12 @@
             };
         }
 
-        function generatePrimaryCauseQuestion(face, path, gearEffect, windEffect, diffLevel) {
+        function generatePrimaryCauseQuestion(face, path, gearEffect, windEffect, diffLevel, clubType, carry, curvePct) {
             const baseFaceToPath = face - path;
-            const faceContribution = Math.abs(face * 3);
-            const pathContribution = Math.abs(baseFaceToPath * 5);
-            const gearContribution = Math.abs(gearEffect * 5);
+            const _pcStartMult = { driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5 };
+            const faceContribution = Math.abs(face * (_pcStartMult[clubType] || 2.5));
+            const pathContribution = Math.abs(baseFaceToPath * carry * curvePct);
+            const gearContribution = Math.abs(gearEffect * carry * 0.01);
             const windContribution = Math.abs(windEffect);
             
             // Only include variables that actually exist
@@ -2087,7 +2103,7 @@
         }
 
         function generateNetCurveQuestion(baseFaceToPath, gearEffect, windEffect, diffLevel) {
-            const totalCurve = baseFaceToPath + gearEffect + (windEffect / 5); // Wind has less effect on curve
+            const totalCurve = baseFaceToPath + gearEffect; // Wind pushes laterally but does NOT change spin axis
             
             // Thresholds: Straight ±0.5°, Draw/Fade ±0.5-3°, Hook/Slice >3°
             let netDirection;
@@ -2115,7 +2131,7 @@
                 explanationHTML += `<div><strong>Gear effect:</strong> ${gearEffect > 0 ? '+' : ''}${gearEffect.toFixed(1)}°</div>`;
             }
             if (windEffect !== 0) {
-                explanationHTML += `<div><strong>Wind influence:</strong> ${(windEffect / 5).toFixed(1)}°</div>`;
+                explanationHTML += `<div class="text-sm text-gray-500">Wind pushes ${Math.abs(windEffect).toFixed(1)} yards ${windEffect > 0 ? 'right' : 'left'} but does NOT change curve type</div>`;
             }
             explanationHTML += `<div class="mt-2 pt-2 border-t"><strong>Net curve:</strong> ${totalCurve.toFixed(1)}° = ${netDirection}</div>`;
             explanationHTML += `<div class="text-sm text-gray-600 mt-2">Thresholds: Straight (±0.5°), Draw/Fade (0.5-3°), Hook/Slice (>3°)</div>`;
@@ -2129,10 +2145,12 @@
             };
         }
 
-        function generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel, carry, curvePct, windMultiplier, verticalGearMultiplier, gearEffect) {
+        function generateHypotheticalQuestion(face, path, faceContribution, curveContribution, windEffect, diffLevel, carry, curvePct, windMultiplier, verticalGearMultiplier, gearEffect, clubType) {
             // What if face was 2° more closed?
             const newFace = face - 2;
-            const newFaceContribution = newFace * 3;
+            const _hypoStartMult = { driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5 };
+            const _hypoMult = _hypoStartMult[clubType] || 2.5;
+            const newFaceContribution = newFace * _hypoMult;
             
             // CRITICAL: Recalculate curve with new face-to-path
             const newFaceToPath = newFace - path;
@@ -2167,7 +2185,7 @@
             explanationHTML += `<div><strong>Close face by 2°:</strong> ${face.toFixed(1)}° - 2° = ${newFace.toFixed(1)}°</div>`;
             explanationHTML += `<div><strong>Path stays:</strong> ${path.toFixed(1)}°</div>`;
             explanationHTML += '<div class="mt-3 pt-3 border-t border-gray-300">';
-            explanationHTML += `<div><strong>New start direction:</strong> ${newFace.toFixed(1)}° × 3 = ${newFaceContribution.toFixed(1)} yards ${newFaceContribution > 0 ? 'right' : newFaceContribution < 0 ? 'left' : 'straight'}</div>`;
+            explanationHTML += `<div><strong>New start direction:</strong> ${newFace.toFixed(1)}° × ${_hypoMult} (${clubType.replace('_',' ')}) = ${newFaceContribution.toFixed(1)} yards ${newFaceContribution > 0 ? 'right' : newFaceContribution < 0 ? 'left' : 'straight'}</div>`;
             explanationHTML += `<div><strong>New face-to-path:</strong> ${newFace.toFixed(1)}° - ${path.toFixed(1)}° = ${newFaceToPath.toFixed(1)}°</div>`;
             explanationHTML += `<div><strong>New curve:</strong> ${newFaceToPath.toFixed(1)}° × ${carry} yd × ${(curvePct * 100).toFixed(1)}% = ${newBaseCurveContribution.toFixed(1)} yards ${newBaseCurveContribution > 0 ? 'right' : newBaseCurveContribution < 0 ? 'left' : 'straight'}</div>`;
             if (gearEffect !== 0) {
@@ -2190,10 +2208,11 @@
             };
         }
 
-        function generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel) {
-            const faceContribution = Math.abs(face * 3);
-            const pathContribution = Math.abs((face - path) * 5);
-            const gearContribution = Math.abs(gearEffect * 5);
+        function generateLeastImpactQuestion(face, path, gearEffect, windEffect, diffLevel, clubType, carry, curvePct) {
+            const _liStartMult = { driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5 };
+            const faceContribution = Math.abs(face * (_liStartMult[clubType] || 2.5));
+            const pathContribution = Math.abs((face - path) * carry * curvePct);
+            const gearContribution = Math.abs(gearEffect * carry * 0.01);
             const windContribution = Math.abs(windEffect);
             
             // Only include variables that actually exist in the scenario
@@ -2326,17 +2345,18 @@
         }
 
         // Level 5-6: Curve comparison question
-        function generateCurveComparisonQuestion(baseFaceToPath, gearEffect, clubType, diffLevel) {
-            const faceToPathCurve = Math.abs(baseFaceToPath) * 200 * 0.025; // Approximate yards of curve
-            const gearCurve = Math.abs(gearEffect) * 5;
+        function generateCurveComparisonQuestion(baseFaceToPath, gearEffect, clubType, diffLevel, carry, curvePct, impactMm) {
+            const faceToPathCurve = Math.abs(baseFaceToPath) * carry * curvePct;
+            const gearCurve = Math.abs(gearEffect) * carry * 0.01;
+            const impactDisplay = Math.abs(impactMm || 0).toFixed(1);
             
             const correct = faceToPathCurve > gearCurve ? 
                 `${Math.abs(baseFaceToPath).toFixed(1)}° face-to-path` : 
-                `${Math.abs(gearEffect * 20).toFixed(1)}mm impact location`;
+                `${impactDisplay}mm impact location`;
             
             const options = [
                 `${Math.abs(baseFaceToPath).toFixed(1)}° face-to-path`,
-                `${Math.abs(gearEffect * 20).toFixed(1)}mm impact location`,
+                `${impactDisplay}mm impact location`,
                 "They produce equal curve"
             ];
             
@@ -2344,7 +2364,7 @@
                 question: "Which will produce MORE curve on this shot?",
                 options: options,
                 correct: correct,
-                explanation: `<div><strong>Face-to-path curve:</strong> ~${faceToPathCurve.toFixed(1)} yards</div><div><strong>Gear effect curve:</strong> ~${gearCurve.toFixed(1)} yards</div><div>Face-to-path is the dominant factor in ball flight curvature.</div>`
+                explanation: `<div><strong>Face-to-path curve:</strong> ${Math.abs(baseFaceToPath).toFixed(1)}° × ${carry} yd × ${(curvePct * 100).toFixed(1)}% = ~${faceToPathCurve.toFixed(1)} yards</div><div><strong>Gear effect curve:</strong> ${Math.abs(gearEffect).toFixed(1)}° × ${carry} yd × 1.0% = ~${gearCurve.toFixed(1)} yards</div><div>${faceToPathCurve > gearCurve ? 'Face-to-path produces more curve on this shot.' : 'Gear effect produces more curve — large off-center hits with high gear multipliers can dominate!'}</div>`
             };
         }
 
@@ -2374,10 +2394,12 @@
         }
 
         // Level 7: Standard lie hypothetical
-        function generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, windEffect, diffLevel, carry, curvePct, windMultiplier, verticalGearMultiplier, gearEffect) {
+        function generateStandardLieHypotheticalQuestion(face, originalFace, lieAngleAdjustment, path, windEffect, diffLevel, carry, curvePct, windMultiplier, verticalGearMultiplier, gearEffect, clubType) {
             // Calculate what would happen with standard lie (no lie adjustment)
             const standardFace = originalFace; // Original face without lie adjustment
-            const standardFaceContribution = standardFace * 3;
+            const _slStartMult = { driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5 };
+            const _slMult = _slStartMult[clubType] || 2.5;
+            const standardFaceContribution = standardFace * _slMult;
             
             // CRITICAL: Recalculate curve with original face (path stays the same)
             const standardBaseFaceToPath = standardFace - path;
@@ -2411,7 +2433,7 @@
             explanationHTML += `<div><strong>Original face (no lie adjustment):</strong> ${originalFace.toFixed(1)}°</div>`;
             explanationHTML += `<div><strong>Path (unchanged):</strong> ${path.toFixed(1)}°</div>`;
             explanationHTML += '<div class="mt-3 pt-3 border-t border-gray-300">';
-            explanationHTML += `<div><strong>Standard lie start:</strong> ${standardFace.toFixed(1)}° × 3 = ${standardFaceContribution.toFixed(1)} yards ${standardFaceContribution > 0 ? 'right' : standardFaceContribution < 0 ? 'left' : 'straight'}</div>`;
+            explanationHTML += `<div><strong>Standard lie start:</strong> ${standardFace.toFixed(1)}° × ${_slMult} (${clubType.replace('_',' ')}) = ${standardFaceContribution.toFixed(1)} yards ${standardFaceContribution > 0 ? 'right' : standardFaceContribution < 0 ? 'left' : 'straight'}</div>`;
             explanationHTML += `<div><strong>Standard lie face-to-path:</strong> ${standardBaseFaceToPath.toFixed(1)}°</div>`;
             explanationHTML += `<div><strong>Standard lie curve:</strong> ${standardBaseFaceToPath.toFixed(1)}° × ${carry} yd × ${(curvePct * 100).toFixed(1)}% = ${standardCurveContribution.toFixed(1)} yards ${standardCurveContribution > 0 ? 'right' : standardCurveContribution < 0 ? 'left' : 'straight'}</div>`;
             if (windEffect !== 0) {
@@ -2536,10 +2558,11 @@
         }
 
         // Level 9-10: Best variable to change
-        function generateBestVariableQuestion(face, path, gearEffect, windEffect, diffLevel) {
-            // Calculate impact of changing each by 2°
-            const faceDelta = Math.abs(2 * 3); // Face × 3 = start yards
-            const pathDelta = Math.abs(2 * 5); // Face-to-path change × 5 = curve yards
+        function generateBestVariableQuestion(face, path, gearEffect, windEffect, diffLevel, clubType, carry, curvePct) {
+            // Calculate impact of changing each by 2° using actual per-club physics
+            const _bvStartMult = { driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5 };
+            const faceDelta = Math.abs(2 * (_bvStartMult[clubType] || 2.5)); // Face × start multiplier = start yards
+            const pathDelta = Math.abs(2 * carry * curvePct); // Face-to-path change × carry × curve% = curve yards
             const totalFace = faceDelta;
             const totalPath = pathDelta;
             
@@ -2561,15 +2584,16 @@
                 question: "If you could change ONE variable by 2°, which would improve the shot most?",
                 options: options,
                 correct: correct,
-                explanation: `<div><strong>Changing face 2°:</strong> ~${faceDelta} yards start direction</div><div><strong>Changing path 2°:</strong> ~${pathDelta} yards curve change</div><div>Path changes affect BOTH the start (slightly) and curve (significantly), making it often the most impactful adjustment.</div>`
+                explanation: `<div><strong>Changing face 2°:</strong> ~${faceDelta.toFixed(1)} yards start direction</div><div><strong>Changing path 2°:</strong> ~${pathDelta.toFixed(1)} yards curve change</div><div>${totalPath > totalFace * 1.5 ? 'Path changes affect BOTH the start (slightly) and curve (significantly), making it the most impactful adjustment.' : totalFace > totalPath * 1.5 ? 'For this shorter club, face angle has more impact on final position because the ball doesn\'t travel far enough for large curves to develop.' : 'For this club, both changes have similar impact — showing how club choice affects what matters most.'}</div>`
             };
         }
 
         // Level 9-10: Rank by impact
-        function generateRankByImpactQuestion(face, path, gearEffect, windEffect, diffLevel) {
-            const faceContribution = Math.abs(face * 3);
-            const pathContribution = Math.abs((face - path) * 5);
-            const gearContribution = Math.abs(gearEffect * 5);
+        function generateRankByImpactQuestion(face, path, gearEffect, windEffect, diffLevel, clubType, carry, curvePct) {
+            const _riStartMult = { driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5 };
+            const faceContribution = Math.abs(face * (_riStartMult[clubType] || 2.5));
+            const pathContribution = Math.abs((face - path) * carry * curvePct);
+            const gearContribution = Math.abs(gearEffect * carry * 0.01);
             const windContribution = Math.abs(windEffect);
             
             // Only include variables that actually exist
@@ -3086,43 +3110,7 @@
             };
         }
         
-        function generateYardsOfflineL2Question(baseFaceToPath, gearEffect, netSpin, yardsOffline, impactLocation, face, path, clubType, physics, diffLevel) {
-            const isToe = impactLocation > 0;
-            const impactSide = isToe ? 'toe' : 'heel';
-            const mult = physics.gearMultiplier;
-            const clubName = clubType.replace('_', ' ');
-            const ftpDirection = baseFaceToPath < 0 ? 'draw' : 'fade';
-            const gearDirection = gearEffect < 0 ? 'draw' : 'fade';
-            const netDirection = netSpin < 0 ? 'draw (left)' : 'fade (right)';
-            
-            // Round to nearest 0.5 for cleaner answers
-            const correctYards = Math.round(yardsOffline * 2) / 2;
-            
-            // Generate wrong options
-            const wrongOptions = [
-                Math.round(Math.abs(baseFaceToPath) * Math.round(carry) * physics.curvePct * 2) / 2,  // Without gear effect
-                Math.round((correctYards + 3) * 2) / 2,
-                Math.round(Math.max(0.5, correctYards - 3) * 2) / 2
-            ].filter(v => Math.abs(v - correctYards) > 0.4);
-            
-            const options = [correctYards, ...wrongOptions.slice(0, 3)]
-                .filter((v, i, a) => a.indexOf(v) === i)
-                .shuffled()
-                .slice(0, 4)
-                .map(v => v.toFixed(1) + ' yards');
-            
-            // Ensure correct answer is in options
-            const correctStr = correctYards.toFixed(1) + ' yards';
-            if (!options.includes(correctStr)) options[0] = correctStr;
-            
-            return {
-                question: "How many yards offline will this ball finish due to curve?",
-                options: options.shuffled(),
-                correct: correctStr,
-                explanation: `<div><strong>Step 1 — Face-to-path:</strong> ${face.toFixed(1)}° − ${path.toFixed(1)}° = <strong>${baseFaceToPath.toFixed(1)}° ${ftpDirection}</strong></div><div><strong>Step 2 — Gear effect:</strong> ${Math.abs(impactLocation).toFixed(1)}mm ${impactSide} × ${mult} (${clubName}) = <strong>${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°</strong></div><div><strong>Step 3 — Net spin:</strong> ${baseFaceToPath.toFixed(1)}° + (${gearEffect >= 0 ? '+' : ''}${gearEffect.toFixed(1)}°) = <strong>${netSpin.toFixed(1)}°</strong></div><div><strong>Step 4 — Yards offline:</strong></div><div class="ml-3">FTP: ${Math.abs(baseFaceToPath).toFixed(1)}° × ${Math.round(carry)} yd × ${(physics.curvePct * 100).toFixed(1)}% = ${Math.abs(baseFaceToPath * Math.round(carry) * physics.curvePct).toFixed(1)} yd</div><div class="ml-3">Gear: ${Math.abs(gearEffect).toFixed(1)}° × ${Math.round(carry)} yd × 1.0% spin axis = ${Math.abs(gearEffect * Math.round(carry) * 0.01).toFixed(1)} yd</div><div class="ml-3"><strong>Total: ${yardsOffline.toFixed(1)} yards ${netDirection}</strong></div>`
-            };
-        }
-        
+
         function generateCenterStrikeTargetQuestion(gearEffect, baseFaceToPath, impactLocation, face, path, clubType, diffLevel) {
             const wouldHelp = (gearEffect > 0 && baseFaceToPath < 0) || (gearEffect < 0 && baseFaceToPath > 0);
             const isToe = impactLocation > 0;
@@ -3601,7 +3589,7 @@
         
         <!-- STEP 1: Face Angle Controls Start -->
         <div class="step">
-            <div class="step-number">STEP 1 OF 6</div>
+            <div class="step-number">STEP 1 OF 7</div>
             <h1 class="step-title">Face Angle Controls Start Direction</h1>
             
             <div class="headline">
@@ -3684,12 +3672,13 @@
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
+                <div class="dot"></div>
             </div>
         </div>
 
         <!-- STEP 2: Club Path Creates Curve -->
         <div class="step">
-            <div class="step-number">STEP 2 OF 6</div>
+            <div class="step-number">STEP 2 OF 7</div>
             <h1 class="step-title">Club Path Creates the Curve</h1>
             
             <div class="headline">
@@ -3778,12 +3767,13 @@
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
+                <div class="dot"></div>
             </div>
         </div>
 
         <!-- STEP 3: Face-to-Path = Curve Amount -->
         <div class="step">
-            <div class="step-number">STEP 3 OF 6</div>
+            <div class="step-number">STEP 3 OF 7</div>
             <h1 class="step-title">Face-to-Path Determines Curve</h1>
             
             <div class="headline">
@@ -3865,12 +3855,13 @@
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
+                <div class="dot"></div>
             </div>
         </div>
 
         <!-- STEP 4: How Far Does It Curve? (NEW) -->
         <div class="step">
-            <div class="step-number">STEP 4 OF 6</div>
+            <div class="step-number">STEP 4 OF 7</div>
             <h1 class="step-title">How Far Does It Curve?</h1>
             
             <div class="headline">
@@ -3946,12 +3937,106 @@
                 <div class="dot active"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
+                <div class="dot"></div>
             </div>
         </div>
 
-        <!-- STEP 5: D-Plane Visuals -->
+
+        <!-- STEP 5: Start Direction Multipliers (NEW) -->
         <div class="step">
-            <div class="step-number">STEP 5 OF 6</div>
+            <div class="step-number">STEP 5 OF 7</div>
+            <h1 class="step-title">How Far Does Face Angle Push the Ball?</h1>
+            
+            <div class="headline">
+                📍 Face angle doesn't just set DIRECTION — it determines how many YARDS offline you start
+            </div>
+            
+            <p class="step-intro">
+                A 3° open face on a driver pushes the ball much further right than 3° on a wedge. Why? Because the driver's ball travels further, so the same angular error covers more ground.
+            </p>
+            
+            <div class="diagram">
+                <svg viewBox="0 0 700 520" style="width: 100%; height: auto;">
+                    <rect width="700" height="520" fill="#fafbfc" rx="8"/>
+                    
+                    <text x="350" y="35" text-anchor="middle" font-size="20" fill="#3b82f6" font-weight="700">Start Multiplier: Yards Per Degree of Face Angle</text>
+                    
+                    <!-- Example: +3° face angle on two clubs -->
+                    <text x="350" y="68" text-anchor="middle" font-size="15" fill="#6b7280">Same +3° open face — different results</text>
+                    
+                    <!-- Driver example -->
+                    <rect x="40" y="90" width="290" height="100" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+                    <text x="185" y="115" text-anchor="middle" font-size="16" fill="#3b82f6" font-weight="700">🏌️ Driver (250 yd carry)</text>
+                    <text x="185" y="140" text-anchor="middle" font-size="15" fill="#1a1a1a">Face +3° × <tspan font-weight="700" fill="#ef4444">2.5</tspan> = </text>
+                    <text x="185" y="165" text-anchor="middle" font-size="20" fill="#dc2626" font-weight="700">7.5 yards right</text>
+                    <text x="185" y="183" text-anchor="middle" font-size="11" fill="#6b7280">Ball travels far → more push per degree</text>
+                    
+                    <!-- Wedge example -->
+                    <rect x="370" y="90" width="290" height="100" rx="8" fill="#f0fdf4" stroke="#059669" stroke-width="2"/>
+                    <text x="515" y="115" text-anchor="middle" font-size="16" fill="#059669" font-weight="700">🏌️ Wedge (100 yd carry)</text>
+                    <text x="515" y="140" text-anchor="middle" font-size="15" fill="#1a1a1a">Face +3° × <tspan font-weight="700" fill="#059669">1.5</tspan> = </text>
+                    <text x="515" y="165" text-anchor="middle" font-size="20" fill="#059669" font-weight="700">4.5 yards right</text>
+                    <text x="515" y="183" text-anchor="middle" font-size="11" fill="#6b7280">Ball travels less → less push per degree</text>
+                    
+                    <!-- Per-club table -->
+                    <text x="350" y="225" text-anchor="middle" font-size="17" fill="#1a1a1a" font-weight="700">Start Multiplier by Club</text>
+                    
+                    <!-- Table header -->
+                    <rect x="120" y="240" width="460" height="30" rx="4" fill="#e2e8f0"/>
+                    <text x="230" y="260" text-anchor="middle" font-size="13" fill="#475569" font-weight="700">Club</text>
+                    <text x="400" y="260" text-anchor="middle" font-size="13" fill="#475569" font-weight="700">Start Multiplier</text>
+                    <text x="520" y="260" text-anchor="middle" font-size="13" fill="#475569" font-weight="700">3° Example</text>
+                    
+                    <!-- Driver row -->
+                    <rect x="120" y="272" width="460" height="32" rx="0" fill="#fef2f2"/>
+                    <text x="230" y="293" text-anchor="middle" font-size="14" fill="#1a1a1a">Driver</text>
+                    <text x="400" y="293" text-anchor="middle" font-size="16" fill="#ef4444" font-weight="700">2.5</text>
+                    <text x="520" y="293" text-anchor="middle" font-size="13" fill="#6b7280">7.5 yd</text>
+                    
+                    <!-- Wood row -->
+                    <rect x="120" y="304" width="460" height="32" rx="0" fill="#fff7ed"/>
+                    <text x="230" y="325" text-anchor="middle" font-size="14" fill="#1a1a1a">Wood</text>
+                    <text x="400" y="325" text-anchor="middle" font-size="16" fill="#ea580c" font-weight="700">2.3</text>
+                    <text x="520" y="325" text-anchor="middle" font-size="13" fill="#6b7280">6.9 yd</text>
+                    
+                    <!-- Long iron row -->
+                    <rect x="120" y="336" width="460" height="32" rx="0" fill="#fffbeb"/>
+                    <text x="230" y="357" text-anchor="middle" font-size="14" fill="#1a1a1a">Long Iron</text>
+                    <text x="400" y="357" text-anchor="middle" font-size="16" fill="#d97706" font-weight="700">2.0</text>
+                    <text x="520" y="357" text-anchor="middle" font-size="13" fill="#6b7280">6.0 yd</text>
+                    
+                    <!-- Mid iron row -->
+                    <rect x="120" y="368" width="460" height="32" rx="0" fill="#f0fdf4"/>
+                    <text x="230" y="389" text-anchor="middle" font-size="14" fill="#1a1a1a">Mid Iron</text>
+                    <text x="400" y="389" text-anchor="middle" font-size="16" fill="#059669" font-weight="700">1.8</text>
+                    <text x="520" y="389" text-anchor="middle" font-size="13" fill="#6b7280">5.4 yd</text>
+                    
+                    <!-- Wedge row -->
+                    <rect x="120" y="400" width="460" height="32" rx="0" fill="#eff6ff"/>
+                    <text x="230" y="421" text-anchor="middle" font-size="14" fill="#1a1a1a">Wedge</text>
+                    <text x="400" y="421" text-anchor="middle" font-size="16" fill="#3b82f6" font-weight="700">1.5</text>
+                    <text x="520" y="421" text-anchor="middle" font-size="13" fill="#6b7280">4.5 yd</text>
+                    
+                    <!-- Insight box -->
+                    <rect x="80" y="450" width="540" height="55" rx="8" fill="#fefce8" stroke="#eab308" stroke-width="1.5"/>
+                    <text x="100" y="472" font-size="13" fill="#854d0e" font-weight="700">💡 Why the difference?</text>
+                    <text x="100" y="492" font-size="13" fill="#713f12">Longer clubs hit the ball further — same angular error covers more ground at distance.</text>
+                </svg>
+            </div>
+            
+            <div class="dots">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot active"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+        </div>
+        <!-- STEP 6: D-Plane Visuals -->
+        <div class="step">
+            <div class="step-number">STEP 6 OF 7</div>
             <h1 class="step-title">How Face and Path Work Together</h1>
             
             <div class="headline">
@@ -4090,14 +4175,15 @@
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
+                <div class="dot"></div>
                 <div class="dot active"></div>
                 <div class="dot"></div>
             </div>
         </div>
 
-        <!-- STEP 6: Summary -->
+        <!-- STEP 7: Summary -->
         <div class="step">
-            <div class="step-number">STEP 6 OF 6</div>
+            <div class="step-number">STEP 7 OF 7</div>
             <h1 class="step-title">Putting It All Together</h1>
             
             <div class="headline">
@@ -4207,6 +4293,7 @@
             </div>
             
             <div class="dots">
+                <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
@@ -4719,7 +4806,7 @@
                 <svg viewBox="0 0 700 520" style="width: 100%; height: auto;">
                     <rect width="700" height="520" fill="#fafbfc" rx="8"/>
                     
-                    <text x="350" y="35" text-anchor="middle" font-size="22" fill="#059689" font-weight="700">Two Different Conversion Rates</text>
+                    <text x="350" y="35" text-anchor="middle" font-size="22" fill="#059669" font-weight="700">Two Different Conversion Rates</text>
                     
                     <!-- FTP box -->
                     <g transform="translate(50, 60)">
@@ -4738,8 +4825,8 @@
                     
                     <!-- Gear box -->
                     <g transform="translate(370, 60)">
-                        <rect x="0" y="0" width="280" height="200" fill="white" stroke="#059689" stroke-width="4" rx="12"/>
-                        <text x="140" y="30" text-anchor="middle" font-size="18" fill="#059689" font-weight="700">GEAR → YARDS</text>
+                        <rect x="0" y="0" width="280" height="200" fill="white" stroke="#059669" stroke-width="4" rx="12"/>
+                        <text x="140" y="30" text-anchor="middle" font-size="18" fill="#059669" font-weight="700">GEAR → YARDS</text>
                         <text x="140" y="55" text-anchor="middle" font-size="14" fill="#6b7280">Flat rate for ALL clubs</text>
                         
                         <rect x="40" y="75" width="200" height="60" fill="#dcfce7" rx="10"/>
@@ -4762,7 +4849,7 @@
                         <rect x="0" y="0" width="600" height="100" fill="#eff6ff" stroke="#3b82f6" stroke-width="3" rx="12"/>
                         <text x="300" y="25" text-anchor="middle" font-size="17" fill="#1e40af" font-weight="700">Example: Driver, 250 yd carry, 2° FTP, 2.7° gear</text>
                         <text x="30" y="52" font-size="15" fill="#374151">FTP: 2.0° × 250 × <tspan fill="#ef4444" font-weight="700">3.2%</tspan> = <tspan font-weight="700">16.0 yd</tspan></text>
-                        <text x="30" y="75" font-size="15" fill="#374151">Gear: 2.7° × 250 × <tspan fill="#059689" font-weight="700">1.0%</tspan> = <tspan font-weight="700">6.8 yd</tspan></text>
+                        <text x="30" y="75" font-size="15" fill="#374151">Gear: 2.7° × 250 × <tspan fill="#059669" font-weight="700">1.0%</tspan> = <tspan font-weight="700">6.8 yd</tspan></text>
                         <text x="375" y="52" font-size="14" fill="#6b7280">← uses driver curve%</text>
                         <text x="375" y="75" font-size="14" fill="#6b7280">← uses flat 1.0% (spin axis rate)</text>
                     </g>
@@ -5439,8 +5526,8 @@
             </p>
             
             <div class="diagram">
-                <svg viewBox="0 0 700 940" style="width: 100%; height: auto;">
-                    <rect width="700" height="940" fill="#fafbfc" rx="8"/>
+                <svg viewBox="0 0 700 975" style="width: 100%; height: auto;">
+                    <rect width="700" height="975" fill="#fafbfc" rx="8"/>
                     
                     <text x="350" y="35" text-anchor="middle" font-size="22" fill="#667eea" font-weight="700">Complete Calculation Flow</text>
                     <text x="350" y="65" text-anchor="middle" font-size="17" fill="#92400e" font-weight="600">Face +4°, Path +1°, Heel 12mm, High 10mm, Driver 250 yd</text>
@@ -5467,34 +5554,36 @@
                     
                     <path d="M 350 260 L 350 275" stroke="#667eea" stroke-width="3" marker-end="url(#arrow-purple)"/>
                     
-                    <!-- STEP 3: Vertical Multiplier -->
+                    <!-- STEP 3: Combined Spin Axis + Vertical -->
                     <g transform="translate(50, 280)">
-                        <rect x="0" y="0" width="600" height="70" fill="#fef3c7" stroke="#f59e0b" stroke-width="4" rx="12"/>
-                        <circle cx="40" cy="35" r="24" fill="#f59e0b"/>
-                        <text x="40" y="44" text-anchor="middle" font-size="22" fill="white" font-weight="700">3</text>
-                        <text x="80" y="28" text-anchor="start" font-size="17" fill="#92400e" font-weight="700">VERTICAL MULTIPLIER (High 10mm)</text>
-                        <text x="80" y="52" text-anchor="start" font-size="15" fill="#1a1a1a">10mm × 0.02 (long club rate) = <tspan font-weight="700" fill="#dc2626">×1.20</tspan></text>
+                        <rect x="0" y="0" width="600" height="105" fill="#fef3c7" stroke="#f59e0b" stroke-width="4" rx="12"/>
+                        <circle cx="40" cy="52" r="24" fill="#f59e0b"/>
+                        <text x="40" y="61" text-anchor="middle" font-size="22" fill="white" font-weight="700">3</text>
+                        <text x="80" y="25" text-anchor="start" font-size="17" fill="#92400e" font-weight="700">COMBINED SPIN AXIS + VERTICAL (High 10mm)</text>
+                        <text x="80" y="48" text-anchor="start" font-size="15" fill="#1a1a1a">Total spin: 3° (FTP) + 3.6° (gear) = <tspan font-weight="700">6.6° fade</tspan></text>
+                        <text x="80" y="70" text-anchor="start" font-size="15" fill="#1a1a1a">Vertical: 1.0 + (10mm × 0.02) = <tspan font-weight="700" fill="#dc2626">×1.20</tspan></text>
+                        <text x="80" y="94" text-anchor="start" font-size="16" fill="#92400e" font-weight="700">6.6° × 1.20 = 7.92° amplified spin axis</text>
                     </g>
                     
-                    <path d="M 350 355 L 350 370" stroke="#667eea" stroke-width="3" marker-end="url(#arrow-purple)"/>
+                    <path d="M 350 390 L 350 405" stroke="#667eea" stroke-width="3" marker-end="url(#arrow-purple)"/>
                     
                     <!-- STEP 4: Curve Distance -->
-                    <g transform="translate(50, 375)">
+                    <g transform="translate(50, 410)">
                         <rect x="0" y="0" width="600" height="130" fill="#dcfce7" stroke="#22c55e" stroke-width="4" rx="12"/>
                         <circle cx="40" cy="65" r="24" fill="#22c55e"/>
                         <text x="40" y="74" text-anchor="middle" font-size="22" fill="white" font-weight="700">4</text>
-                        <text x="80" y="25" text-anchor="start" font-size="17" fill="#16a34a" font-weight="700">CURVE DISTANCE (with vertical multiplier)</text>
-                        <text x="80" y="50" text-anchor="start" font-size="15" fill="#1a1a1a">FTP: 3° × 250 × 3.2% × 1.20 = <tspan font-weight="700">28.8 yd right</tspan></text>
-                        <text x="80" y="72" text-anchor="start" font-size="15" fill="#1a1a1a">Gear: 3.6° × 250 × 1.0% spin axis × 1.20 = <tspan font-weight="700">10.8 yd right</tspan></text>
+                        <text x="80" y="25" text-anchor="start" font-size="17" fill="#16a34a" font-weight="700">CURVE DISTANCE (vertical amplifies equally)</text>
+                        <text x="80" y="50" text-anchor="start" font-size="15" fill="#1a1a1a">FTP: 3° × 250 × 3.2% = 24.0 yd → ×1.20 = <tspan font-weight="700">28.8 yd right</tspan></text>
+                        <text x="80" y="72" text-anchor="start" font-size="15" fill="#1a1a1a">Gear: 3.6° × 250 × 1.0% = 9.0 yd → ×1.20 = <tspan font-weight="700">10.8 yd right</tspan></text>
                         <line x1="80" y1="82" x2="550" y2="82" stroke="#86efac" stroke-width="2"/>
                         <text x="80" y="102" text-anchor="start" font-size="17" fill="#1a1a1a">Total curve: <tspan font-weight="700" fill="#16a34a" font-size="19">39.6 yards right</tspan></text>
-                        <text x="80" y="122" text-anchor="start" font-size="13" fill="#065f46" font-style="italic">FTP uses 3.2% (driver) — Gear uses 1.0% spin axis — both multiplied by ×1.20 vertical</text>
+                        <text x="80" y="122" text-anchor="start" font-size="13" fill="#065f46" font-style="italic">Vertical ×1.20 amplifies ALL spin equally — FTP and gear both increase by 20%</text>
                     </g>
                     
-                    <path d="M 350 510 L 350 525" stroke="#667eea" stroke-width="3" marker-end="url(#arrow-purple)"/>
+                    <path d="M 350 545 L 350 560" stroke="#667eea" stroke-width="3" marker-end="url(#arrow-purple)"/>
                     
                     <!-- STEP 5: Start Direction -->
-                    <g transform="translate(50, 530)">
+                    <g transform="translate(50, 565)">
                         <rect x="0" y="0" width="600" height="70" fill="white" stroke="#3b82f6" stroke-width="4" rx="12"/>
                         <circle cx="40" cy="35" r="24" fill="#3b82f6"/>
                         <text x="40" y="44" text-anchor="middle" font-size="22" fill="white" font-weight="700">5</text>
@@ -5502,10 +5591,10 @@
                         <text x="80" y="52" text-anchor="start" font-size="15" fill="#1a1a1a">Face +4° × 2.5 (driver start multiplier) = <tspan font-weight="700">10.0 yards right</tspan></text>
                     </g>
                     
-                    <path d="M 350 605 L 350 620" stroke="#667eea" stroke-width="3" marker-end="url(#arrow-purple)"/>
+                    <path d="M 350 640 L 350 655" stroke="#667eea" stroke-width="3" marker-end="url(#arrow-purple)"/>
                     
                     <!-- STEP 6: Total Offline -->
-                    <g transform="translate(50, 625)">
+                    <g transform="translate(50, 660)">
                         <rect x="0" y="0" width="600" height="90" fill="#fee2e2" stroke="#ef4444" stroke-width="4" rx="12"/>
                         <circle cx="40" cy="45" r="24" fill="#ef4444"/>
                         <text x="40" y="54" text-anchor="middle" font-size="22" fill="white" font-weight="700">6</text>
@@ -5515,7 +5604,7 @@
                     </g>
                     
                     <!-- Insight box -->
-                    <g transform="translate(50, 740)">
+                    <g transform="translate(50, 775)">
                         <rect x="0" y="0" width="600" height="180" fill="#eff6ff" stroke="#3b82f6" stroke-width="3" rx="12"/>
                         <text x="300" y="25" text-anchor="middle" font-size="17" fill="#1e40af" font-weight="700">📐 How each factor contributed</text>
                         <text x="30" y="52" font-size="14" fill="#374151">FTP alone: 3° would create ~24 yd of curve</text>
