@@ -494,7 +494,7 @@
         };
         
         // VERSION INFO
-        const APP_VERSION = "V4.4.3 - February 18, 2026 - 4mm impact floor, gear question reword, L3/L5 tutorial fixes, tutorial polish, styled ref modal, split FTP/Gear calc";
+        const APP_VERSION = "V4.4.4 - February 18, 2026 - L3 overhaul (2-tier vertical, weighted question pool, face floor, training hints), impact floor, styled ref modal";
         
         // Simple state management
         let state = {
@@ -696,8 +696,12 @@
                 html += '<div class="ref-section">';
                 html += '<div class="ref-section-header" style="background: #dc2626;">VERTICAL IMPACT</div>';
                 html += '<div class="ref-section-body">';
-                html += '<div class="ref-formula">High on face = amplifies curve</div>';
-                html += '<div class="ref-formula">Low on face = dampens curve</div>';
+                html += '<div class="ref-formula">High: 1.0 + (mm × rate) &nbsp;│&nbsp; Low: 1.0 − (mm × rate)</div>';
+                html += '<table class="ref-table">';
+                html += '<tr><td>Driver / Wood</td><td style="color:#ef4444;">0.02 per mm</td><td>Long clubs</td></tr>';
+                html += '<tr><td>Irons / Wedge</td><td style="color:#3b82f6;">0.01 per mm</td><td>Short clubs</td></tr>';
+                html += '</table>';
+                html += '<div class="ref-note">Applied AFTER FTP + gear effect are calculated</div>';
                 html += '</div></div>';
             }
             
@@ -798,6 +802,10 @@
             // Face: bell curve with std dev of 3° (most shots within ±3°)
             let face = bellCurve(-11, 11, 3);
             face = parseFloat(face.toFixed(1));
+            // Floor: minimum ±0.8° face so "straight" start never occurs
+            if (Math.abs(face) < 0.8) {
+                face = face >= 0 ? 0.8 : -0.8;
+            }
             
             // Path: bell curve with std dev of 3.5° (slightly wider than face)
             let path = bellCurve(-11, 11, 3.5);
@@ -927,9 +935,14 @@
                 // Update impact location display to include vertical (Level 3+)
                 if (diffLevel >= 3) {
                     const horizontalText = Math.abs(impact).toFixed(1) + "mm " + impactSide;
-                    // 🥈🐙 SILVER OCTOPUS: Add context to vertical display
-                    const verticalContext = Math.abs(verticalImpact) < 2 ? "" : 
-                                          verticalImpact > 0 ? " (AMPLIFIES)" : " (DAMPENS)";
+                    // 🥈🐙 SILVER OCTOPUS: Add context to vertical display with training hint fade
+                    const vertScenarioNum = scenarioCountForLevel[diffLevel] || 1;
+                    let verticalContext = "";
+                    if (Math.abs(verticalImpact) >= 2 && vertScenarioNum < 8) {
+                        const vertOpacity = vertScenarioNum <= 3 ? '' : vertScenarioNum <= 5 ? 'fade-50' : 'fade-25';
+                        const vertLabel = verticalImpact > 0 ? "(AMPLIFIES)" : "(DAMPENS)";
+                        verticalContext = ' <span class="training-hint ' + vertOpacity + '">' + vertLabel + '</span>';
+                    }
                     const verticalText = Math.abs(verticalImpact).toFixed(1) + "mm " + verticalSide + verticalContext;
                     data["Impact Location"].value = horizontalText + ", " + verticalText;
                     impactLocationText = horizontalText + ", " + verticalText;
@@ -939,31 +952,20 @@
                     impactLocationText = impact === 0 ? "Center" : Math.abs(impact).toFixed(1) + "mm " + impactSide;
                 }
                 
-                // Calculate vertical gear effect (club-specific)
-                const verticalMultipliers = {
-                    driver: { high: 1.20, low: 0.80 },
-                    wood: { high: 1.15, low: 0.85 },
-                    long_iron: { high: 1.12, low: 0.88 },
-                    mid_iron: { high: 1.10, low: 0.90 },
-                    wedge: { high: 1.05, low: 0.95 }
-                };
+                // Calculate vertical gear effect — 2-tier rate system
+                // Long clubs (Driver/Wood): 0.02 per mm
+                // Short clubs (Irons/Wedge): 0.01 per mm
+                const verticalRate = (clubType === 'driver' || clubType === 'wood') ? 0.02 : 0.01;
+                const absVertical = Math.abs(verticalImpact);
                 
-                const multipliers = verticalMultipliers[clubType];
-                
-                // Safety check
-                if (!multipliers) {
-                    console.error('Invalid clubType:', clubType, 'for club:', club);
-                    verticalGearMultiplier = 1.0; // Default to no effect
+                if (verticalImpact > 0) {
+                    // High on face: amplifies curve
+                    verticalGearMultiplier = 1.0 + (absVertical * verticalRate);
                 } else {
-                    const absVertical = Math.abs(verticalImpact);
-                    
-                    if (verticalImpact > 0) {
-                        // High on face: more sidespin effectiveness
-                        verticalGearMultiplier = 1.0 + ((multipliers.high - 1.0) * (absVertical / 12));
-                    } else {
-                        // Low on face: less sidespin effectiveness
-                        verticalGearMultiplier = 1.0 - ((1.0 - multipliers.low) * (absVertical / 12));
-                    }
+                    // Low on face: dampens curve
+                    verticalGearMultiplier = 1.0 - (absVertical * verticalRate);
+                    // Floor at 0.5 to prevent negative/zero multipliers on extreme low hits
+                    if (verticalGearMultiplier < 0.5) verticalGearMultiplier = 0.5;
                 }
             } else if (diffLevel >= 3) {
                 // Level 3-4: Vertical impact but no visual needed
@@ -1160,31 +1162,167 @@
                     cards.push(shuffled[2].fn());
                 }
                 
-            } else if (diffLevel <= 4) {
-                // Level 3-4: Progressive questions with offline distance
-                // Level 4: Add effective face, gear help/hurt, lie questions
-                
-                // Calculate offline distance for questions (use data available at this level)
+            } else if (diffLevel === 3) {
+                // Level 3: Weighted random pool — vertical impact focus
                 const startMultipliers = {
                     driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5
                 };
                 const startMultiplier = startMultipliers[clubType] || 2.5;
                 const faceContribution = face * startMultiplier;
-                
-                // Curve calculation (only use gear effect at L3-4, no wind yet)
                 const roundedCarry = Math.round(carry);
                 const baseCurveContribution = baseFaceToPath * roundedCarry * physics.curvePct * verticalGearMultiplier;
                 const gearContribution = gearEffect * roundedCarry * GEAR_CURVE_PCT * verticalGearMultiplier;
                 const curveContribution = baseCurveContribution + gearContribution;
+                const netOffline = faceContribution + curveContribution;
+                const offlineYards = Math.abs(netOffline);
+                const roundedYards = Math.round(offlineYards);
+                const offlineDir = netOffline > 0 ? "right" : "left";
                 
-                // NO WIND at Level 3-4 (wind starts at Level 5)
+                const l3ScenarioNum = scenarioCountForLevel[3] || 1;
+                const isEarly = l3ScenarioNum <= 5;
+                
+                // Build weighted question pool
+                const l3Pool = [];
+                
+                // Vertical multiplier value (low early, high later)
+                if (Math.abs(verticalImpact) >= 2) {
+                    l3Pool.push({type: 'vert_mult', weight: isEarly ? 1 : 4, fn: () => generateVerticalMultiplierQuestion(verticalImpact, verticalGearMultiplier, clubType, diffLevel)});
+                }
+                
+                // Vertical amplify/dampen (high always)
+                if (Math.abs(verticalImpact) >= 2) {
+                    l3Pool.push({type: 'vert_ad', weight: isEarly ? 4 : 3, fn: () => generateVerticalAmplifyDampenQuestion(verticalImpact, diffLevel)});
+                }
+                
+                // What-if vertical center (high always)
+                if (Math.abs(verticalImpact) >= 2) {
+                    l3Pool.push({type: 'vert_whatif', weight: isEarly ? 3 : 3, fn: () => generateWhatIfVerticalCenterQuestion(verticalImpact, baseFaceToPath, verticalGearMultiplier, diffLevel)});
+                }
+                
+                // Offline distance (high always — synthesis)
+                l3Pool.push({type: 'offline', weight: 4, fn: () => {
+                    // Build offline distance question
+                    const rangeSize = roundedYards <= 15 ? 5 : roundedYards <= 30 ? 8 : 12;
+                    const numRanges = 4;
+                    let offlineOptions = [];
+                    const correctRangeIndex = Math.floor(numRanges / 2);
+                    const startValue = Math.max(0, roundedYards - (correctRangeIndex * rangeSize));
+                    for (let i = 0; i < numRanges; i++) {
+                        const min = startValue + (i * rangeSize);
+                        const max = min + rangeSize - 1;
+                        if (i === numRanges - 1) {
+                            offlineOptions.push(min + '+ yards ' + offlineDir);
+                        } else {
+                            offlineOptions.push(min + '-' + max + ' yards ' + offlineDir);
+                        }
+                    }
+                    let correctOfflineRange = "";
+                    for (let i = 0; i < offlineOptions.length; i++) {
+                        const match = offlineOptions[i].match(/^(\d+)-(\d+)/);
+                        if (match) {
+                            if (roundedYards >= parseInt(match[1]) && roundedYards <= parseInt(match[2])) {
+                                correctOfflineRange = offlineOptions[i]; break;
+                            }
+                        } else if (offlineOptions[i].includes('+')) {
+                            const min = parseInt(offlineOptions[i].match(/^(\d+)/)[1]);
+                            if (roundedYards >= min) correctOfflineRange = offlineOptions[i];
+                        }
+                    }
+                    
+                    const curvePctDisplay = (physics.curvePct * 100).toFixed(1) + '%';
+                    let offExpl = '<div class="space-y-2"><div><strong>START:</strong> ' + face.toFixed(1) + '° × ' + startMultiplier + ' = ' + Math.abs(faceContribution).toFixed(1) + ' yards ' + (faceContribution > 0 ? 'right' : 'left') + '</div>';
+                    offExpl += '<div><strong>FTP CURVE:</strong> ' + baseFaceToPath.toFixed(1) + '° × ' + roundedCarry + ' × ' + curvePctDisplay;
+                    if (Math.abs(verticalImpact) > 0.1) offExpl += ' × ' + verticalGearMultiplier.toFixed(2);
+                    offExpl += ' = ' + baseCurveContribution.toFixed(1) + ' yd</div>';
+                    if (Math.abs(gearEffect) > 0.1) {
+                        offExpl += '<div><strong>GEAR CURVE:</strong> ' + gearEffect.toFixed(1) + '° × ' + roundedCarry + ' × 1.0% SA';
+                        if (Math.abs(verticalImpact) > 0.1) offExpl += ' × ' + verticalGearMultiplier.toFixed(2);
+                        offExpl += ' = ' + gearContribution.toFixed(1) + ' yd</div>';
+                    }
+                    offExpl += '<div><strong>TOTAL:</strong> ' + Math.abs(faceContribution).toFixed(1) + ' ' + (faceContribution > 0 ? '+' : '-') + ' ' + Math.abs(curveContribution).toFixed(1) + ' = <strong>' + offlineYards.toFixed(1) + ' yards ' + offlineDir + '</strong></div></div>';
+                    
+                    return {
+                        question: "How far offline will the ball finish?",
+                        options: offlineOptions,
+                        correct: correctOfflineRange,
+                        explanation: offExpl
+                    };
+                }});
+                
+                // Shot shape (medium — "using all the data")
+                l3Pool.push({type: 'shape', weight: 3, fn: () => {
+                    const allShapes = ["Straight", "Push", "Pull", "Draw", "Fade", "Hook", "Slice", "Push-draw", "Push-fade", "Push-hook", "Push-slice", "Pull-hook", "Pull-fade", "Pull-slice"];
+                    const wrongShapes = allShapes.filter(s => s !== shape).shuffled().slice(0, 3);
+                    const shapeOptions = [shape, ...wrongShapes].shuffled();
+                    let expl = '<div><strong>Face:</strong> ' + face.toFixed(1) + '° → starts ' + startDir + '</div>';
+                    expl += '<div><strong>FTP:</strong> ' + baseFaceToPath.toFixed(1) + '°</div>';
+                    if (gearEffect !== 0) {
+                        const gDir = gearEffect > 0 ? 'fade' : 'draw';
+                        expl += '<div><strong>Gear:</strong> ' + Math.abs(gearEffect).toFixed(1) + '° ' + gDir + '</div>';
+                        expl += '<div><strong>Total spin:</strong> ' + faceToPath.toFixed(1) + '° (FTP + gear)</div>';
+                    }
+                    expl += '<div><strong>Result:</strong> ' + shape + ' - ' + shapeDesc + '</div>';
+                    return {
+                        question: "Using all the data, what is the shot shape?",
+                        options: shapeOptions,
+                        correct: shape,
+                        correctBase: shape,
+                        explanation: expl
+                    };
+                }});
+                
+                // Gear help/hurt (medium)
+                if (gearEffect !== 0 && Math.abs(baseFaceToPath) > 0.5) {
+                    l3Pool.push({type: 'gear_help', weight: 3, fn: () => generateGearHelpHurtQuestion(gearEffect, baseFaceToPath, impactLocationText, impact, face, path, clubType, diffLevel)});
+                }
+                
+                // FTP angle (low — refresher)
+                l3Pool.push({type: 'ftp', weight: 1, fn: () => generateFaceToPathQuestion(face, path, diffLevel, lieAngleAdjustment, originalFace)});
+                
+                // Start direction (low — refresher)
+                l3Pool.push({type: 'start_dir', weight: 1, fn: () => ({
+                    question: "Will the ball start left or right of the target?",
+                    options: ["Left of target", "Right of target"],
+                    correct: face < 0 ? "Left of target" : "Right of target",
+                    explanation: '<div><strong>Face angle:</strong> ' + face.toFixed(1) + '°</div><div><strong>Club:</strong> ' + club + ' (' + Math.round(physics.startFaceInfluence * 100) + '% face influence)</div><div>The ball starts <strong>' + startDir + '</strong> because face angle controls ' + Math.round(physics.startFaceInfluence * 100) + '% of initial direction.</div>'
+                })});
+                
+                // Weighted random selection — pick 3, no duplicate types
+                function weightedPick(pool) {
+                    const totalWeight = pool.reduce((sum, q) => sum + q.weight, 0);
+                    let r = Math.random() * totalWeight;
+                    for (const q of pool) {
+                        r -= q.weight;
+                        if (r <= 0) return q;
+                    }
+                    return pool[pool.length - 1];
+                }
+                
+                let remainingPool = [...l3Pool];
+                for (let i = 0; i < 3 && remainingPool.length > 0; i++) {
+                    const picked = weightedPick(remainingPool);
+                    cards.push(picked.fn());
+                    remainingPool = remainingPool.filter(q => q.type !== picked.type);
+                }
+                
+            } else if (diffLevel === 4) {
+                // Level 4: Progressive questions with offline distance + lie angle
+                const startMultipliers = {
+                    driver: 2.5, wood: 2.3, long_iron: 2.0, mid_iron: 1.8, wedge: 1.5
+                };
+                const startMultiplier = startMultipliers[clubType] || 2.5;
+                const faceContribution = face * startMultiplier;
+                const roundedCarry = Math.round(carry);
+                const baseCurveContribution = baseFaceToPath * roundedCarry * physics.curvePct * verticalGearMultiplier;
+                const gearContribution = gearEffect * roundedCarry * GEAR_CURVE_PCT * verticalGearMultiplier;
+                const curveContribution = baseCurveContribution + gearContribution;
                 const netOffline = faceContribution + curveContribution;
                 const offlineYards = Math.abs(netOffline);
                 const roundedYards = Math.round(offlineYards);
                 const offlineDir = netOffline > 0 ? "right" : "left";
                 
                 // Level 4: Effective face question if lie exists
-                if (diffLevel === 4 && lieAngleAdjustment !== 0) {
+                if (lieAngleAdjustment !== 0) {
                     cards.push(generateEffectiveFaceQuestion(originalFace, lieAngleAdjustment, face, diffLevel, lieAngle, clubType));
                 }
                 
@@ -1192,8 +1330,8 @@
                 
                 cards.push({
                     question: "Will the ball start left or right of the target?",
-                    options: ["Left of target", "Right of target", "Straight at target"],
-                    correct: face < -0.5 ? "Left of target" : face > 0.5 ? "Right of target" : "Straight at target",
+                    options: ["Left of target", "Right of target"],
+                    correct: face < 0 ? "Left of target" : "Right of target",
                     explanation: lieAngleAdjustment !== 0 
                         ? `<div><strong>Original face:</strong> ${originalFace.toFixed(1)}°</div><div><strong>Lie adjustment:</strong> ${lieAngleAdjustment.toFixed(1)}°</div><div><strong>Effective face:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
                         : `<div><strong>Face angle:</strong> ${face.toFixed(1)}°</div><div><strong>Club:</strong> ${club} (${Math.round(physics.startFaceInfluence * 100)}% face influence)</div><div>The ball starts <strong>${startDir}</strong> because face angle controls ${Math.round(physics.startFaceInfluence * 100)}% of initial direction for this club.</div>`
@@ -1268,15 +1406,7 @@
                     explanation: offlineExplanation
                 });
                 
-                // Level 3: Add what-if vertical center question (30% chance)
-                if (diffLevel === 3 && Math.abs(verticalImpact) > 2 && Math.random() < 0.3) {
-                    cards.push(generateWhatIfVerticalCenterQuestion(verticalImpact, baseFaceToPath, verticalGearMultiplier, diffLevel));
-                }
-                
-                // Level 3: Add vertical amplify/dampen question (25% chance) - 💚🎷 EMERALD SAXOPHONE
-                if (diffLevel === 3 && Math.abs(verticalImpact) > 2 && Math.random() < 0.25) {
-                    cards.push(generateVerticalAmplifyDampenQuestion(verticalImpact, diffLevel));
-                }
+                // (L3 vertical questions now in L3 weighted pool above)
                 
                 // Level 4: Add gear help/hurt if gear exists
                 if (diffLevel === 4 && gearEffect !== 0 && Math.abs(baseFaceToPath) > 1) {
@@ -2527,6 +2657,41 @@
             };
         }
         
+        function generateVerticalMultiplierQuestion(verticalImpact, verticalGearMultiplier, clubType, diffLevel) {
+            // L3: What is the vertical multiplier for this shot?
+            const isLong = (clubType === 'driver' || clubType === 'wood');
+            const rate = isLong ? 0.02 : 0.01;
+            const tierName = isLong ? 'Long club (0.02/mm)' : 'Short club (0.01/mm)';
+            const absV = Math.abs(verticalImpact);
+            const correctMult = verticalGearMultiplier.toFixed(2);
+            
+            // Generate plausible wrong answers
+            const wrongRate = isLong ? 0.01 : 0.02; // Wrong tier
+            const wrongMult = (verticalImpact > 0 ? 1.0 + (absV * wrongRate) : 1.0 - (absV * wrongRate)).toFixed(2);
+            const offByOne = (verticalImpact > 0 ? 1.0 + ((absV + 2) * rate) : 1.0 - ((absV + 2) * rate)).toFixed(2);
+            const opposite = (verticalImpact > 0 ? 1.0 - (absV * rate) : 1.0 + (absV * rate)).toFixed(2);
+            
+            let options = [correctMult, wrongMult, offByOne, opposite];
+            // Deduplicate and ensure 4 options
+            options = [...new Set(options)];
+            while (options.length < 4) {
+                options.push((parseFloat(correctMult) + (options.length * 0.04)).toFixed(2));
+            }
+            options = options.slice(0, 4).shuffled();
+            
+            return {
+                question: "What is the vertical impact multiplier for this shot?",
+                options: options.map(o => '×' + o),
+                correct: '×' + correctMult,
+                explanation: '<div><strong>Club:</strong> ' + clubType.replace('_', ' ') + ' (' + tierName + ')</div>' +
+                    '<div><strong>Vertical:</strong> ' + absV.toFixed(1) + 'mm ' + (verticalImpact > 0 ? 'HIGH' : 'LOW') + '</div>' +
+                    '<div class="mt-2"><strong>Calculation:</strong> ' + 
+                    (verticalImpact > 0 ? '1.0 + (' + absV.toFixed(1) + ' × ' + rate + ')' : '1.0 − (' + absV.toFixed(1) + ' × ' + rate + ')') +
+                    ' = <strong>×' + correctMult + '</strong></div>' +
+                    '<div class="mt-2 text-sm text-gray-600">' + (isLong ? 'Long clubs use 0.02/mm (more face curvature)' : 'Short clubs use 0.01/mm (less face curvature)') + '</div>'
+            };
+        }
+        
         function generateStartVsCurveQuestion(face, baseFaceToPath, diffLevel) {
             // 🟡🔺 MUSTARD PYRAMID - Start vs Curve distinction (Level 1, 20% frequency)
             return {
@@ -2811,21 +2976,25 @@
         }
         
         function generateWhatIfVerticalCenterQuestion(verticalImpact, baseFaceToPath, verticalGearMultiplier, diffLevel) {
-            // Level 3+: What if vertical was center
+            // Level 3+: What if vertical was center — the curve CHANGES because multiplier changes
             const currentMultiplier = verticalGearMultiplier;
-            const centerMultiplier = 1.0;
-            const changePercent = Math.round((1 - currentMultiplier) * 100);
+            const isHigh = verticalImpact > 0;
+            const changePercent = Math.abs(Math.round((currentMultiplier - 1.0) * 100));
+            
+            // If high: going to center = less curve. If low: going to center = more curve.
+            const correctAnswer = isHigh ? changePercent + '% less curve' : changePercent + '% more curve';
+            const wrongOpposite = isHigh ? changePercent + '% more curve' : changePercent + '% less curve';
             
             return {
-                question: "If this shot was struck CENTER vertically on the face, how would the curve change?",
+                question: "If this shot was struck CENTER vertically, how would the curve change?",
                 options: [
+                    correctAnswer,
+                    wrongOpposite,
                     "Same curve (no change)",
-                    changePercent > 0 ? `${Math.abs(changePercent)}% more curve` : `${Math.abs(changePercent)}% less curve`,
-                    "No curve at all",
-                    "Opposite curve direction"
+                    "No curve at all"
                 ].shuffled(),
-                correct: "Same curve (no change)",
-                explanation: `<div><strong>Current vertical:</strong> ${Math.abs(verticalImpact).toFixed(1)}mm ${verticalImpact > 0 ? 'high' : 'low'} (${currentMultiplier.toFixed(2)}x)</div><div><strong>Center vertical:</strong> 0mm = 1.00x (baseline curve)</div><div class="mt-2">Vertical impact amplifies or dampens existing curve but doesn't create it. Center strike = normal curve amount.</div>`
+                correct: correctAnswer,
+                explanation: '<div><strong>Current vertical:</strong> ' + Math.abs(verticalImpact).toFixed(1) + 'mm ' + (isHigh ? 'high' : 'low') + ' (×' + currentMultiplier.toFixed(2) + ')</div><div><strong>Center vertical:</strong> 0mm = ×1.00 (baseline)</div><div class="mt-2">' + (isHigh ? 'High multiplied curve UP by ' + changePercent + '%. Removing it = <strong>' + changePercent + '% less curve</strong>.' : 'Low dampened curve by ' + changePercent + '%. Removing it = <strong>' + changePercent + '% more curve</strong>.') + '</div>'
             };
         }
 
@@ -4767,69 +4936,67 @@
             <h1 class="step-title">Calculating the Vertical Multiplier</h1>
             
             <div class="headline">
-                ⬆️⬇️ For driver: High = ×1.20, Low = ×0.80
+                ⬆️⬇️ Two simple rates: 0.02/mm for long clubs, 0.01/mm for short clubs
             </div>
             
             <p class="step-intro">
-                The vertical multiplier depends on your club and where you hit the face. Driver has the strongest effect because it has the most vertical bulge. Other clubs have smaller multipliers.
+                The vertical multiplier uses a simple per-millimeter rate. Long clubs (Driver, Wood) have more face curvature so they're more sensitive. Short clubs (Irons, Wedge) are less sensitive. Just two numbers to remember!
             </p>
             
             <div class="diagram">
-                <svg viewBox="0 0 700 600" style="width: 100%; height: auto;">
-                    <rect width="700" height="600" fill="#fafbfc" rx="8"/>
+                <svg viewBox="0 0 700 650" style="width: 100%; height: auto;">
+                    <rect width="700" height="650" fill="#fafbfc" rx="8"/>
                     
-                    <text x="350" y="35" text-anchor="middle" font-size="22" fill="#667eea" font-weight="700">Vertical Multipliers by Club</text>
+                    <text x="350" y="35" text-anchor="middle" font-size="22" fill="#667eea" font-weight="700">Vertical Multiplier Rates</text>
+                    <text x="350" y="60" text-anchor="middle" font-size="16" fill="#6b7280">High adds to 1.0 — Low subtracts from 1.0</text>
                     
-                    <!-- Driver -->
-                    <g transform="translate(50, 80)">
-                        <rect x="0" y="0" width="600" height="140" fill="white" stroke="#667eea" stroke-width="4" rx="12"/>
-                        <text x="300" y="30" text-anchor="middle" font-size="20" fill="#667eea" font-weight="700">DRIVER</text>
+                    <!-- LONG CLUBS -->
+                    <g transform="translate(50, 90)">
+                        <rect x="0" y="0" width="600" height="180" fill="white" stroke="#667eea" stroke-width="4" rx="12"/>
+                        <text x="300" y="30" text-anchor="middle" font-size="20" fill="#667eea" font-weight="700">LONG CLUBS (Driver / Wood)</text>
+                        <rect x="180" y="40" width="240" height="40" fill="#dbeafe" rx="8"/>
+                        <text x="300" y="67" text-anchor="middle" font-size="22" fill="#1e40af" font-weight="800">0.02 per mm</text>
                         
-                        <g transform="translate(80, 60)">
-                            <text x="0" y="0" text-anchor="start" font-size="18" fill="#2563eb" font-weight="600">High (+10mm):</text>
-                            <rect x="160" y="-20" width="160" height="35" fill="#dbeafe" rx="6"/>
-                            <text x="240" y="3" text-anchor="middle" font-size="17" fill="#1e40af" font-weight="700">×1.20 (20% more)</text>
+                        <g transform="translate(40, 100)">
+                            <text x="0" y="0" text-anchor="start" font-size="16" fill="#2563eb" font-weight="600">Example: Driver, 10mm HIGH</text>
+                            <text x="0" y="25" text-anchor="start" font-size="16" fill="#1a1a1a">10 × 0.02 = 0.20 → multiplier = <tspan font-weight="700" fill="#1e40af">1.20</tspan></text>
                         </g>
-                        
-                        <g transform="translate(80, 105)">
-                            <text x="0" y="0" text-anchor="start" font-size="18" fill="#dc2626" font-weight="600">Low (-10mm):</text>
-                            <rect x="160" y="-20" width="160" height="35" fill="#fee2e2" rx="6"/>
-                            <text x="240" y="3" text-anchor="middle" font-size="17" fill="#991b1b" font-weight="700">×0.80 (20% less)</text>
-                        </g>
-                    </g>
-                    
-                    <!-- Irons -->
-                    <g transform="translate(50, 250)">
-                        <rect x="0" y="0" width="600" height="140" fill="white" stroke="#10b981" stroke-width="4" rx="12"/>
-                        <text x="300" y="30" text-anchor="middle" font-size="20" fill="#10b981" font-weight="700">IRONS (6-iron example)</text>
-                        
-                        <g transform="translate(80, 60)">
-                            <text x="0" y="0" text-anchor="start" font-size="18" fill="#2563eb" font-weight="600">High (+10mm):</text>
-                            <rect x="160" y="-20" width="160" height="35" fill="#dbeafe" rx="6"/>
-                            <text x="240" y="3" text-anchor="middle" font-size="17" fill="#1e40af" font-weight="700">×1.12 (12% more)</text>
-                        </g>
-                        
-                        <g transform="translate(80, 105)">
-                            <text x="0" y="0" text-anchor="start" font-size="18" fill="#dc2626" font-weight="600">Low (-10mm):</text>
-                            <rect x="160" y="-20" width="160" height="35" fill="#fee2e2" rx="6"/>
-                            <text x="240" y="3" text-anchor="middle" font-size="17" fill="#991b1b" font-weight="700">×0.88 (12% less)</text>
+                        <g transform="translate(320, 100)">
+                            <text x="0" y="0" text-anchor="start" font-size="16" fill="#dc2626" font-weight="600">Example: Wood, 8mm LOW</text>
+                            <text x="0" y="25" text-anchor="start" font-size="16" fill="#1a1a1a">8 × 0.02 = 0.16 → multiplier = <tspan font-weight="700" fill="#991b1b">0.84</tspan></text>
                         </g>
                     </g>
                     
-                    <!-- Formula -->
-                    <rect x="50" y="420" width="600" height="150" fill="white" stroke="#f59e0b" stroke-width="4" rx="12"/>
-                    <text x="350" y="455" text-anchor="middle" font-size="20" fill="#f59e0b" font-weight="700">How to Calculate</text>
+                    <!-- SHORT CLUBS -->
+                    <g transform="translate(50, 295)">
+                        <rect x="0" y="0" width="600" height="180" fill="white" stroke="#10b981" stroke-width="4" rx="12"/>
+                        <text x="300" y="30" text-anchor="middle" font-size="20" fill="#10b981" font-weight="700">SHORT CLUBS (Long Iron / Mid Iron / Wedge)</text>
+                        <rect x="180" y="40" width="240" height="40" fill="#dcfce7" rx="8"/>
+                        <text x="300" y="67" text-anchor="middle" font-size="22" fill="#065f46" font-weight="800">0.01 per mm</text>
+                        
+                        <g transform="translate(40, 100)">
+                            <text x="0" y="0" text-anchor="start" font-size="16" fill="#2563eb" font-weight="600">Example: Mid Iron, 10mm HIGH</text>
+                            <text x="0" y="25" text-anchor="start" font-size="16" fill="#1a1a1a">10 × 0.01 = 0.10 → multiplier = <tspan font-weight="700" fill="#1e40af">1.10</tspan></text>
+                        </g>
+                        <g transform="translate(320, 100)">
+                            <text x="0" y="0" text-anchor="start" font-size="16" fill="#dc2626" font-weight="600">Example: Wedge, 6mm LOW</text>
+                            <text x="0" y="25" text-anchor="start" font-size="16" fill="#1a1a1a">6 × 0.01 = 0.06 → multiplier = <tspan font-weight="700" fill="#991b1b">0.94</tspan></text>
+                        </g>
+                    </g>
                     
-                    <text x="80" y="490" text-anchor="start" font-size="16" fill="#1a1a1a">① Find your vertical impact (mm from center)</text>
-                    <text x="80" y="515" text-anchor="start" font-size="16" fill="#1a1a1a">② Look up the multiplier for your club</text>
-                    <text x="80" y="540" text-anchor="start" font-size="16" fill="#1a1a1a">③ Multiply your base spin by this number</text>
+                    <!-- Formula box -->
+                    <rect x="50" y="500" width="600" height="130" fill="white" stroke="#f59e0b" stroke-width="4" rx="12"/>
+                    <text x="350" y="535" text-anchor="middle" font-size="20" fill="#f59e0b" font-weight="700">The Formula</text>
+                    
+                    <text x="80" y="570" text-anchor="start" font-size="17" fill="#1a1a1a">High on face: <tspan font-weight="700">1.0 + (mm × rate)</tspan> = multiplier</text>
+                    <text x="80" y="600" text-anchor="start" font-size="17" fill="#1a1a1a">Low on face: <tspan font-weight="700">1.0 − (mm × rate)</tspan> = multiplier</text>
                 </svg>
             </div>
             
             <div class="key-insight">
                 <div class="key-insight-title">💡 Key Insight</div>
                 <div class="key-insight-text">
-                    Driver has the biggest vertical effect (±20%) because its face has the most curve. Irons have less curve, so smaller multipliers (±12%). Wedges have even less. The multiplier is always applied AFTER you calculate face-to-path and horizontal gear effect.
+                    Just two rates to remember! Long clubs (Driver/Wood) = 0.02 per mm, Short clubs (Irons/Wedge) = 0.01 per mm. The multiplier is always applied AFTER you calculate face-to-path and horizontal gear effect.
                 </div>
             </div>
             
