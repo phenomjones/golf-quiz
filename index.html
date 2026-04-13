@@ -1,4 +1,4 @@
-<!-- FORE! V5.27.4 -->
+<!-- FORE! V5.27.5 -->
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
@@ -2961,7 +2961,7 @@ body {
    "Precision Green" Golf Theme
    ════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 'V5.27.4 | 2026-03-09 | GREEN JACKET BATCH: REAL CARD (horizontal 9+9 golf scorecard grid with warmup strip), CHAMELEON (tutorial follows light/dark theme). | GREEN FLAG (return btn in reveal-row), DEAD BADGE (remove momentum), WRONG WAY (no partial dir credit), LEVEL CLOCK 2 (tighter thresholds), WHITE OUT (pure white light theme), SCORECARD BOARD (linear 23-hole golf scorecard), TOUR STOP (PGA tour card schedule), CLUBHOUSE (player name + global leaderboard).';
+const APP_VERSION = 'V5.27.5 | 2026-03-09 | GREEN JACKET BATCH: REAL CARD (horizontal 9+9 golf scorecard grid with warmup strip), CHAMELEON (tutorial follows light/dark theme). | GREEN FLAG (return btn in reveal-row), DEAD BADGE (remove momentum), WRONG WAY (no partial dir credit), LEVEL CLOCK 2 (tighter thresholds), WHITE OUT (pure white light theme), SCORECARD BOARD (linear 23-hole golf scorecard), TOUR STOP (PGA tour card schedule), CLUBHOUSE (player name + global leaderboard).';
 
 console.log(`⛳ FORE! ${APP_VERSION}`);
 
@@ -3415,7 +3415,51 @@ const QuestionGenerator = {
         }
       }
 
+      const jitter = (s) => Math.max(1, Math.round(s * (0.8 + Math.random() * 0.4)));
+
       if (phase === 'practice') {
+        const holeIdx = BoardController.holeIndex(BoardController.activeTile) - 5; // 0-8
+
+        // Holes 1-2 (idx 0-1): MC — just "What is the FTP?"
+        if (holeIdx <= 1) {
+          return {
+            type: 'mc-ftp',
+            text: `What is the Face-to-Path (FTP)?`,
+            answer: { text: `${ftp > 0 ? '+' : ''}${ftp}°` },
+            distractors: this.ftpDistractors(ftp, levelId),
+            format: 'mc',
+            timing: { eagle: jitter(5), birdie: jitter(10), par: jitter(25) }
+          };
+        }
+
+        // Holes 3-4 (idx 2-3): MC — curve direction from FTP
+        if (holeIdx <= 3) {
+          return {
+            type: 'mc-curve-dir',
+            text: `FTP is ${ftp > 0 ? '+' : ''}${ftp}°. Which way does the ball curve?`,
+            answer: { dir: curve.dir },
+            distractors: this.dirDistractors(curve.dir, true, levelId),
+            format: 'mc',
+            timing: { eagle: jitter(4), birdie: jitter(8), par: jitter(20) }
+          };
+        }
+
+        // Holes 5-6 (idx 4-5): 2-step worksheet — FTP + direction only
+        if (holeIdx <= 5) {
+          return {
+            type: 'stepped-ftp-dir',
+            text: `Calculate the FTP and curve direction.`,
+            steps: [
+              { label: 'Step 1', prompt: `FTP = ${scenario.face} − ${scenario.path >= 0 ? scenario.path : '('+scenario.path+')'} =`, inputType: 'result', answer: ftp, inputClass: 'ws-input-path', unit: '°', placeholder: 'FTP degrees' },
+              { label: 'Step 2', prompt: `FTP is ${ftp > 0 ? 'positive → fade' : 'negative → draw'}, so curve goes:`, inputType: 'direction', answer: curve.dir }
+            ],
+            answer: { yards: curve.yards, dir: curve.dir },
+            format: 'stepped',
+            timing: { eagle: jitter(10), birdie: jitter(20), par: jitter(45) }
+          };
+        }
+
+        // Holes 7-9 (idx 6-8): full 4-step worksheet
         return {
           type: 'stepped-curve',
           text: `Calculate the curve.`,
@@ -3426,17 +3470,73 @@ const QuestionGenerator = {
             { label: 'Step 4', prompt: `FTP is ${ftp > 0 ? 'positive → fade' : 'negative → draw'}, so curve goes:`, inputType: 'direction', answer: curve.dir }
           ],
           answer: { yards: curve.yards, dir: curve.dir },
-          format: 'stepped'
+          format: 'stepped',
+          timing: { eagle: jitter(18), birdie: jitter(35), par: jitter(90) }
         };
       }
 
-      return {
-        type: 'single-curve',
-        text: `Using the data above, what is the curve?`,
-        answer: { yards: curve.yards, dir: curve.dir },
-        format: 'single',
-        unit: 'yards'
-      };
+      // Prove phase — mirror L1 pattern
+      const holeIdx = BoardController.holeIndex(BoardController.activeTile) - 14; // 0-8
+      if (holeIdx === 0 || holeIdx === 3 || holeIdx === 6 || holeIdx === 7) {
+        return {
+          type: 'single-curve',
+          text: `Using the data above, what is the curve?`,
+          answer: { yards: curve.yards, dir: curve.dir },
+          format: 'single',
+          unit: 'yards',
+          timing: { eagle: jitter(10), birdie: jitter(20), par: jitter(50) }
+        };
+      }
+      if (holeIdx === 1 || holeIdx === 4) {
+        return {
+          type: 'mc-curve-dir',
+          text: `Which way does the ball curve?`,
+          answer: { dir: curve.dir },
+          distractors: this.dirDistractors(curve.dir, true, levelId),
+          format: 'mc',
+          timing: { eagle: jitter(4), birdie: jitter(8), par: jitter(20) }
+        };
+      }
+      if (holeIdx === 2 || holeIdx === 5) {
+        // Reverse: given curve yards + dir, what was the FTP?
+        const absFtp = Math.abs(ftp);
+        const wrongs = new Set();
+        while (wrongs.size < 3) {
+          const delta = (Math.floor(Math.random() * 3) + 1) * (Math.random() < 0.5 ? 1 : -1);
+          const w = Math.round((absFtp + delta) * 10) / 10;
+          if (w !== 0 && Math.abs(w) !== absFtp) wrongs.add(w);
+        }
+        const distractors = [
+          { text: `${ftp > 0 ? '+' : ''}${ftp}°`, correct: true },
+          ...[...wrongs].map(w => ({ text: `${w > 0 ? '+' : ''}${w}°`, correct: false }))
+        ].sort(() => Math.random() - 0.5);
+        return {
+          type: 'mc-reverse-ftp',
+          text: `The ball curved ${curve.yards} yds ${curve.dir}. What was the FTP?`,
+          answer: { text: `${ftp > 0 ? '+' : ''}${ftp}°` },
+          distractors,
+          format: 'mc',
+          timing: { eagle: jitter(8), birdie: jitter(16), par: jitter(35) }
+        };
+      }
+      // Hole 18 (idx 8): club compare on curve
+      {
+        const otherClub = ScenarioEngine.pick(CLUB_ORDER.filter(c => c !== scenario.club));
+        const otherPct = CLUBS[otherClub].curvePct * 100;
+        const more = curve.pct >= otherPct ? scenario.club : otherClub;
+        return {
+          type: 'mc-compare-curve',
+          text: `Same FTP — which club curves more: ${scenario.club} or ${otherClub}?`,
+          answer: { text: more },
+          distractors: [
+            { text: scenario.club, correct: more === scenario.club },
+            { text: otherClub, correct: more === otherClub },
+            { text: 'Same amount', correct: false }
+          ],
+          format: 'mc',
+          timing: { eagle: jitter(6), birdie: jitter(12), par: jitter(30) }
+        };
+      }
     },
 
     // ── L3: SHOT SHAPER ──
@@ -5177,9 +5277,12 @@ const DataCard = {
     const lvl = LEVELS[levelId - 1];
     const container = document.getElementById('data-card');
     const showArrows = levelId <= 3 && (State.currentPhase === 'learn' || State.currentPhase === 'practice');
+    // L2 Range: only show face + path — club and carry are noise until Practice
+    const isL2Range = levelId === 2 && State.currentPhase === 'learn';
     let html = `<div class="data-card-title">Shot Data</div><div class="data-card-grid">`;
     lvl.dataFields.forEach(field => {
       if (field === 'windDir') return;
+      if (isL2Range && (field === 'club' || field === 'carry')) return;
       const cfg = this.fieldConfig[field];
       if (!cfg) return;
       const val = scenario[field];
@@ -6957,68 +7060,72 @@ const TutorialSequencer = {
 
       // ── STEP 6: Reality Check — Why This Matters ──
       {
-        title: 'Why This Matters',
+        title: 'The Full Picture',
         setup: (c) => { c.innerHTML = `
           <svg viewBox="0 0 700 440" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="font-family: 'DM Sans', sans-serif;">
             <rect width="700" height="440" rx="16" fill="${this._bg()}"/>
 
+            <!-- Header -->
             <g id="r0" class="tut-reveal">
-              <text x="350" y="40" text-anchor="middle" fill="#ef4444" font-size="24" font-weight="700">⚠️ But wait — where does the ball actually end up?</text>
+              <text x="350" y="38" text-anchor="middle" fill="${this._ink()}" font-size="22" font-weight="800">So where does the ball actually end up?</text>
             </g>
 
-            <!-- Recap: the curve we just calculated -->
-            <g id="r1" class="tut-reveal" transform="translate(80, 65)">
-              <rect x="0" y="0" width="540" height="50" rx="10" fill="#a78bfa10" stroke="#a78bfa40"/>
-              <text x="270" y="22" text-anchor="middle" fill="#a78bfa" font-size="14" font-weight="700">FROM L2 — CURVE</text>
-              <text x="270" y="42" text-anchor="middle" font-size="18" font-weight="600">
-                <tspan fill="${this._inkMuted()}">Ball </tspan><tspan fill="#a78bfa" font-weight="700">curves</tspan><tspan fill="#3b82f6"> 18.4 yards to the right</tspan>
+            <!-- Step 1: L1 callback — face determines start -->
+            <g id="r1" class="tut-reveal" transform="translate(60, 58)">
+              <rect x="0" y="0" width="580" height="88" rx="12" fill="#60a5fa10" stroke="#60a5fa50" stroke-width="1.5"/>
+              <text x="20" y="24" fill="#60a5fa" font-size="12" font-weight="800" text-transform="uppercase" letter-spacing="2">STEP 1 — REMEMBER LEVEL 1</text>
+              <text x="20" y="50" font-size="17" font-weight="600">
+                <tspan fill="${this._ink()}">The </tspan><tspan fill="#60a5fa" font-weight="800">face angle</tspan><tspan fill="${this._ink()}"> determines where the ball </tspan><tspan fill="#60a5fa" font-weight="800">starts.</tspan>
+              </text>
+              <text x="20" y="74" font-size="15" fill="${this._inkMuted()}">Face +7.0° × Long Iron 2.0 = <tspan fill="#60a5fa" font-weight="700">14.0 yards right</tspan></text>
+            </g>
+
+            <!-- Arrow down -->
+            <g id="r2" class="tut-reveal" transform="translate(342, 154)">
+              <text x="0" y="18" text-anchor="middle" fill="${this._inkDim()}" font-size="22">↓</text>
+            </g>
+
+            <!-- Step 2: Curve adds on top -->
+            <g id="r3" class="tut-reveal" transform="translate(60, 178)">
+              <rect x="0" y="0" width="580" height="88" rx="12" fill="#a78bfa10" stroke="#a78bfa50" stroke-width="1.5"/>
+              <text x="20" y="24" fill="#a78bfa" font-size="12" font-weight="800">STEP 2 — CURVE ADDS ON TOP OF THAT</text>
+              <text x="20" y="50" font-size="17" font-weight="600">
+                <tspan fill="${this._ink()}">The ball then </tspan><tspan fill="#a78bfa" font-weight="800">curves an additional</tspan><tspan fill="${this._ink()}"> 18.4 yds right</tspan>
+              </text>
+              <text x="20" y="74" font-size="15" fill="${this._inkMuted()}">The curve doesn't replace the start — it <tspan fill="#a78bfa" font-weight="700">stacks on top.</tspan></text>
+            </g>
+
+            <!-- Arrow down -->
+            <g id="r4" class="tut-reveal" transform="translate(342, 274)">
+              <text x="0" y="18" text-anchor="middle" fill="${this._inkDim()}" font-size="22">↓</text>
+            </g>
+
+            <!-- Total -->
+            <g id="r5" class="tut-reveal" transform="translate(60, 298)">
+              <rect x="0" y="0" width="580" height="60" rx="12" fill="#ef444415" stroke="#ef4444" stroke-width="2"/>
+              <text x="290" y="22" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="800">TOTAL MISS</text>
+              <text x="290" y="48" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="22">
+                <tspan fill="#60a5fa" font-weight="700">14.0</tspan>
+                <tspan fill="${this._inkDim()}">  +  </tspan>
+                <tspan fill="#a78bfa" font-weight="700">18.4</tspan>
+                <tspan fill="${this._inkDim()}">  =  </tspan>
+                <tspan fill="#ef4444" font-weight="800" font-size="26">32.4 yds right 💀</tspan>
               </text>
             </g>
 
-            <!-- L1 callback: the start -->
-            <g id="r2" class="tut-reveal" transform="translate(80, 130)">
-              <rect x="0" y="0" width="540" height="70" rx="10" fill="#60a5fa10" stroke="#60a5fa40"/>
-              <text x="270" y="22" text-anchor="middle" fill="#60a5fa" font-size="14" font-weight="700">FROM L1 — START</text>
-              <text x="270" y="46" text-anchor="middle" font-size="18">
-                <tspan fill="${this._inkMuted()}">Face +7.0° × Long Iron </tspan><tspan fill="#d4a843" font-weight="700">2.0</tspan><tspan fill="${this._inkMuted()}"> = </tspan><tspan fill="#60a5fa" font-weight="700" font-size="20">14.0 yd right</tspan>
-              </text>
-              <text x="270" y="64" text-anchor="middle" fill="${this._inkMuted()}" font-size="13">The ball <tspan fill="#60a5fa" font-weight="700">starts</tspan> 14.0 yards right before it even curves</text>
-            </g>
-
-            <!-- Combined total -->
-            <g id="r3" class="tut-reveal" transform="translate(80, 218)">
-              <rect x="0" y="0" width="540" height="56" rx="10" fill="#ef444415" stroke="#ef4444" stroke-width="1.5"/>
-              <text x="270" y="22" text-anchor="middle" fill="#ef4444" font-size="14" font-weight="700">TOTAL</text>
-              <text x="270" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20">
-                <tspan fill="#60a5fa">14.0</tspan>
-                <tspan fill="${this._inkDim()}"> + </tspan>
-                <tspan fill="#a78bfa">18.4</tspan>
-                <tspan fill="${this._inkDim()}"> = </tspan>
-                <tspan fill="#ef4444" font-weight="800" font-size="24">32.4 yards right</tspan>
-              </text>
-            </g>
-
-            <!-- OB callout -->
-            <g id="r4" class="tut-reveal" transform="translate(200, 290)">
-              <rect x="0" y="0" width="300" height="40" rx="20" fill="#ef444430" stroke="#ef4444"/>
-              <text x="150" y="27" text-anchor="middle" fill="#ef4444" font-size="20" font-weight="800">Possible OB! 💀</text>
-            </g>
-
-            <!-- Teaching insight -->
-            <g id="r5" class="tut-reveal" transform="translate(60, 348)">
-              <rect x="0" y="0" width="580" height="76" rx="12" fill="#d4a84310" stroke="#d4a84340"/>
-              <text x="290" y="24" text-anchor="middle" fill="#d4a843" font-size="16" font-weight="700">💡 This is why changing your path without fixing the face</text>
-              <text x="290" y="48" text-anchor="middle" fill="#d4a843" font-size="16" font-weight="700">can make things WORSE.</text>
-              <text x="290" y="68" text-anchor="middle" fill="${this._ink()}" font-size="14" font-weight="500">You need to understand the FTP relationship first!</text>
+            <!-- Key insight -->
+            <g id="r6" class="tut-reveal" transform="translate(60, 372)">
+              <text x="290" y="20" text-anchor="middle" fill="#d4a843" font-size="14" font-weight="700">💡 Fix the face first — that's where the journey starts.</text>
             </g>
           </svg>`; },
         beats: [
-          { type: 'reveal', target: 'r0', delay: 1500 },
-          { type: 'reveal', target: 'r1', delay: 1800 },
-          { type: 'reveal', target: 'r2', delay: 2500 },
-          { type: 'reveal', target: 'r3', delay: 2500 },
-          { type: 'reveal', target: 'r4', delay: 2000 },
-          { type: 'reveal', target: 'r5', delay: 2500 }
+          { type: 'reveal', target: 'r0', delay: 1200 },
+          { type: 'reveal', target: 'r1', delay: 2000 },
+          { type: 'reveal', target: 'r2', delay: 800 },
+          { type: 'reveal', target: 'r3', delay: 2000 },
+          { type: 'reveal', target: 'r4', delay: 800 },
+          { type: 'reveal', target: 'r5', delay: 1800 },
+          { type: 'reveal', target: 'r6', delay: 2000 }
         ]
       }
     ];
